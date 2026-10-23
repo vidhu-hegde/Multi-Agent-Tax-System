@@ -15,12 +15,12 @@ SilverFile collects information from the taxpayer, reads their tax documents, an
 
 | Focus area | Team member assigned |
 |---|---|
-| Agent memory | TBD |
-| Inter-agent communication | TBD |
-| Task division and management | TBD |
-| MLOps/DevOps | TBD |
-| Guardrails and ethics | TBD |
-| Security | TBD |
+| Agent memory | Iris |
+| Inter-agent communication | Anupama |
+| Task division and management | Vidhatri |
+| MLOps/DevOps | Max |
+| Guardrails and ethics | Juee |
+| Security | Qiyan |
 
 Team members: Vidhatri Hegde, Qiyan Zhai, Max Charles, Iris Li, Juee Patil, Anu
 
