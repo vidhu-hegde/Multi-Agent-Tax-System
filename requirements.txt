@@ -1,0 +1,22 @@
+# Orchestration
+langgraph>=1.2,<2
+langgraph-checkpoint-sqlite>=3.1,<4
+
+# LLM (Claude)
+langchain-anthropic>=1.7,<2   # also installs the anthropic SDK
+langchain-core>=1.7,<2
+
+# MCP tax_math server and client
+mcp>=2.3,<3
+langchain-mcp-adapters>=0.3,<0.4
+
+# Schemas, config, documents
+pydantic>=2.14,<3
+python-dotenv>=1.2,<2
+pillow>=13,<14
+
+# Dashboard
+streamlit>=1.66,<2
+
+# Tests
+pytest>=9.1,<10
