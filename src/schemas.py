@@ -4,11 +4,12 @@ Money is always Decimal (never float). Every amount on the draft is a LineValue,
 cannot exist without at least one Provenance record explaining where the amount came from.
 """
 
+import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 
 def _now() -> datetime:
@@ -20,7 +21,9 @@ class Contract(BaseModel):
 
 
 # Only IRS test-range SSNs (900-999 prefix) are accepted, so a real SSN can never be entered.
-SSN = Annotated[str, StringConstraints(pattern=r"^9\d{2}-\d{2}-\d{4}$")]
+SSN_PATTERN = r"^9\d{2}-\d{2}-\d{4}$"
+SSN = Annotated[str, StringConstraints(pattern=SSN_PATTERN)]
+EIN = Annotated[str, StringConstraints(pattern=r"^\d{2}-\d{7}$")]
 Money = Annotated[Decimal, Field(ge=0)]
 
 FilingStatus = Literal["single", "mfj", "mfs", "hoh", "qss"]
@@ -128,11 +131,47 @@ class _Record(Contract):
     source: Provenance  # where the record came from: image extraction or user entry
 
 
+class W2Box12(Contract):
+    code: Annotated[str, StringConstraints(pattern=r"^[A-Z]{1,2}$")]
+    amount: Money
+
+
 class W2Record(_Record):
+    """A W-2. Field choices are recorded in docs/IMPLEMENTATION_NOTES.md (W-2 record fields)."""
+
     form_type: Literal["W-2"] = "W-2"
-    employer_name: str
-    wages: Money  # box 1
-    federal_withheld: Money = Decimal("0")  # box 2
+    employer_name: str  # box c, first line
+    employer_ein: EIN | None = None  # box b: spots the same W-2 uploaded twice
+    employee_name: str | None = None  # box e: whose W-2 this is on a joint return
+    employee_ssn_last4: Annotated[str, StringConstraints(pattern=r"^\d{4}$")] | None = None  # box a, masked
+    wages: Money  # box 1 -> line 1z
+    federal_withheld: Money = Decimal("0")  # box 2 -> line 25a
+    # Boxes 3-6 are not on the 1040-SR; they let Review catch misread images (box 4 = 6.2% of box 3, etc.)
+    social_security_wages: Money | None = None  # box 3
+    social_security_withheld: Money | None = None  # box 4
+    medicare_wages: Money | None = None  # box 5
+    medicare_withheld: Money | None = None  # box 6
+    # Scope signals: not used in arithmetic, but some values mean the return is out of scope (Rules decides).
+    allocated_tips: Money | None = None  # box 8 -> Form 4137
+    dependent_care_benefits: Money | None = None  # box 10 -> Form 2441
+    box12: list[W2Box12] = Field(default_factory=list)  # box 12a-d: code + amount
+    statutory_employee: bool = False  # box 13 -> Schedule C
+    retirement_plan: bool = False  # box 13
+    third_party_sick_pay: bool = False  # box 13
+
+    @model_validator(mode="before")
+    @classmethod
+    def _keep_only_last_four(cls, data):
+        """Extraction passes the SSN it read as `employee_ssn`. It must be in the test range, and only the
+        last four digits are kept, so a full SSN never reaches state, logs, traces or prompts."""
+        if isinstance(data, dict) and "employee_ssn" in data:
+            data = dict(data)
+            ssn = data.pop("employee_ssn")
+            if ssn is not None:
+                if not re.fullmatch(SSN_PATTERN, str(ssn)):
+                    raise ValueError("the W-2 shows an SSN outside the 900-999 test range; only test SSNs are accepted")
+                data["employee_ssn_last4"] = str(ssn)[-4:]
+        return data
 
 
 class Interest1099(_Record):

@@ -1,0 +1,24 @@
+{
+  "image": "demo/w2_image_2.jpg",
+  "employer_name": "Cayuga Community Library",
+  "employer_ein": "00-7654321",
+  "employee_name": "Harold J Brennan",
+  "employee_ssn": "902-45-6789",
+  "wages": "26450.00",
+  "federal_withheld": "2380.00",
+  "social_security_wages": "27450.00",
+  "social_security_withheld": "1701.90",
+  "medicare_wages": "27450.00",
+  "medicare_withheld": "398.03",
+  "allocated_tips": null,
+  "dependent_care_benefits": null,
+  "box12": [
+    {
+      "code": "D",
+      "amount": "1000.00"
+    }
+  ],
+  "statutory_employee": false,
+  "retirement_plan": true,
+  "third_party_sick_pay": false
+}

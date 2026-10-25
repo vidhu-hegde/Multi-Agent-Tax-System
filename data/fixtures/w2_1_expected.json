@@ -1,0 +1,19 @@
+{
+  "image": "demo/w2_image_1.jpg",
+  "employer_name": "Finger Lakes Hardware Co.",
+  "employer_ein": "00-1234567",
+  "employee_name": "Margaret A Ellis",
+  "employee_ssn": "901-23-4567",
+  "wages": "18000.00",
+  "federal_withheld": "1500.00",
+  "social_security_wages": "18000.00",
+  "social_security_withheld": "1116.00",
+  "medicare_wages": "18000.00",
+  "medicare_withheld": "261.00",
+  "allocated_tips": null,
+  "dependent_care_benefits": null,
+  "box12": [],
+  "statutory_employee": false,
+  "retirement_plan": false,
+  "third_party_sick_pay": false
+}

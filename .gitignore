@@ -24,6 +24,9 @@ htmlcov/
 *.sqlite-shm
 output/
 
+# Filled W-2 PDFs are intermediate; the committed artifacts are demo/w2_image_*.jpg + expected JSON
+data/fixtures/w2_*.pdf
+
 # Traces: keep only the curated demo traces that are committed on purpose
 traces/*
 !traces/.gitkeep

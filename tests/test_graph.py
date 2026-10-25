@@ -1,13 +1,12 @@
 """End-to-end behaviour of the graph skeleton: routing, fan-out, review bound, loop guard, HITL, resume."""
 
-import json
 from decimal import Decimal
 
-from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
 import run
 from src.agents.computation import computation
+from src.memory import open_checkpointer
 from src.schemas import FORM_LINES
 from tests.conftest import SKELETON_CASE
 
@@ -85,14 +84,11 @@ def test_loop_guard_breaks_a_pathological_cycle(make_graph, settings):
     assert hops == ["intake"] * settings.loop_guard_repeats + ["human"]
 
 
-def test_1099r_box_2b_escalates_and_resolves(make_graph, tmp_path):
-    case = json.loads(open(SKELETON_CASE).read())
-    case["documents"][2]["values"]["taxable_not_determined"] = True
-    case_path = tmp_path / "case.json"
-    case_path.write_text(json.dumps(case))
+def test_1099r_box_2b_escalates_and_resolves(make_graph, make_case):
+    case_path = make_case(r1_2b=True)
 
     graph = make_graph()
-    result = graph.invoke({"case_path": str(case_path)}, config())
+    result = graph.invoke({"case_path": case_path}, config())
     assert pending_interrupt(result)["reason"] == "1099r_taxable_not_determined"
     assert result["status"] == "waiting_on_human"
 
@@ -114,14 +110,13 @@ def test_interactive_intake_asks_one_question_at_a_time(make_graph):
     assert result["lines"]["26"].provenance[0].entered_by == "taxpayer"
 
 
-def test_session_resumes_from_sqlite_after_restart(settings, make_graph, tmp_path):
-    db = str(tmp_path / "silverfile.sqlite")
-    with SqliteSaver.from_conn_string(db) as saver:
+def test_session_resumes_from_sqlite_after_restart(settings, make_graph):
+    with open_checkpointer(settings) as saver:
         graph = make_graph(checkpointer=saver)
         graph.invoke({}, config("resume"))
         graph.invoke(Command(resume="single"), config("resume"))
 
-    with SqliteSaver.from_conn_string(db) as saver:  # a new process on Friday
+    with open_checkpointer(settings) as saver:  # a new process on Friday
         graph = make_graph(checkpointer=saver)
         waiting_on = graph.get_state(config("resume")).interrupts[0].value
         assert "date of birth" in waiting_on  # picks up at the next question, not the first

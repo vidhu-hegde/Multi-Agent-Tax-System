@@ -22,3 +22,35 @@ def test_line_value_needs_provenance():
 def test_rule_decision_must_cite():
     with pytest.raises(ValidationError):
         RuleDecision(rule_id="scope", outcome={}, explanation="x", citation="")
+
+
+def _w2(**values):
+    from src.schemas import W2Record
+
+    source = Provenance(kind="document", source="demo/w2_image_1.jpg")
+    return W2Record(document_id="w2-1", source=source, employer_name="Acme", wages=Decimal("100"), **values)
+
+
+def test_w2_keeps_only_the_last_four_ssn_digits():
+    record = _w2(employee_ssn="901-23-4567")
+    assert record.employee_ssn_last4 == "4567"
+    assert "901-23" not in record.model_dump_json()
+
+
+def test_w2_with_a_real_looking_ssn_is_rejected():
+    for real in ["123-45-6789", "899-12-3456"]:
+        with pytest.raises(ValidationError, match="test range"):
+            _w2(employee_ssn=real)
+
+
+def test_w2_ein_format_is_checked():
+    assert _w2(employer_ein="00-1234567").employer_ein == "00-1234567"
+    with pytest.raises(ValidationError):
+        _w2(employer_ein="001234567")
+
+
+def test_w2_box12_codes_are_checked():
+    assert _w2(box12=[{"code": "DD", "amount": "5400"}]).box12[0].code == "DD"
+    for bad in ["d", "ABC", "1"]:
+        with pytest.raises(ValidationError):
+            _w2(box12=[{"code": bad, "amount": "10"}])
