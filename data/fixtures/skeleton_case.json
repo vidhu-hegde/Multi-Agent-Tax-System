@@ -8,8 +8,8 @@
     "estimated_payments": "1000"
   },
   "documents": [
-    {"document_id": "w2-1", "form_type": "W-2",
-     "values": {"employer_name": "Ithaca Hardware", "wages": "18000", "federal_withheld": "1500"}},
+    {"document_id": "w2-1", "form_type": "W-2", "image_path": "demo/w2_image_1.jpg",
+     "values": {"employer_name": "Finger Lakes Hardware Co.", "wages": "18000", "federal_withheld": "1500"}},
     {"document_id": "int-1", "form_type": "1099-INT",
      "values": {"payer_name": "Tompkins Savings", "interest": "420", "tax_exempt_interest": "80"}},
     {"document_id": "r-1", "form_type": "1099-R",
