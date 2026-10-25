@@ -61,6 +61,46 @@ Intake agent that never finishes.
 any note meaning continue) or a dict `{"action": "continue" | "stop", "note": ..., "resolved_by": ...}`,
 which is what the dashboard will send. Resolved tickets are never reopened (`merge_escalations`).
 
+## Dashboard hook (`src/sessions.py`)
+
+The dashboard talks to sessions only through `open_sessions()`; it never touches the graph or the
+checkpointer directly.
+
+```python
+from src.sessions import open_sessions, StaleEscalation
+
+with open_sessions() as sessions:
+    sessions.list_sessions()                # SessionSummary for every session, newest first
+    sessions.list_sessions("waiting_on_human")
+    sessions.open_escalations()             # [(thread_id, EscalationTicket)]: the HITL queue
+    sessions.state(thread_id)               # full state for the detail view: lines, provenance, answers
+    sessions.resolve(thread_id, ticket_id, action="continue", note="...", resolved_by="staff-7")
+```
+
+| Session status | Meaning |
+|---|---|
+| `in_progress` | The graph is between steps |
+| `waiting_on_taxpayer` | Intake asked a question (`pending_question`) |
+| `waiting_on_human` | Paused on an escalation (`awaiting_ticket_id`) |
+| `draft_ready` | Reviewed draft produced |
+| `stopped` | A staff member resolved a ticket with `stop` |
+
+`resolve()` checks that the session is paused on that exact ticket, resumes that interrupt by id, and
+returns the new summary. The session may finish, pause on its next ticket, or go back to waiting on the
+taxpayer. A ticket that was already resolved raises `StaleEscalation`, so two staff members cannot both
+act on it. Resolutions are recorded on the ticket (`resolution`, `resolved_by`, `resolved_at`).
+
+The same actions are on the command line for graders and for testing without the dashboard:
+`python run.py --sessions` and `python run.py --resolve THREAD_ID TICKET_ID [--stop] [--note ...]`.
+
+## Persistence
+
+`src/memory.py` opens the SQLite checkpointer (`SILVERFILE_DB_PATH`) for every process: the taxpayer
+session, the dashboard and the tests. Our Pydantic types are registered with LangGraph's serializer.
+Without that, a future LangGraph version refuses to load them, and today an unregistered type comes back
+as a plain dict. The tests run with `LANGGRAPH_STRICT_MSGPACK=true`, so a new state type that isn't
+registered fails the tests instead of passing silently.
+
 ## Stubs still in place
 
 | Piece | Current behaviour | Replaced by |

@@ -1,20 +1,47 @@
-import pytest
-from langgraph.checkpoint.memory import InMemorySaver
+import json
+import os
+from dataclasses import replace
 
-from src.config import load_settings
-from src.graph import build_graph
+# Fail loudly if a state type is missing from the serializer allow-list (src/memory.py).
+os.environ["LANGGRAPH_STRICT_MSGPACK"] = "true"
+
+import pytest  # noqa: E402
+from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
+
+from src.config import load_settings  # noqa: E402
+from src.graph import build_graph  # noqa: E402
+from src.memory import serializer  # noqa: E402
 
 SKELETON_CASE = "data/fixtures/skeleton_case.json"
 
 
 @pytest.fixture
-def settings():
-    return load_settings()
+def settings(tmp_path):
+    return replace(load_settings(), db_path=tmp_path / "silverfile.sqlite")
 
 
 @pytest.fixture
 def make_graph(settings):
     def make(agents=None, checkpointer=None):
-        return build_graph(settings, checkpointer or InMemorySaver(), agents=agents)
+        return build_graph(settings, checkpointer or InMemorySaver(serde=serializer()), agents=agents)
+
+    return make
+
+
+@pytest.fixture
+def make_case(tmp_path):
+    """Write a variant of the skeleton case: make_case(r1_2b=True, other_document=True)."""
+
+    def make(name="case", r1_2b=False, other_document=False):
+        case = json.loads(open(SKELETON_CASE).read())
+        if r1_2b:
+            case["documents"][2]["values"]["taxable_not_determined"] = True
+        if other_document:
+            case["documents"].append(
+                {"document_id": "nec-1", "form_type": "other", "description": "1099-NEC for consulting work"}
+            )
+        path = tmp_path / f"{name}.json"
+        path.write_text(json.dumps(case))
+        return str(path)
 
     return make
