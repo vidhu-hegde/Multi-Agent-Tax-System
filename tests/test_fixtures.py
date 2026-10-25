@@ -21,6 +21,7 @@ def test_generator_fills_the_form_with_the_expected_values(tmp_path):
         assert filled["f2_01[0]"] == values["employee_ssn"]
         assert filled["f2_09[0]"] == values["box1_wages"]
         assert filled["f2_10[0]"] == values["box2_federal_withheld"]
+        assert (filled["c2_3[0]"] not in ("Off", "", None)) == values.get("box13_retirement_plan", False)
         assert "2025" in page.get_text()
 
 
@@ -43,3 +44,9 @@ def test_ground_truth_is_a_valid_w2_record():
         record = W2Record(document_id=f"w2-{n}", source=Provenance(kind="document", source=image), **expected)
         assert record.wages == Decimal(expected["wages"])
         assert record.employee_ssn_last4 == expected["employee_ssn"][-4:]
+
+    second = W2Record(document_id="w2-2", source=Provenance(kind="document", source="demo/w2_image_2.jpg"),
+                      **{k: v for k, v in json.loads((ROOT / "data" / "fixtures" / "w2_2_expected.json").read_text()).items()
+                         if k != "image"})
+    assert [(b.code, b.amount) for b in second.box12] == [("D", Decimal("1000.00"))]
+    assert second.retirement_plan and not second.statutory_employee

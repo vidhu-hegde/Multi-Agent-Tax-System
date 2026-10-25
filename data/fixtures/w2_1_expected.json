@@ -9,5 +9,11 @@
   "social_security_wages": "18000.00",
   "social_security_withheld": "1116.00",
   "medicare_wages": "18000.00",
-  "medicare_withheld": "261.00"
+  "medicare_withheld": "261.00",
+  "allocated_tips": null,
+  "dependent_care_benefits": null,
+  "box12": [],
+  "statutory_employee": false,
+  "retirement_plan": false,
+  "third_party_sick_pay": false
 }

@@ -131,6 +131,11 @@ class _Record(Contract):
     source: Provenance  # where the record came from: image extraction or user entry
 
 
+class W2Box12(Contract):
+    code: Annotated[str, StringConstraints(pattern=r"^[A-Z]{1,2}$")]
+    amount: Money
+
+
 class W2Record(_Record):
     """A W-2. Field choices are recorded in docs/IMPLEMENTATION_NOTES.md (W-2 record fields)."""
 
@@ -146,6 +151,13 @@ class W2Record(_Record):
     social_security_withheld: Money | None = None  # box 4
     medicare_wages: Money | None = None  # box 5
     medicare_withheld: Money | None = None  # box 6
+    # Scope signals: not used in arithmetic, but some values mean the return is out of scope (Rules decides).
+    allocated_tips: Money | None = None  # box 8 -> Form 4137
+    dependent_care_benefits: Money | None = None  # box 10 -> Form 2441
+    box12: list[W2Box12] = Field(default_factory=list)  # box 12a-d: code + amount
+    statutory_employee: bool = False  # box 13 -> Schedule C
+    retirement_plan: bool = False  # box 13
+    third_party_sick_pay: bool = False  # box 13
 
     @model_validator(mode="before")
     @classmethod

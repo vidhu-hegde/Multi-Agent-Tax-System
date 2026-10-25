@@ -9,5 +9,16 @@
   "social_security_wages": "27450.00",
   "social_security_withheld": "1701.90",
   "medicare_wages": "27450.00",
-  "medicare_withheld": "398.03"
+  "medicare_withheld": "398.03",
+  "allocated_tips": null,
+  "dependent_care_benefits": null,
+  "box12": [
+    {
+      "code": "D",
+      "amount": "1000.00"
+    }
+  ],
+  "statutory_employee": false,
+  "retirement_plan": true,
+  "third_party_sick_pay": false
 }

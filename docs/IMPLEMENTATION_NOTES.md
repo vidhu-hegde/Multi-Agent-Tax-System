@@ -113,7 +113,32 @@ Rule: a field goes on `W2Record` only if the system uses it or it helps catch a 
 | e | `employee_name` | Optional. Says whose W-2 it is on a joint return |
 | a | `employee_ssn_last4` | Only the last four digits are stored. Extraction passes the full number as `employee_ssn`; the record rejects anything outside the 900–999 test range, then discards all but the last four. A full SSN never reaches state, logs, traces or prompts |
 | 3–6 | `social_security_wages`, `social_security_withheld`, `medicare_wages`, `medicare_withheld` | Optional. Not on the 1040-SR, but they let Review catch vision misreads (box 4 = 6.2% of box 3, box 6 = 1.45% of box 5) |
-| 12, 13 | — | Left out: nothing in scope uses them |
+| 8, 10, 12, 13 | `allocated_tips`, `dependent_care_benefits`, `box12` (code + amount), `statutory_employee`, `retirement_plan`, `third_party_sick_pay` | Kept as **scope signals**. They aren't used in the arithmetic, but some values mean the return is out of scope (see below) |
+| 7, 9, 11, 14 | — | Left out: informational only (box 7 tips and box 11 amounts are already in box 1; box 9 is always blank) |
+| 15–20 | — | Left out: state and local only, and state returns are out of scope |
+
+### W-2 values that should escalate (for the Rules agent)
+
+These fields are captured now, but the Rules agent does not act on them yet. Before relying on this list, check
+each code against the IRS *2025 General Instructions for Forms W-2 and W-3* and record it in `policy.md`
+with a section id the Rules agent can cite.
+
+| Field | Escalate when | Why |
+|---|---|---|
+| `statutory_employee` | checked | Statutory employee wages go on Schedule C |
+| `allocated_tips` | > 0 | Form 4137 |
+| `dependent_care_benefits` | > 0 | Form 2441 (line 1e) |
+| `medicare_wages` | > 200,000 | Additional Medicare Tax, Form 8959 (line 25c) |
+| `box12` code A, B, M, N | present | Uncollected Social Security/Medicare tax, Schedule 2 |
+| `box12` code K, Z | present | Excise or additional tax (golden parachute, 409A) |
+| `box12` code Q | present | Nontaxable combat pay election (line 1i) |
+| `box12` code R, W | present | Archer MSA / HSA (Forms 8853, 8889) |
+| `box12` code T | present | Adoption benefits, Form 8839 (line 1f) |
+| `box12` code H, FF, GG, HH, II | present | Need forms or judgement outside our scope |
+| `box12` any code not listed here | present | Unknown means "not sure": escalate as `uncertain` |
+
+No action needed (already reflected in box 1, or informational): box 12 codes C, D, E, F, G, S, AA, BB, DD,
+EE, J, L, P, V, Y, and the `retirement_plan` and `third_party_sick_pay` checkboxes.
 
 The ground truth for the sample images (`data/fixtures/w2_N_expected.json`) has exactly the `W2Record`
 input fields, so an extraction test can compare its output directly.

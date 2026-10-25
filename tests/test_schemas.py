@@ -47,3 +47,10 @@ def test_w2_ein_format_is_checked():
     assert _w2(employer_ein="00-1234567").employer_ein == "00-1234567"
     with pytest.raises(ValidationError):
         _w2(employer_ein="001234567")
+
+
+def test_w2_box12_codes_are_checked():
+    assert _w2(box12=[{"code": "DD", "amount": "5400"}]).box12[0].code == "DD"
+    for bad in ["d", "ABC", "1"]:
+        with pytest.raises(ValidationError):
+            _w2(box12=[{"code": bad, "amount": "10"}])

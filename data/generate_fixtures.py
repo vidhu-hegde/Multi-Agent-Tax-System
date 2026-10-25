@@ -40,9 +40,19 @@ FIELDS = {
     "f2_12[0]": "box4_social_security_withheld",
     "f2_13[0]": "box5_medicare_wages",
     "f2_14[0]": "box6_medicare_withheld",
+    "f2_16[0]": "box8_allocated_tips",
+    "f2_18[0]": "box10_dependent_care",
     "f2_20[0]": "box12a_code",
     "f2_21[0]": "box12a_amount",
+    "f2_22[0]": "box12b_code",
+    "f2_23[0]": "box12b_amount",
+    "f2_24[0]": "box12c_code",
+    "f2_25[0]": "box12c_amount",
+    "f2_26[0]": "box12d_code",
+    "f2_27[0]": "box12d_amount",
+    "c2_2[0]": "box13_statutory_employee",
     "c2_3[0]": "box13_retirement_plan",
+    "c2_4[0]": "box13_third_party_sick_pay",
     "f2_29[0]": "box15_state",
     "f2_30[0]": "box15_employer_state_id",
     "f2_33[0]": "box16_state_wages",
@@ -134,6 +144,16 @@ def expected_record(values: dict) -> dict:
         "social_security_withheld": values["box4_social_security_withheld"],
         "medicare_wages": values["box5_medicare_wages"],
         "medicare_withheld": values["box6_medicare_withheld"],
+        "allocated_tips": values.get("box8_allocated_tips"),
+        "dependent_care_benefits": values.get("box10_dependent_care"),
+        "box12": [
+            {"code": values[f"box12{slot}_code"], "amount": values[f"box12{slot}_amount"]}
+            for slot in "abcd"
+            if values.get(f"box12{slot}_code")
+        ],
+        "statutory_employee": values.get("box13_statutory_employee", False),
+        "retirement_plan": values.get("box13_retirement_plan", False),
+        "third_party_sick_pay": values.get("box13_third_party_sick_pay", False),
     }
 
 
