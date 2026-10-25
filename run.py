@@ -2,7 +2,7 @@
 
     python run.py                        # start a new intake session
     python run.py --thread-id abc123     # resume a saved session
-    python run.py --case demo/eval_case_1.md
+    python run.py --case data/fixtures/skeleton_case.json
     python run.py --batch [--no-context-strategy]
 
 The graph itself lives in src/graph.py, which must expose:
@@ -27,7 +27,7 @@ log = logging.getLogger("silverfile")
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="SilverFile: Form 1040-SR preparation aid")
     parser.add_argument("--thread-id", help="resume a saved session (never use an SSN as the id)")
-    parser.add_argument("--case", help="path to an eval case to run, e.g. demo/eval_case_1.md")
+    parser.add_argument("--case", help="JSON case file with answers and documents, e.g. data/fixtures/skeleton_case.json")
     parser.add_argument("--batch", action="store_true", help="run the batch scenario for docs/metrics.md")
     parser.add_argument(
         "--no-context-strategy",
@@ -54,6 +54,24 @@ def load_graph(settings, checkpointer, use_context_strategy):
     return build_graph(settings, checkpointer, use_context_strategy=use_context_strategy)
 
 
+def format_interrupt(value):
+    """Intake questions are plain strings; escalations are dicts from the human node."""
+    if not isinstance(value, dict):
+        return str(value)
+    return f"\n[Escalation: {value['reason']}] {value['detail']}\n{value['how_to_resolve']}"
+
+
+def print_draft(state):
+    from src.schemas import FORM_LINES
+
+    print(f"\nDraft 1040-SR ({state.get('status')})")
+    for line, label in FORM_LINES.items():
+        value = state.get("lines", {}).get(line)
+        if value is not None:
+            flag = "  (placeholder)" if value.is_stub else ""
+            print(f"  {line:>4}  {label:<42} {value.amount:>12,.2f}{flag}")
+
+
 def drive(graph, thread_id, first_input, ask=input, say=print):
     """Run the graph on one thread, pausing for the user at every interrupt."""
     from langgraph.types import Command
@@ -66,7 +84,7 @@ def drive(graph, thread_id, first_input, ask=input, say=print):
         if not interrupts:
             return result
         for item in interrupts:
-            say(item.value)
+            say(format_interrupt(item.value))
         try:
             payload = Command(resume=ask("> "))
         except (EOFError, KeyboardInterrupt):
@@ -100,7 +118,9 @@ def main(argv=None):
             first_input = {"case_path": args.case} if args.case else {}
             print(f"Session id: {thread_id}")
 
-        drive(graph, thread_id, first_input)
+        result = drive(graph, thread_id, first_input)
+        if result is not None:
+            print_draft(result)
 
 
 if __name__ == "__main__":
