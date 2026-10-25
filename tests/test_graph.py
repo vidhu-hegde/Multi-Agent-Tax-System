@@ -99,7 +99,7 @@ def test_1099r_box_2b_escalates_and_resolves(make_graph, make_case):
 
 
 def test_interactive_intake_asks_one_question_at_a_time(make_graph):
-    replies = iter(["widowed", "single", "1950-02-03", "no", "0", "250"])
+    replies = iter(["widowed", "single", "none", "1950-02-03", "no", "no", "no", "none", "0", "0", "0", "0", "0", "250"])
     asked = []
     result = run.drive(make_graph(), "t", {}, ask=lambda _: next(replies), say=asked.append)
 
@@ -115,12 +115,14 @@ def test_session_resumes_from_sqlite_after_restart(settings, make_graph):
         graph = make_graph(checkpointer=saver)
         graph.invoke({}, config("resume"))
         graph.invoke(Command(resume="single"), config("resume"))
+        graph.invoke(Command(resume="none"), config("resume"))
 
     with open_checkpointer(settings) as saver:  # a new process on Friday
         graph = make_graph(checkpointer=saver)
         waiting_on = graph.get_state(config("resume")).interrupts[0].value
         assert "date of birth" in waiting_on  # picks up at the next question, not the first
-        replies = iter(["1950-02-03", "no", "0", "0"])
+        assert "single" in waiting_on
+        replies = iter(["1950-02-03", "no", "no", "no", "none", "0", "0", "0", "0", "0", "0"])
         result = run.drive(graph, "resume", None, ask=lambda _: next(replies), say=lambda _: None)
 
     assert result["status"] == "draft_ready"

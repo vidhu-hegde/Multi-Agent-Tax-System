@@ -2,12 +2,11 @@
 
 from itertools import permutations
 
-from src.schemas import EscalationTicket
-from src.state import merge_dicts, merge_escalations
-
 import pytest
+
 from src import state
-from src.schemas import IntakeAnswer, Provenance, W2Record
+from src.schemas import EscalationTicket, IntakeAnswer, Provenance, W2Record
+from src.state import merge_dicts, merge_escalations
 
 
 def test_merge_dicts_is_order_independent():
@@ -60,3 +59,16 @@ def test_same_answer_event_cannot_change_its_value():
     answer = IntakeAnswer(field="estimated_payments", value="10")
     with pytest.raises(ValueError, match="answer"):
         state.merge_answers([answer], [answer.model_copy(update={"value": "20"})])
+
+
+def test_conflicting_escalation_identity_or_resolution_is_rejected_in_both_orders():
+    first = EscalationTicket(ticket_id='same', reason='uncertain', raised_by='intake', detail='original')
+    other = first.model_copy(update={'detail': 'different issue'})
+    for left, right in ((first, other), (other, first)):
+        with pytest.raises(ValueError, match='same'):
+            merge_escalations({'same': left}, {'same': right})
+    yes = first.model_copy(update={'status': 'resolved', 'resolution': {'action': 'continue'}})
+    no = first.model_copy(update={'status': 'resolved', 'resolution': {'action': 'stop'}})
+    for left, right in ((yes, no), (no, yes)):
+        with pytest.raises(ValueError, match='same'):
+            merge_escalations({'same': left}, {'same': right})

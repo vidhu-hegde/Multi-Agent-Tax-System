@@ -8,6 +8,7 @@ from langgraph.graph.message import add_messages
 
 from src.schemas import (
     DocumentRef,
+    EscalationReason,
     EscalationTicket,
     Handoff,
     IntakeAnswer,
@@ -55,12 +56,20 @@ def merge_answers(left: list[IntakeAnswer] | None, right: list[IntakeAnswer] | N
 def merge_escalations(
     left: dict[str, EscalationTicket] | None, right: dict[str, EscalationTicket] | None
 ) -> dict[str, EscalationTicket]:
-    """Keyed merge that never reopens a resolved ticket, so an agent re-raising the same issue is harmless."""
+    """Resolve dominates open; identical retries are safe; contradictory identities/resolutions fail."""
     merged = dict(left or {})
     for ticket_id, ticket in (right or {}).items():
         existing = merged.get(ticket_id)
-        if existing is not None and existing.status == "resolved" and ticket.status == "open":
-            continue
+        if existing is not None:
+            mutable = {"status", "resolution", "resolved_by", "resolved_at", "created_at"}
+            if existing.model_dump(exclude=mutable) != ticket.model_dump(exclude=mutable):
+                raise ValueError(f"Conflicting escalation identity for {ticket_id}")
+            if existing.status != ticket.status:
+                merged[ticket_id] = existing if existing.status == "resolved" else ticket
+                continue
+            if existing.resolution != ticket.resolution or existing.resolved_by != ticket.resolved_by:
+                raise ValueError(f"Conflicting escalation resolution for {ticket_id}")
+            ticket = min((existing, ticket), key=lambda t: (t.created_at, t.resolved_at or t.created_at))
         merged[ticket_id] = ticket
     return merged
 
@@ -70,8 +79,12 @@ class SilverFileState(TypedDict, total=False):
 
     # Intake
     messages: Annotated[list[AnyMessage], add_messages]
+    input_token_usage: Annotated[dict[str, int], merge_dicts]  # actual provider input tokens per model call
+    context_item: str  # synthetic current item for the isolated context benchmark
+    context_reason: EscalationReason | None
     answers: Annotated[list[IntakeAnswer], merge_answers]  # single Intake writer; see current_answers()
     intake_complete: bool
+    intake_revisit: str | None  # explicit one-field correction; existing orchestrator still owns routing
     document_inventory: list[DocumentRef]
 
     # Work products
