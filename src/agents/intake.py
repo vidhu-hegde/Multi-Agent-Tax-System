@@ -104,6 +104,23 @@ def parse_test_ssn(raw):
     return TypeAdapter(SSN).validate_python(str(raw).strip())
 
 
+def field_reply(raw, parse):
+    """Only a requested SSN or a complete valid amount may bypass generic redaction.
+
+    Labelled identifiers and dashed SSNs cannot parse as money. The independently
+    redacted turn remains the only payload used for tickets and model context.
+    """
+    if parse is parse_test_ssn:
+        return raw  # the shared SSN validator still requires the 900-series test range
+    if parse in (parse_money, parse_money_or_unknown):
+        try:
+            parse_money(raw)
+            return raw
+        except (ValueError, TypeError):
+            pass
+    return redact_ssns(raw)
+
+
 def parse_inventory(raw):
     if isinstance(raw, str):
         if raw.strip().lower() in NOT_APPLICABLE:
@@ -460,8 +477,8 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
                 turn_reason = classify_reply(str(safe))
                 if turn_reason == "uncertain":
                     turn_reason = None  # retain the field-specific unknown-wages contract
-                command = re.fullmatch(r"go back(?: to)? (.+)", str(safe), flags=re.I)
-                correction = re.fullmatch(r"change (.+?) (?:to|=) (.+)", str(safe), flags=re.I)
+                command = re.fullmatch(r"go back(?: to)? (.+)", str(reply), flags=re.I)
+                correction = re.fullmatch(r"change (.+?) (?:to|=) (.+)", str(reply), flags=re.I)
                 if turn_reason:
                     raw = safe
                 elif command or correction or isinstance(safe, dict):
@@ -479,11 +496,12 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
                         return update
                     field, question, parse, _ = target_question
                     if isinstance(safe, dict):
-                        raw = reply.get("value") if field.endswith("_ssn") else safe.get("value")
+                        raw = reply.get("value")
                     else:
                         raw = correction[2]
                 else:
-                    raw = reply if field.endswith("_ssn") else safe
+                    raw = reply
+                raw = field_reply(raw, parse)
                 reason = turn_reason or classify_reply(str(raw))
                 # An explicitly unknown wage estimate is allowed by the existing Rules contract.
                 if reason == "uncertain" and parse is parse_money_or_unknown and str(raw).strip().lower() in UNKNOWN:

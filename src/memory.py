@@ -33,6 +33,8 @@ def redact_ssns(value):
     """Minimize identifiers in Intake-owned state and all model context, including the baseline."""
     if isinstance(value, str):
         return SSN_LIKE.sub("[SSN removed]", value)
+    if type(value) is int and SSN_LIKE.fullmatch(str(value)):
+        return "[SSN removed]"
     if isinstance(value, list):
         return [redact_ssns(v) for v in value]
     if isinstance(value, dict):

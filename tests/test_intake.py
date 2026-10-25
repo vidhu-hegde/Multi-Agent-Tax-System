@@ -393,3 +393,49 @@ def test_intake_revision_can_use_existing_explicit_revisit_field(make_graph):
     assert result["status"] == "draft_ready"
     assert result["lines"]["10"].amount == Decimal("25")
     assert not result["revision_requests"]
+
+
+@pytest.mark.parametrize("reply", ["123456789", "123456789.00", 123456789,
+                                      "change estimated payments to 123456789",
+                                      {"field": "estimated_payments", "value": "123456789"}])
+def test_monetary_reply_keeps_valid_nine_digit_amount(make_graph, tmp_path, reply):
+    from tests.conftest import SKELETON_CASE
+
+    case = json.loads(open(SKELETON_CASE).read())
+    case["answers"].pop("estimated_payments")
+    path = tmp_path / "large-payment.json"
+    path.write_text(json.dumps(case))
+    graph = make_graph()
+    graph.invoke({"case_path": str(path)}, config())
+    result = graph.invoke(Command(resume=reply), config())
+    assert result["status"] == "draft_ready"
+    assert current_answers(result)["estimated_payments"].value == Decimal("123456789")
+    assert result["lines"]["26"].amount == Decimal("123456789")
+    assert result["lines"]["26"].provenance[0].entered_by == "taxpayer"
+
+
+@pytest.mark.parametrize("reply", ["123-45-6789", "My SSN is 123456789", "SSN: 901-12-3456",
+                                      {"field": "estimated_payments", "value": "My SSN is 123-45-6789"}])
+def test_ssn_like_text_is_not_accepted_as_payment(make_graph, tmp_path, reply):
+    from tests.conftest import SKELETON_CASE
+
+    case = json.loads(open(SKELETON_CASE).read())
+    case["answers"].pop("estimated_payments")
+    path = tmp_path / "not-a-payment.json"
+    path.write_text(json.dumps(case))
+    graph = make_graph()
+    graph.invoke({"case_path": str(path)}, config())
+    result = graph.invoke(Command(resume=reply), config())
+    assert isinstance(question(result), str)
+    assert "estimated_payments" not in current_answers(result)
+    assert "123-45-6789" not in str(graph.get_state(config()).values)
+    assert "123456789" not in str(graph.get_state(config()).values)
+
+
+def test_unrequested_numeric_ssn_in_structured_escalation_is_redacted(make_graph):
+    graph = make_graph()
+    graph.invoke({}, config())
+    result = graph.invoke(Command(resume={"value": "I have foreign income", "ssn": 123456789}), config())
+    assert question(result)["reason"] == "out_of_scope"
+    assert "123456789" not in str(result)
+    assert "123456789" not in str(graph.get_state(config()).values)
