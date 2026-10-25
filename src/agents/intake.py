@@ -276,16 +276,17 @@ UNCERTAIN_PHRASES = ["not sure", "unsure", "don't know", "dont know", "no idea",
 # Disclosure vocabulary from assignment §3.3, routed through the shared out_of_scope
 # catalogue entry. This notices what the person says; Rules still decides eligibility.
 SCOPE_DISCLOSURES = re.compile(
-    r"\b(?:foreign (?:income|accounts?)|digital assets?|1099[- ]?NEC|"
+    r"\b(?:foreign (?:income|(?:bank )?accounts?)|digital assets?|1099[- ]?NEC|"
     r"self[- ]employment(?: income)?|business income|rental income|capital gains|"
     r"schedule [ACDE]|itemi[sz]ed deductions?|amended (?:tax )?returns?|"
-    r"prior[- ]year (?:tax )?returns?|state (?:tax )?returns?)\b", re.I
+    r"prior[- ]year (?:tax )?returns?|state (?:tax )?returns?)\b",
+    re.I,
 )
 
 
 def scope_disclosure(text: str) -> bool:
     for match in SCOPE_DISCLOSURES.finditer(text):
-        prefix = text[:match.start()]
+        prefix = text[: match.start()]
         if not re.search(r"\b(?:no|without|(?:do not|don't|did not|didn't) have)(?: any)?\s*$", prefix, re.I):
             return True
     return False
@@ -297,6 +298,10 @@ def classify_reply(text: str) -> str | None:
         return "exploitation_concern"
     if any(p in lowered for p in ADVICE_PHRASES):
         return "advice_request"
+    if "taxable amount not determined" in lowered or (
+        re.search(r"\b1099[- ]?r\b", lowered) and re.search(r"\bbox\s*2b\s+(?:is\s+)?checked\b", lowered)
+    ):
+        return "1099r_taxable_not_determined"
     if scope_disclosure(lowered):
         return "out_of_scope"
     if any(p in lowered for p in UNCERTAIN_PHRASES):
@@ -323,12 +328,14 @@ def classify_with_model(model, state, text, use_context_strategy=True):
 
 
 ESCALATION_DETAIL = {
+    "1099r_taxable_not_determined": "The taxpayer disclosed a 1099-R with taxable amount not determined. A volunteer must review it.",
     "out_of_scope": "The taxpayer disclosed an item outside SilverFile's supported scope. A volunteer must review it.",
     "advice_request": "The taxpayer asked for tax advice. Noted for a volunteer preparer.",
     "exploitation_concern": "The reply suggests a third party may be directing the return or refund.",
     "uncertain": "The taxpayer was not sure how to answer. Flagged for a volunteer.",
 }
 SAID_TO_TAXPAYER = {
+    "1099r_taxable_not_determined": "That form needs a volunteer's review. I've flagged it before we go on.",
     "out_of_scope": "That needs a volunteer's help. I've flagged it before we go on.",
     "advice_request": "That's a question for a volunteer preparer. I can't give tax advice, but I've noted it so they can help.",
     "exploitation_concern": "Thank you. I've asked a member of staff to look at this before we go on.",
@@ -407,19 +414,26 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
     revision = next((r for r in requests if r.target == "intake"), None)
     revision_field = None
     if revision is not None:
-        revision_field = revisit or INTAKE_LINE_FIELDS.get(revision.line)
+        revision_field = INTAKE_LINE_FIELDS.get(revision.line) or revisit
         if revision_field not in {q[0] for q in questions}:
             payload = redact_ssns(revision.model_dump(mode="json"))
             key = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
-            update.update(escalate(
-                "uncertain", raised_by="intake", key=f"intake-revision:{key}",
-                detail="Intake cannot target this revision using the existing field contract. A volunteer must review it.",
-                evidence={"request": payload, "dependency": "RevisionRequest.field / Intake targeting contract",
-                          "said_to_taxpayer": SAID_TO_TAXPAYER["uncertain"]},
-            ))
+            update.update(
+                escalate(
+                    "uncertain",
+                    raised_by="intake",
+                    key=f"intake-revision:{key}",
+                    detail="Intake cannot target this revision using the existing field contract. A volunteer must review it.",
+                    evidence={
+                        "request": payload,
+                        "dependency": "RevisionRequest.field / Intake targeting contract",
+                        "said_to_taxpayer": SAID_TO_TAXPAYER["uncertain"],
+                    },
+                )
+            )
             update.update(revision_requests=[r for r in requests if r != revision], review_status="pending")
             return update
-        revisit = revision_field
+        revisit = revisit or revision_field
     pending = next((q for q in questions if q[0] == revisit), None) if revisit else None
     if revisit and pending is None:
         raise ValueError("Unknown Intake field to revisit")
@@ -577,8 +591,9 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
         update["answers"].append(answer)
         known[field] = answer
         if revision is not None and field == revision_field:
-            update.update(revision_requests=[r for r in requests if r != revision],
-                          review_status="pending", status="in_progress")
+            update.update(
+                revision_requests=[r for r in requests if r != revision], review_status="pending", status="in_progress"
+            )
         if field == "document_inventory":
             inventory = value
             update["document_inventory"] = value

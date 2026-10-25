@@ -290,12 +290,23 @@ def test_unintegrated_downstream_inputs_pause_instead_of_being_silently_ignored(
     assert not result.get("intake_complete")
 
 
-@pytest.mark.parametrize("disclosure", [
-    "I have foreign income", "I have a foreign account", "I have digital assets",
-    "I received a 1099-NEC", "I have self-employment income", "I have business income",
-    "I have rental income", "I need Schedule D for capital gains", "I want itemized deductions",
-    "I need an amended return", "I need a prior-year return", "I need a state return",
-])
+@pytest.mark.parametrize(
+    "disclosure",
+    [
+        "I have foreign income",
+        "I have a foreign account",
+        "I have digital assets",
+        "I received a 1099-NEC",
+        "I have self-employment income",
+        "I have business income",
+        "I have rental income",
+        "I need Schedule D for capital gains",
+        "I want itemized deductions",
+        "I need an amended return",
+        "I need a prior-year return",
+        "I need a state return",
+    ],
+)
 def test_scope_disclosure_at_filing_status_pauses_for_human(make_graph, disclosure):
     graph = make_graph()
     graph.invoke({}, config())
@@ -324,7 +335,9 @@ def test_scope_precheck_runs_before_accepting_free_text_field(make_graph, tmp_pa
 def test_scope_precheck_reads_entire_structured_turn(make_graph):
     graph = make_graph()
     graph.invoke({}, config())
-    result = graph.invoke(Command(resume={"field": "filing_status", "value": "single", "note": "I have foreign income"}), config())
+    result = graph.invoke(
+        Command(resume={"field": "filing_status", "value": "single", "note": "I have foreign income"}), config()
+    )
     assert question(result)["reason"] == "out_of_scope"
     assert "filing_status" not in current_answers(result)
 
@@ -395,9 +408,16 @@ def test_intake_revision_can_use_existing_explicit_revisit_field(make_graph):
     assert not result["revision_requests"]
 
 
-@pytest.mark.parametrize("reply", ["123456789", "123456789.00", 123456789,
-                                      "change estimated payments to 123456789",
-                                      {"field": "estimated_payments", "value": "123456789"}])
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "123456789",
+        "123456789.00",
+        123456789,
+        "change estimated payments to 123456789",
+        {"field": "estimated_payments", "value": "123456789"},
+    ],
+)
 def test_monetary_reply_keeps_valid_nine_digit_amount(make_graph, tmp_path, reply):
     from tests.conftest import SKELETON_CASE
 
@@ -414,8 +434,15 @@ def test_monetary_reply_keeps_valid_nine_digit_amount(make_graph, tmp_path, repl
     assert result["lines"]["26"].provenance[0].entered_by == "taxpayer"
 
 
-@pytest.mark.parametrize("reply", ["123-45-6789", "My SSN is 123456789", "SSN: 901-12-3456",
-                                      {"field": "estimated_payments", "value": "My SSN is 123-45-6789"}])
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "123-45-6789",
+        "My SSN is 123456789",
+        "SSN: 901-12-3456",
+        {"field": "estimated_payments", "value": "My SSN is 123-45-6789"},
+    ],
+)
 def test_ssn_like_text_is_not_accepted_as_payment(make_graph, tmp_path, reply):
     from tests.conftest import SKELETON_CASE
 
@@ -439,3 +466,59 @@ def test_unrequested_numeric_ssn_in_structured_escalation_is_redacted(make_graph
     assert question(result)["reason"] == "out_of_scope"
     assert "123456789" not in str(result)
     assert "123456789" not in str(graph.get_state(config()).values)
+
+
+def test_go_back_during_revision_does_not_consume_a_different_requested_field(make_graph):
+    from src.schemas import RevisionRequest
+    from tests.conftest import SKELETON_CASE
+
+    graph = make_graph()
+    graph.invoke({"case_path": SKELETON_CASE}, config())
+    request = RevisionRequest(target="intake", line="26", reason="Confirm estimated payment")
+    graph.invoke({"revision_requests": [request]}, config())
+    result = graph.invoke(Command(resume="go back to filing status"), config())
+    assert "Which filing status" in question(result)
+    result = graph.invoke(Command(resume="single"), config())
+    assert "estimated tax" in question(result)
+    assert request in graph.get_state(config()).values["revision_requests"]
+    result = graph.invoke(Command(resume="1000"), config())
+    assert result["status"] == "draft_ready"
+    assert not result["revision_requests"]
+
+
+def test_repeated_unchanged_intake_revisions_reach_existing_review_bound(make_graph, settings):
+    from src.schemas import RevisionRequest
+    from tests.conftest import SKELETON_CASE
+
+    def recurring_review(state):
+        return {
+            "revision_requests": [RevisionRequest(target="intake", line="26", reason="Confirm again")],
+            "review_status": "failed",
+            "review_passes": state.get("review_passes", 0) + 1,
+            "last_agent": "review",
+        }
+
+    graph = make_graph(agents={"review": recurring_review})
+    result = graph.invoke({"case_path": SKELETON_CASE}, config())
+    for _ in range(settings.max_review_passes - 1):
+        assert isinstance(question(result), str)
+        result = graph.invoke(Command(resume="1000"), config())
+    assert question(result)["reason"] == "review_limit"
+    assert result["review_passes"] == settings.max_review_passes
+
+
+@pytest.mark.parametrize("reply", ["My 1099-R says taxable amount not determined", "My 1099-R has box 2b checked"])
+def test_1099r_scope_disclosure_uses_existing_specific_escalation(make_graph, reply):
+    graph = make_graph()
+    graph.invoke({}, config())
+    result = graph.invoke(Command(resume=reply), config())
+    assert isinstance(question(result), dict)
+    assert question(result)["reason"] == "1099r_taxable_not_determined"
+
+
+def test_foreign_bank_account_disclosure_is_a_scope_handoff(make_graph):
+    graph = make_graph()
+    graph.invoke({}, config())
+    result = graph.invoke(Command(resume="I have a foreign bank account"), config())
+    assert isinstance(question(result), dict)
+    assert question(result)["reason"] == "out_of_scope"
