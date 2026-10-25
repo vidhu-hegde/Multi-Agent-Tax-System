@@ -1,0 +1,21 @@
+{
+  "description": "Skeleton smoke case: single filer born 1957, four typed-in documents, no escalations.",
+  "answers": {
+    "filing_status": "single",
+    "taxpayer_dob": "1957-05-01",
+    "taxpayer_blind": false,
+    "adjustments": "0",
+    "estimated_payments": "1000"
+  },
+  "documents": [
+    {"document_id": "w2-1", "form_type": "W-2",
+     "values": {"employer_name": "Ithaca Hardware", "wages": "18000", "federal_withheld": "1500"}},
+    {"document_id": "int-1", "form_type": "1099-INT",
+     "values": {"payer_name": "Tompkins Savings", "interest": "420", "tax_exempt_interest": "80"}},
+    {"document_id": "r-1", "form_type": "1099-R",
+     "values": {"payer_name": "Cayuga IRA Trust", "gross_distribution": "6000", "taxable_amount": "6000",
+                "distribution_code": "7", "ira_sep_simple": true, "federal_withheld": "600"}},
+    {"document_id": "ssa-1", "form_type": "SSA-1099",
+     "values": {"net_benefits": "22000"}}
+  ]
+}

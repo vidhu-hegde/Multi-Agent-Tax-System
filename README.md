@@ -39,33 +39,36 @@ Team members: Vidhatri Hegde, Qiyan Zhai, Max Charles, Iris Li, Juee Patil, Anu
 
 ## Orchestration
 
-<!-- TODO: replace with the final diagram (docs/graph.png) -->
+Hub-and-spoke: every agent returns to the orchestrator, which picks the next hop from state.
+The full routing table and design notes are in [`docs/IMPLEMENTATION_NOTES.md`](docs/IMPLEMENTATION_NOTES.md).
 
 ```mermaid
 flowchart TD
     START([Start]) --> O{Orchestrator}
-    O --> I[Intake]
-    O --> E[Document Extraction<br/>parallel per document]
-    E --> AGG[Aggregate]
-    AGG --> O
-    O --> R[Eligibility & Rules]
-    O --> C[Computation]
-    O --> V[Review / Audit]
-    V -- send back --> O
-    O -- escalation --> H[[Human-in-the-loop]]
-    H --> O
+    O -->|intake incomplete| I[Intake]
+    O -->|documents pending| E1[Extract doc 1]
+    O -->|documents pending| E2[Extract doc 2]
+    O -->|documents pending| EN[Extract doc N]
+    E1 --> AGG[Aggregate documents]
+    E2 --> AGG
+    EN --> AGG
+    O -->|rules not evaluated| R[Eligibility & Rules]
+    O -->|lines not computed| C[Computation]
+    O -->|not reviewed| V[Review / Audit]
+    O -->|open escalation, review limit or loop guard| H[[Human-in-the-loop interrupt]]
     I --> O
+    AGG --> O
     R --> O
     C --> O
-    O --> END([Draft 1040-SR + provenance])
+    V -->|revision requests| O
+    H --> O
+    O -->|draft ready or stopped| END([Draft 1040-SR + provenance])
 ```
 
-The graph must include:
-
-- **Conditional routing**, where the orchestrator picks the next step based on the current state.
-- **A parallel branch with an aggregation step**, using a state reducer that handles concurrent writes safely.
-- **A review→revise cycle** with an explicit, tested limit on iterations.
-- **A loop guard** that detects a pathological handoff cycle and breaks it. A test case triggers it.
+- **Conditional routing:** the orchestrator applies a routing table to the current state.
+- **Parallel branch:** one extraction branch per document (`Send`), joined at *Aggregate documents*; the `documents` reducer merges concurrent writes.
+- **Review → revise cycle:** bounded at `SILVERFILE_MAX_REVIEW_PASSES` (default 3), then escalates.
+- **Loop guard:** the same handoff (from, to, reason) repeated `SILVERFILE_LOOP_GUARD_REPEATS` times escalates to a human.
 
 ## Human-in-the-loop escalation
 
@@ -131,7 +134,9 @@ cp .env.example .env   # then add your API keys
 ### Run
 
 ```bash
-python run.py
+python run.py                                            # interactive session
+python run.py --case data/fixtures/skeleton_case.json    # run a case file
+python run.py --thread-id <session id>                   # resume a saved session
 ```
 
 ### Context-window strategy measurement
