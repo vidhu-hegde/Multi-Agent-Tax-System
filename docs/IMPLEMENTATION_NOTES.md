@@ -185,8 +185,10 @@ input fields, so an extraction test can compare its output directly.
 
 Intake now commits every accepted interactive answer before the next question. Case-file imports may
 commit several validated fields together. `answers` uses `merge_answers`: `(field, answered_at,
-entered_by)` identifies an event, exact retries are ignored, and repeated effective values do not add
-history. A correction appends a new value; `current_answers()` selects the latest confirmed answer.
+entered_by)` identifies an event. Events are ordered by confirmation time before collapsing repeated
+effective values; replay of an old suppressed answer cannot undo a newer correction. Contradictory
+values at the same confirmation time fail explicitly. `current_answers()` uses the same ordering,
+including for legacy checkpoints whose history was written in arrival order.
 Intake is the single answer writer; this history is not a commutative multi-writer CRDT.
 
 `IntakeAnswer`, `Dependent`, `DocumentRef`, `SSN`, `RevisionRequest`, and `EscalationTicket` remain the
@@ -209,6 +211,14 @@ and resets its pass count. The existing graph performs those reruns. A confirmed
 `guard_window_start` because user progress must not trip the repeated-handoff guard. The pathological
 agent test still trips that guard. A finished return can be reopened through the existing graph API
 with `{"intake_complete": false, "intake_revisit": "estimated_payments"}`; dashboard hookup is Max's task.
+
+Review-to-Intake requests use the existing line bindings: `10` asks for `adjustments`, and `26` asks for
+`estimated_payments`; an explicit existing `intake_revisit` also supplies a target. The request remains
+pending until that field is confirmed. Go-back to another field does not consume a line-targeted
+request. A confirmation with no change marks Review pending without resetting its bounded pass count.
+Unknown targets are explicitly handed off as `uncertain`, with the missing
+`RevisionRequest.field / Intake targeting contract` recorded, and removed from the routing queue;
+other requests remain. Vidhatri/Anupama own extending the generic targeting contract.
 
 A document-list change after extraction pauses on an `uncertain` ticket and keeps the prior inventory.
 The graph has no record-retraction API. A staff "continue" resumes the question, not acceptance of the
@@ -277,3 +287,23 @@ than producing a draft that ignores them. Staff continue returns to the affected
 make an unsupported computation correct. Preserve truthful answers, stop that workflow, and complete
 the owner integration before running those cases. This gate checks missing software support; Intake
 does not determine tax eligibility or compute amounts. Remove each gate only with downstream tests.
+
+## Iris: per-turn disclosure and field-aware PII fixes
+
+A scope pre-check now notices explicit unsupported-topic disclosures in the whole turn before accepting
+an answer or applying a structured correction. It reuses the shared `out_of_scope` and
+`1099r_taxable_not_determined` reasons and `escalate()` helper. It covers the assignment's foreign-income/
+account, unsupported form/income, deduction, return-type and explicit 1099-R box-2b disclosures. A simple
+explicit denial of foreign income does not count as an affirmative disclosure. No dedicated Juee scope
+catalogue/policy module is present in this checkout; this narrow lexical notice list mirrors §3.3 and
+must be reconciled with Juee's authoritative vocabulary when provided. It does not interpret tax rules.
+
+Only a complete valid monetary literal in a requested monetary field bypasses generic SSN redaction
+for field validation. Thus `123456789` can be an amount; labelled identifiers and dashed SSNs cannot
+parse as money. The same applies to corrections targeting a monetary field. A separately redacted turn
+is still used for model context and escalation evidence, and the raw-text copy is generically redacted.
+Unsolicited nine-digit integers in structured metadata are redacted too. Requested dependent SSNs still
+use the shared 900-series schema and have no raw-text copy. Qiyan/Max must use this field-aware distinction
+for their ingress protection before resume commands; upstream checkpoint/trace PII protection remains
+unverified. No other owner's module was modified. See `docs/IRIS_HANDOFF.md` for regression results and
+all ten updated checklist statuses. Live context measurements remain unavailable.
