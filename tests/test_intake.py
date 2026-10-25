@@ -336,3 +336,60 @@ def test_explicit_denial_is_not_treated_as_positive_scope_disclosure(make_graph)
     assert isinstance(question(result), str)
     assert "Which filing status" in question(result)
     assert not result.get("escalations")
+
+
+@pytest.mark.parametrize("reply, expected", [("2000", Decimal("2000")), ("1000", Decimal("1000"))])
+def test_review_revision_for_direct_intake_line_is_answered_and_consumed(make_graph, reply, expected):
+    from src.schemas import RevisionRequest
+    from tests.conftest import SKELETON_CASE
+
+    graph = make_graph()
+    original = graph.invoke({"case_path": SKELETON_CASE}, config())
+    request = RevisionRequest(target="intake", line="26", reason="Please confirm the estimated payment")
+    result = graph.invoke({"revision_requests": [request], "review_status": "failed"}, config())
+    assert isinstance(question(result), str)
+    assert "estimated tax" in question(result)
+    assert request in graph.get_state(config()).values["revision_requests"]
+    result = graph.invoke(Command(resume=reply), config())
+    assert result["status"] == "draft_ready"
+    assert result["review_status"] == "passed"
+    assert result["lines"]["26"].amount == expected
+    assert not any(r.target == "intake" for r in result["revision_requests"])
+    assert not result.get("escalations")
+    if reply == "1000":
+        assert result["review_passes"] == original["review_passes"] + 1
+
+
+@pytest.mark.parametrize("line", [None, "12d", "unknown"])
+def test_unsupported_intake_revision_is_explicit_handoff_without_loop(make_graph, line):
+    from src.schemas import RevisionRequest
+    from tests.conftest import SKELETON_CASE
+
+    graph = make_graph()
+    graph.invoke({"case_path": SKELETON_CASE}, config())
+    request = RevisionRequest(target="intake", line=line, reason="Check the taxpayer input")
+    other = RevisionRequest(target="computation", line="9", reason="Recompute income")
+    result = graph.invoke({"revision_requests": [request, other], "review_status": "failed"}, config())
+    ticket = question(result)
+    assert isinstance(ticket, dict)
+    assert ticket["reason"] == "uncertain"
+    assert ticket["evidence"]["dependency"] == "RevisionRequest.field / Intake targeting contract"
+    assert result["revision_requests"] == [other]
+    assert not any(t.reason == "loop_guard" for t in result["escalations"].values())
+    stopped = graph.invoke(Command(resume="stop"), config())
+    assert stopped["status"] == "stopped"
+
+
+def test_intake_revision_can_use_existing_explicit_revisit_field(make_graph):
+    from src.schemas import RevisionRequest
+    from tests.conftest import SKELETON_CASE
+
+    graph = make_graph()
+    graph.invoke({"case_path": SKELETON_CASE}, config())
+    request = RevisionRequest(target="intake", reason="Confirm adjustment amount")
+    result = graph.invoke({"revision_requests": [request], "intake_revisit": "adjustments"}, config())
+    assert "Schedule 1, line 26" in question(result)
+    result = graph.invoke(Command(resume="25"), config())
+    assert result["status"] == "draft_ready"
+    assert result["lines"]["10"].amount == Decimal("25")
+    assert not result["revision_requests"]

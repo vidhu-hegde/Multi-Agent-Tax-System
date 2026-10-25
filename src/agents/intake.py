@@ -225,6 +225,9 @@ PENDING_DOWNSTREAM_FIELDS = (
     "schedule3_other_payments",
 )
 
+# Existing Computation from_answer() bindings, not new message-schema fields.
+INTAKE_LINE_FIELDS = {"10": "adjustments", "26": "estimated_payments"}
+
 ADVICE_PHRASES = [
     "should i",
     "would i pay less",
@@ -383,6 +386,23 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
     update = {"answers": [], "last_agent": "intake", "intake_complete": False}
     revisit = state.get("intake_revisit")
     questions = question_list(known)
+    requests = state.get("revision_requests", [])
+    revision = next((r for r in requests if r.target == "intake"), None)
+    revision_field = None
+    if revision is not None:
+        revision_field = revisit or INTAKE_LINE_FIELDS.get(revision.line)
+        if revision_field not in {q[0] for q in questions}:
+            payload = redact_ssns(revision.model_dump(mode="json"))
+            key = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
+            update.update(escalate(
+                "uncertain", raised_by="intake", key=f"intake-revision:{key}",
+                detail="Intake cannot target this revision using the existing field contract. A volunteer must review it.",
+                evidence={"request": payload, "dependency": "RevisionRequest.field / Intake targeting contract",
+                          "said_to_taxpayer": SAID_TO_TAXPAYER["uncertain"]},
+            ))
+            update.update(revision_requests=[r for r in requests if r != revision], review_status="pending")
+            return update
+        revisit = revision_field
     pending = next((q for q in questions if q[0] == revisit), None) if revisit else None
     if revisit and pending is None:
         raise ValueError("Unknown Intake field to revisit")
@@ -538,12 +558,15 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
         )
         update["answers"].append(answer)
         known[field] = answer
+        if revision is not None and field == revision_field:
+            update.update(revision_requests=[r for r in requests if r != revision],
+                          review_status="pending", status="in_progress")
         if field == "document_inventory":
             inventory = value
             update["document_inventory"] = value
         if previous is not None and previous.value != value:
             # Use the existing routing contract; do not replace the orchestrator or compute locally.
-            requests = list(state.get("revision_requests", []))
+            requests = list(update.get("revision_requests", state.get("revision_requests", [])))
             for target in ("rules", "computation"):
                 request = RevisionRequest(target=target, reason=f"Intake corrected {field}", raised_by="intake")
                 if request not in requests:
