@@ -139,6 +139,16 @@ python run.py --case data/fixtures/skeleton_case.json    # run a case file
 python run.py --thread-id <session id>                   # resume a saved session
 ```
 
+### Staff commands
+
+The same actions the dashboard offers, from the terminal:
+
+```bash
+python run.py --sessions                                   # list sessions and open escalations
+python run.py --resolve <session id> <ticket id> --note "Checked with client"
+python run.py --resolve <session id> <ticket id> --stop    # end the session instead
+```
+
 ### Context-window strategy measurement
 
 ```bash

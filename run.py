@@ -1,15 +1,17 @@
 """SilverFile entry point.
 
+Taxpayer session:
     python run.py                        # start a new intake session
     python run.py --thread-id abc123     # resume a saved session
     python run.py --case data/fixtures/skeleton_case.json
     python run.py --batch [--no-context-strategy]
 
-The graph itself lives in src/graph.py, which must expose:
+Staff (the same actions the dashboard offers):
+    python run.py --sessions                                 # list sessions and open escalations
+    python run.py --resolve abc123 TICKET_ID --note "..."    # resolve and let the session continue
+    python run.py --resolve abc123 TICKET_ID --stop          # resolve by stopping the session
 
-    build_graph(settings, checkpointer, use_context_strategy=True) -> compiled LangGraph
-
-When the graph pauses with interrupt(), this script shows the interrupt payload,
+When the graph pauses with interrupt(), the taxpayer session shows the question or escalation,
 reads a reply from the terminal and resumes with Command(resume=reply).
 """
 
@@ -17,7 +19,6 @@ import argparse
 import logging
 import sys
 import uuid
-from contextlib import contextmanager
 
 from src.config import load_settings
 
@@ -34,24 +35,13 @@ def parse_args(argv=None):
         action="store_true",
         help="disable the context-window strategy (for the metrics comparison)",
     )
+    staff = parser.add_argument_group("staff")
+    staff.add_argument("--sessions", action="store_true", help="list sessions and their open escalations")
+    staff.add_argument("--resolve", nargs=2, metavar=("THREAD_ID", "TICKET_ID"), help="resolve an escalation")
+    staff.add_argument("--stop", action="store_true", help="with --resolve: stop the session instead of continuing")
+    staff.add_argument("--note", default="", help="with --resolve: note recorded on the ticket")
+    staff.add_argument("--staff-id", default="staff", help="with --resolve: who is resolving")
     return parser.parse_args(argv)
-
-
-@contextmanager
-def open_checkpointer(settings):
-    from langgraph.checkpoint.sqlite import SqliteSaver
-
-    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
-    with SqliteSaver.from_conn_string(str(settings.db_path)) as saver:
-        yield saver
-
-
-def load_graph(settings, checkpointer, use_context_strategy):
-    try:
-        from src.graph import build_graph
-    except ImportError as exc:
-        sys.exit(f"src/graph.py is not ready yet ({exc}). See README > Orchestration.")
-    return build_graph(settings, checkpointer, use_context_strategy=use_context_strategy)
 
 
 def format_interrupt(value):
@@ -70,6 +60,13 @@ def print_draft(state):
         if value is not None:
             flag = "  (placeholder)" if value.is_stub else ""
             print(f"  {line:>4}  {label:<42} {value.amount:>12,.2f}{flag}")
+
+
+def print_summary(summary):
+    print(f"{summary.thread_id:<14} {summary.status:<20} {summary.updated_at[:19]}")
+    for ticket in summary.open_tickets:
+        marker = "*" if ticket.ticket_id == summary.awaiting_ticket_id else " "
+        print(f"   {marker} {ticket.ticket_id:<45} {ticket.detail}")
 
 
 def drive(graph, thread_id, first_input, ask=input, say=print):
@@ -92,22 +89,52 @@ def drive(graph, thread_id, first_input, ask=input, say=print):
             return None
 
 
+def run_staff_command(args, settings):
+    from src.sessions import StaleEscalation, open_sessions
+
+    with open_sessions(settings) as sessions:
+        if args.resolve:
+            thread_id, ticket_id = args.resolve
+            action = "stop" if args.stop else "continue"
+            try:
+                summary = sessions.resolve(thread_id, ticket_id, action, note=args.note, resolved_by=args.staff_id)
+            except StaleEscalation as exc:
+                sys.exit(str(exc))
+            print(f"Resolved {ticket_id} ({action}). Session is now:")
+            print_summary(summary)
+            return
+        summaries = sessions.list_sessions()
+        if not summaries:
+            print("No sessions yet.")
+        for summary in summaries:
+            print_summary(summary)
+
+
 def main(argv=None):
     args = parse_args(argv)
     settings = load_settings()
     logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
 
+    if args.sessions:
+        run_staff_command(args, settings)
+        return
+
     if not settings.anthropic_api_key:
         sys.exit("ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key.")
+
+    if args.resolve:
+        run_staff_command(args, settings)
+        return
+
+    from src.graph import build_graph, run_batch
+    from src.memory import open_checkpointer
 
     use_context_strategy = not args.no_context_strategy
 
     with open_checkpointer(settings) as checkpointer:
-        graph = load_graph(settings, checkpointer, use_context_strategy)
+        graph = build_graph(settings, checkpointer, use_context_strategy=use_context_strategy)
 
         if args.batch:
-            from src.graph import run_batch
-
             run_batch(graph, use_context_strategy=use_context_strategy)
             return
 
