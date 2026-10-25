@@ -288,3 +288,51 @@ def test_unintegrated_downstream_inputs_pause_instead_of_being_silently_ignored(
     result = graph.invoke(Command(resume="continue"), config())
     assert isinstance(question(result), str)  # staff continue returns to the affected input
     assert not result.get("intake_complete")
+
+
+@pytest.mark.parametrize("disclosure", [
+    "I have foreign income", "I have a foreign account", "I have digital assets",
+    "I received a 1099-NEC", "I have self-employment income", "I have business income",
+    "I have rental income", "I need Schedule D for capital gains", "I want itemized deductions",
+    "I need an amended return", "I need a prior-year return", "I need a state return",
+])
+def test_scope_disclosure_at_filing_status_pauses_for_human(make_graph, disclosure):
+    graph = make_graph()
+    graph.invoke({}, config())
+    result = graph.invoke(Command(resume=disclosure), config())
+    assert isinstance(question(result), dict)
+    assert question(result)["reason"] == "out_of_scope"
+    assert result["status"] == "waiting_on_human"
+    assert "filing_status" not in current_answers(result)
+
+
+def test_scope_precheck_runs_before_accepting_free_text_field(make_graph, tmp_path):
+    from tests.conftest import SKELETON_CASE
+
+    case = json.loads(open(SKELETON_CASE).read())
+    case["answers"]["dependent_count"] = 1
+    path = tmp_path / "scope-name.json"
+    path.write_text(json.dumps(case))
+    graph = make_graph()
+    graph.invoke({"case_path": str(path)}, config())
+    result = graph.invoke(Command(resume="I have foreign income"), config())
+    assert question(result)["reason"] == "out_of_scope"
+    assert "dependent_1_name" not in current_answers(result)
+    assert current_answers(result)["filing_status"].value == "single"
+
+
+def test_scope_precheck_reads_entire_structured_turn(make_graph):
+    graph = make_graph()
+    graph.invoke({}, config())
+    result = graph.invoke(Command(resume={"field": "filing_status", "value": "single", "note": "I have foreign income"}), config())
+    assert question(result)["reason"] == "out_of_scope"
+    assert "filing_status" not in current_answers(result)
+
+
+def test_explicit_denial_is_not_treated_as_positive_scope_disclosure(make_graph):
+    graph = make_graph()
+    graph.invoke({}, config())
+    result = graph.invoke(Command(resume="I do not have foreign income"), config())
+    assert isinstance(question(result), str)
+    assert "Which filing status" in question(result)
+    assert not result.get("escalations")

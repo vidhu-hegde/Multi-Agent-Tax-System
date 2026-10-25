@@ -253,6 +253,23 @@ EXPLOITATION_PHRASES = [
 ]
 UNCERTAIN_PHRASES = ["not sure", "unsure", "don't know", "dont know", "no idea", "can't remember", "cannot remember"]
 
+# Disclosure vocabulary from assignment §3.3, routed through the shared out_of_scope
+# catalogue entry. This notices what the person says; Rules still decides eligibility.
+SCOPE_DISCLOSURES = re.compile(
+    r"\b(?:foreign (?:income|accounts?)|digital assets?|1099[- ]?NEC|"
+    r"self[- ]employment(?: income)?|business income|rental income|capital gains|"
+    r"schedule [ACDE]|itemi[sz]ed deductions?|amended (?:tax )?returns?|"
+    r"prior[- ]year (?:tax )?returns?|state (?:tax )?returns?)\b", re.I
+)
+
+
+def scope_disclosure(text: str) -> bool:
+    for match in SCOPE_DISCLOSURES.finditer(text):
+        prefix = text[:match.start()]
+        if not re.search(r"\b(?:no|without|(?:do not|don't|did not|didn't) have)(?: any)?\s*$", prefix, re.I):
+            return True
+    return False
+
 
 def classify_reply(text: str) -> str | None:
     lowered = str(text).lower()
@@ -260,6 +277,8 @@ def classify_reply(text: str) -> str | None:
         return "exploitation_concern"
     if any(p in lowered for p in ADVICE_PHRASES):
         return "advice_request"
+    if scope_disclosure(lowered):
+        return "out_of_scope"
     if any(p in lowered for p in UNCERTAIN_PHRASES):
         return "uncertain"
     return None
@@ -284,11 +303,13 @@ def classify_with_model(model, state, text, use_context_strategy=True):
 
 
 ESCALATION_DETAIL = {
+    "out_of_scope": "The taxpayer disclosed an item outside SilverFile's supported scope. A volunteer must review it.",
     "advice_request": "The taxpayer asked for tax advice. Noted for a volunteer preparer.",
     "exploitation_concern": "The reply suggests a third party may be directing the return or refund.",
     "uncertain": "The taxpayer was not sure how to answer. Flagged for a volunteer.",
 }
 SAID_TO_TAXPAYER = {
+    "out_of_scope": "That needs a volunteer's help. I've flagged it before we go on.",
     "advice_request": "That's a question for a volunteer preparer. I can't give tax advice, but I've noted it so they can help.",
     "exploitation_concern": "Thank you. I've asked a member of staff to look at this before we go on.",
     "uncertain": "I'm not sure; let me flag this for a volunteer.",
@@ -414,9 +435,16 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
                 reply = interrupt(prompt)
                 model_called = False
                 safe = redact_ssns(reply)
+                # Safety disclosures apply to the whole turn, even while another field
+                # is requested or a structured reply includes a separate disclosure.
+                turn_reason = classify_reply(str(safe))
+                if turn_reason == "uncertain":
+                    turn_reason = None  # retain the field-specific unknown-wages contract
                 command = re.fullmatch(r"go back(?: to)? (.+)", str(safe), flags=re.I)
                 correction = re.fullmatch(r"change (.+?) (?:to|=) (.+)", str(safe), flags=re.I)
-                if command or correction or isinstance(safe, dict):
+                if turn_reason:
+                    raw = safe
+                elif command or correction or isinstance(safe, dict):
                     target = (
                         _field_name(safe.get("field", ""))
                         if isinstance(safe, dict)
@@ -436,7 +464,7 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
                         raw = correction[2]
                 else:
                     raw = reply if field.endswith("_ssn") else safe
-                reason = classify_reply(str(raw))
+                reason = turn_reason or classify_reply(str(raw))
                 # An explicitly unknown wage estimate is allowed by the existing Rules contract.
                 if reason == "uncertain" and parse is parse_money_or_unknown and str(raw).strip().lower() in UNKNOWN:
                     reason = None
