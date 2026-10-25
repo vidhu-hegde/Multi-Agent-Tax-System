@@ -72,3 +72,38 @@ def test_conflicting_escalation_identity_or_resolution_is_rejected_in_both_order
     for left, right in ((yes, no), (no, yes)):
         with pytest.raises(ValueError, match='same'):
             merge_escalations({'same': left}, {'same': right})
+
+
+def test_delayed_retry_of_suppressed_single_answer_cannot_undo_mfj_correction():
+    from datetime import datetime, timedelta, timezone
+
+    start = datetime(2026, 10, 25, tzinfo=timezone.utc)
+    original = IntakeAnswer(field="filing_status", value="single", answered_at=start)
+    repeated = original.model_copy(update={"answered_at": start + timedelta(seconds=1)})
+    correction = original.model_copy(update={"value": "mfj", "answered_at": start + timedelta(seconds=2)})
+    answers = state.merge_answers([], [original])
+    answers = state.merge_answers(answers, [repeated])
+    assert len(answers) == 1
+    answers = state.merge_answers(answers, [correction])
+    answers = state.merge_answers(answers, [repeated, original])
+    assert [a.value for a in answers] == ["single", "mfj"]
+    assert state.current_answers({"answers": answers})["filing_status"].value == "mfj"
+
+
+def test_answer_arrival_order_cannot_override_confirmation_order():
+    from datetime import datetime, timedelta, timezone
+
+    earlier = IntakeAnswer(field="filing_status", value="single", answered_at=datetime(2026, 10, 25, tzinfo=timezone.utc))
+    later = earlier.model_copy(update={"value": "mfj", "answered_at": earlier.answered_at + timedelta(seconds=1)})
+    for first, second in ((earlier, later), (later, earlier)):
+        answers = state.merge_answers([first], [second])
+        assert [a.value for a in answers] == ["single", "mfj"]
+        assert state.current_answers({"answers": [later, earlier]})["filing_status"].value == "mfj"
+
+
+def test_conflicting_answers_at_same_time_fail_instead_of_picking_arrival_order():
+    earlier = IntakeAnswer(field="filing_status", value="single")
+    later = earlier.model_copy(update={"value": "mfj", "entered_by": "staff"})
+    for first, second in ((earlier, later), (later, earlier)):
+        with pytest.raises(ValueError, match="answer"):
+            state.merge_answers([first], [second])

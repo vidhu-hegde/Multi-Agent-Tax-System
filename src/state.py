@@ -35,17 +35,25 @@ def merge_documents(left: dict | None, right: dict | None) -> dict:
 
 
 def merge_answers(left: list[IntakeAnswer] | None, right: list[IntakeAnswer] | None) -> list[IntakeAnswer]:
-    """Single-writer answer history: deduplicate replayed events and repeated effective values."""
-    merged = list(left or [])
-    events = {(a.field, a.answered_at, a.entered_by): a for a in merged}
-    latest = {a.field: a for a in merged}
-    for answer in right or []:
+    """Order single-writer events by confirmation time before collapsing repeated values.
+
+    A retry may replay an event whose unchanged value was previously suppressed.
+    Its original timestamp must not let arrival order undo a later correction.
+    """
+    events = {}
+    for answer in [*(left or []), *(right or [])]:
         key = (answer.field, answer.answered_at, answer.entered_by)
         if key in events:
             if events[key] != answer:
                 raise ValueError(f"Conflicting answer event for {answer.field}")
             continue
         events[key] = answer
+    merged = []
+    latest = {}
+    for answer in sorted(events.values(), key=lambda a: a.answered_at):
+        previous = latest.get(answer.field)
+        if previous is not None and previous.answered_at == answer.answered_at and previous.value != answer.value:
+            raise ValueError(f"Conflicting answer confirmations for {answer.field}")
         if answer.field in latest and latest[answer.field].value == answer.value:
             continue
         merged.append(answer)
@@ -107,8 +115,8 @@ class SilverFileState(TypedDict, total=False):
 
 
 def current_answers(state: SilverFileState) -> dict[str, IntakeAnswer]:
-    """Latest answer per field. Earlier answers stay in state["answers"] as history."""
+    """Latest confirmed answer per field, including checkpoints written before ordered merging."""
     latest: dict[str, IntakeAnswer] = {}
-    for answer in state.get("answers", []):
+    for answer in merge_answers([], state.get("answers", [])):
         latest[answer.field] = answer
     return latest
