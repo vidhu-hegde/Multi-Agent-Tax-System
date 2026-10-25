@@ -19,8 +19,37 @@ from src.schemas import (
 
 
 def merge_dicts(left: dict | None, right: dict | None) -> dict:
-    """Keyed merge. Parallel branches write different keys, so the result does not depend on order."""
+    """Replace keyed, sequential work products during revision. Collisions are order-dependent."""
     return {**(left or {}), **(right or {})}
+
+
+def merge_documents(left: dict | None, right: dict | None) -> dict:
+    """Merge independent extraction writes; identical retries are safe, conflicts must be resolved."""
+    merged = dict(left or {})
+    for key, value in (right or {}).items():
+        if key in merged and merged[key] != value:
+            raise ValueError(f"Conflicting document writes for {key}; resolve before replacing the record")
+        merged[key] = value
+    return merged
+
+
+def merge_answers(left: list[IntakeAnswer] | None, right: list[IntakeAnswer] | None) -> list[IntakeAnswer]:
+    """Single-writer answer history: deduplicate replayed events and repeated effective values."""
+    merged = list(left or [])
+    events = {(a.field, a.answered_at, a.entered_by): a for a in merged}
+    latest = {a.field: a for a in merged}
+    for answer in right or []:
+        key = (answer.field, answer.answered_at, answer.entered_by)
+        if key in events:
+            if events[key] != answer:
+                raise ValueError(f"Conflicting answer event for {answer.field}")
+            continue
+        events[key] = answer
+        if answer.field in latest and latest[answer.field].value == answer.value:
+            continue
+        merged.append(answer)
+        latest[answer.field] = answer
+    return merged
 
 
 def merge_escalations(
@@ -41,12 +70,12 @@ class SilverFileState(TypedDict, total=False):
 
     # Intake
     messages: Annotated[list[AnyMessage], add_messages]
-    answers: Annotated[list[IntakeAnswer], operator.add]  # full history; see current_answers()
+    answers: Annotated[list[IntakeAnswer], merge_answers]  # single Intake writer; see current_answers()
     intake_complete: bool
     document_inventory: list[DocumentRef]
 
     # Work products
-    documents: Annotated[dict[str, TaxDocument], merge_dicts]  # written in parallel by extraction
+    documents: Annotated[dict[str, TaxDocument], merge_documents]  # independent parallel extraction writes
     rule_decisions: Annotated[dict[str, RuleDecision], merge_dicts]
     lines: Annotated[dict[str, LineValue], merge_dicts]
 
