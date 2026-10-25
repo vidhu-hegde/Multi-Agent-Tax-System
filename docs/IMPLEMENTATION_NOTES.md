@@ -30,8 +30,11 @@ First matching row wins.
 ## Parallel extraction
 
 Row 4 fans out one `extract_document` branch per document with `Send`. The branches write to
-`documents`, a dict merged by `merge_dicts`, keyed by `document_id`, so concurrent writes never collide and
-the result does not depend on arrival order (`tests/test_merge_order.py`). `aggregate_documents` is the join.
+`documents`, a dict merged by `merge_documents`, keyed by `document_id`. Disjoint writes merge in either
+order, identical retries are idempotent, and conflicting values for one key raise an error instead of
+silently choosing a winner (`tests/test_merge_order.py`). `aggregate_documents` is the join.
+Rules and computed lines use `merge_dicts` for sequential revision; same-key replacement there is
+explicitly order-dependent and must not be used for competing parallel writes.
 
 ## Social Security ordering
 
@@ -81,8 +84,9 @@ at the same question once staff resolve the ticket. If the person repeats a repl
 escalated, Intake says so and asks again instead of raising a second ticket. The ticket's evidence holds
 the question, the reply, and what was said to the taxpayer (`said_to_taxpayer`).
 
-**Stub detection:** Intake's `classify_reply()` uses keyword lists. The LLM Intake agent replaces that one
-function with a model call; the escalation path stays the same. Data for eval case 2 is in
+**Reply detection:** Intake's default `classify_reply()` uses keyword lists. The optional `make_intake(model,
+use_context_strategy=True)` adds a model fallback for unparseable replies, accepting only the approved
+escalation reason or null. The escalation path stays the same. Data for eval case 2 is in
 `data/fixtures/conflict_case.json`.
 
 ## Dashboard hook (`src/sessions.py`)
@@ -172,7 +176,104 @@ input fields, so an extraction test can compare its output directly.
 | Piece | Current behaviour | Replaced by |
 |---|---|---|
 | `tools.py` tax rules | `standard_deduction`, `senior_deduction`, `taxable_social_security`, `tax_from_schedule` return 0 and mark provenance `stub=True` | tax_math MCP server |
-| Intake | Fixed questions, case file answers, keyword `classify_reply()` | LLM Intake agent |
+| Intake model hookup | Checkpointed structured dialogue; optional model classifier via `make_intake` | Vidhatri/Max connect the factory to the default entry point |
 | Extraction | Typed-in values only; images escalate as `uncertain` | Claude vision W-2 extraction |
 | Rules citations | Placeholder `policy.md#...` ids | `data/policy.md` |
-| `run_batch` | Not implemented | Context-window strategy + `docs/metrics.md` |
+| `run_batch` | Team entry-point hook not implemented; Iris benchmark available in `src.memory` | Vidhatri/Max wire the hook; live usage needs an API key (`docs/metrics.md`) |
+
+## Iris: memory and state
+
+Intake now commits every accepted interactive answer before the next question. Case-file imports may
+commit several validated fields together. `answers` uses `merge_answers`: `(field, answered_at,
+entered_by)` identifies an event, exact retries are ignored, and repeated effective values do not add
+history. A correction appends a new value; `current_answers()` selects the latest confirmed answer.
+Intake is the single answer writer; this history is not a commutative multi-writer CRDT.
+
+`IntakeAnswer`, `Dependent`, `DocumentRef`, `SSN`, `RevisionRequest`, and `EscalationTicket` remain the
+existing contracts in `src/schemas.py`. No competing models were added. Shared `TaxDocument`,
+`RuleDecision` and `LineValue` records still round-trip through the serializer. Document writes reject
+conflicts. Escalations preserve a resolved ticket over an identical open retry, reject changed issue
+identity or conflicting resolutions, and deterministically retain the earlier equivalent record.
+
+`thread_config()` generates opaque return ids and rejects SSN-shaped supplied ids. The SQLite saver
+enforces that boundary for existing entry points too. One id identifies one return workflow, not an SSN
+or a person across tax years. `SILVERFILE_DB_PATH` remains configurable. The tests start **three separate
+Python processes** with one database and return id, then a separate return id, verifying answers,
+recap, pending question, retry idempotency and isolation. A different SQLite connection alone is not
+our process-restart evidence. The DB is ignored by Git; no real taxpayer data was used.
+
+Corrections during a question accept `change filing status to married filing jointly`,
+`go back to filing status`, or `{"field": "estimated_payments", "value": "2000"}`. A changed confirmed
+field queues the existing `RevisionRequest` contract for Rules and Computation, marks Review pending,
+and resets its pass count. The existing graph performs those reruns. A confirmed answer advances
+`guard_window_start` because user progress must not trip the repeated-handoff guard. The pathological
+agent test still trips that guard. A finished return can be reopened through the existing graph API
+with `{"intake_complete": false, "intake_revisit": "estimated_payments"}`; dashboard hookup is Max's task.
+
+A document-list change after extraction pauses on an `uncertain` ticket and keeps the prior inventory.
+The graph has no record-retraction API. A staff "continue" resumes the question, not acceptance of the
+unapplied change. Vidhatri/Anupama must coordinate record retraction and fresh review; use staff stop
+and a fresh workflow until then. Corrections that change a previously resolved issue also need an
+owner-approved issue/version key; the reducer rejects conflicting identity instead of reusing approval.
+
+## Iris: accessibility and dignity
+
+These are working dialogue choices with automated evidence. The live demo instructions are in
+`demo/iris_memory_accessibility.md`. A recorded 5–10 minute team video has **not** been produced here.
+
+| Brief §4.3 choice | Behavior | Verification |
+|---|---|---|
+| One question at a time | Each prompt asks for one field. Dependent name, relationship and requested test SSN are separate turns. | `test_interactive_intake_asks_one_question_at_a_time`, `test_dependents_are_collected_as_separate_questions` |
+| Plain language | Filing statuses have full names; estimated payments and schedule totals have short explanations. MAGI never appears in Intake. | Full interactive test plus explicit question text; Juee still needs to sign off on wording. |
+| Repetition and drift | Invalid unrelated replies re-ask; repeated effective answers deduplicate; corrections and go-back preserve previous fields and history. | Correction, repetition and go-back tests in `tests/test_intake.py` |
+| Minimize PII | No taxpayer SSN prompt. Only dependent records request required test SSNs via the existing 900-series schema. Recaps omit names, birth-date values and SSNs. Model summaries exclude typed DOB/dependent/document records. | Dependent, unsolicited-SSN and selective-context tests |
+| Resumability | A recap of covered fields precedes the pending question, using current confirmed values. | `test_multiple_real_process_restarts_and_thread_isolation` |
+| Honest uncertainty | "I'm not sure; let me flag this for a volunteer" creates the existing typed ticket, and the existing human node interrupts. Staff resolution returns to the unfinished question. | `test_uncertainty_pause_survives_restart_and_staff_resolution`, existing escalation tests |
+
+**PII boundary requiring Qiyan/Max coordination:** Intake sanitizes unsolicited SSNs before storing
+its answers, tickets or model context, including the baseline. LangGraph can persist the original
+`Command(resume=...)` payload before the node runs. This work does **not** establish that raw resume
+payloads or external traces are free of PII. Qiyan must provide validation/redaction before those
+commands are created; Max must connect it to the UI/CLI. Requested fake dependent SSNs remain in typed
+records because the assignment requires them. Encryption, authentication and retention are not claimed.
+
+## Iris: model context and measurement interface
+
+`make_intake(model, use_context_strategy=...)` uses `src.memory.invoke_model()` for unclear replies.
+ON sends the current question/reply and a small allowlisted summary of confirmed session inputs. OFF
+sends the same summary plus accumulated classifier dialogue. Both redact SSNs. The model returns an
+escalation classification only; invalid output becomes `uncertain`, and arbitrary generated prose is
+not passed to the taxpayer. A completed model call is committed before another interrupt to prevent
+normal resume replay from billing the same call again. A crash between provider response and checkpoint
+commit still has an at-least-once delivery risk; no exactly-once remote-call guarantee is claimed.
+
+Actual `AIMessage.usage_metadata.input_tokens` is recorded by call id in `input_token_usage`. Missing
+usage raises an error; text length is never substituted. The benchmark sums all new call entries per
+item, verifies outcomes, and persists ten sequential items in a single fresh thread for each run.
+It calls the same classifier as Intake, using synthetic unclear replies. Its small evaluation graph
+is separate from the unchanged production orchestration. See `docs/metrics.md` for commands and blockers.
+
+The default `run.py` graph still uses deterministic Intake. Vidhatri/Max can opt into the tested model
+path without replacing the graph:
+
+```python
+from langchain_anthropic import ChatAnthropic
+from src.agents.intake import make_intake
+
+model = ChatAnthropic(model=settings.model, api_key=settings.anthropic_api_key,
+                      temperature=0, max_retries=0)
+graph = build_graph(settings, checkpointer,
+                    agents={"intake": make_intake(model, use_context_strategy)})
+```
+
+`build_graph(use_context_strategy=...)` alone currently does not configure any model. Its owner must
+wire this factory and the existing `run.py --batch` hook. The Iris-owned measurement entry point is
+`python -m src.memory --batch [--no-context-strategy]`. Live measurements were blocked by the missing
+API key. No production-wide token reduction or completed invoice evaluation is claimed.
+
+New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`). Nonzero Schedule
+2/3 totals, a positive dependent count or positive scope-exception inputs pause for a volunteer rather
+than producing a draft that ignores them. Staff continue returns to the affected input; it does not
+make an unsupported computation correct. Preserve truthful answers, stop that workflow, and complete
+the owner integration before running those cases. This gate checks missing software support; Intake
+does not determine tax eligibility or compute amounts. Remove each gate only with downstream tests.
