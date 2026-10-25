@@ -119,9 +119,11 @@ def fill_w2(values: dict) -> pymupdf.Document:
 
 
 def expected_record(values: dict) -> dict:
-    """What the Document Extraction agent should produce from this image."""
+    """What the Document Extraction agent should read from this image: the W2Record input fields.
+
+    employee_ssn is the full (test-range) number as printed; W2Record keeps only its last four digits.
+    """
     return {
-        "form_type": "W-2",
         "employer_name": values["employer_name_address"].splitlines()[0],
         "employer_ein": values["employer_ein"],
         "employee_name": f"{values['employee_first_name']} {values['employee_last_name']}",
@@ -132,7 +134,6 @@ def expected_record(values: dict) -> dict:
         "social_security_withheld": values["box4_social_security_withheld"],
         "medicare_wages": values["box5_medicare_wages"],
         "medicare_withheld": values["box6_medicare_withheld"],
-        "retirement_plan": values.get("box13_retirement_plan", False),
     }
 
 

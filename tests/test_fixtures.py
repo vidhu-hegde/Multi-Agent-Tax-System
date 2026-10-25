@@ -30,3 +30,16 @@ def test_committed_images_have_ground_truth_with_fake_identifiers():
         expected = json.loads((ROOT / "data" / "fixtures" / f"w2_{n}_expected.json").read_text())
         assert re.fullmatch(r"9\d{2}-\d{2}-\d{4}", expected["employee_ssn"])
         assert expected["employer_ein"].startswith("00-")
+
+
+def test_ground_truth_is_a_valid_w2_record():
+    from decimal import Decimal
+
+    from src.schemas import Provenance, W2Record
+
+    for n in (1, 2):
+        expected = json.loads((ROOT / "data" / "fixtures" / f"w2_{n}_expected.json").read_text())
+        image = expected.pop("image")
+        record = W2Record(document_id=f"w2-{n}", source=Provenance(kind="document", source=image), **expected)
+        assert record.wages == Decimal(expected["wages"])
+        assert record.employee_ssn_last4 == expected["employee_ssn"][-4:]

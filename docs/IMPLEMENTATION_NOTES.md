@@ -101,6 +101,23 @@ Without that, a future LangGraph version refuses to load them, and today an unre
 as a plain dict. The tests run with `LANGGRAPH_STRICT_MSGPACK=true`, so a new state type that isn't
 registered fails the tests instead of passing silently.
 
+## W-2 record fields
+
+Rule: a field goes on `W2Record` only if the system uses it or it helps catch a misread image.
+
+| W-2 box | Field | Decision |
+|---|---|---|
+| 1, 2 | `wages`, `federal_withheld` | Required/kept: feed lines 1z and 25a |
+| c | `employer_name` | Kept: shown in provenance |
+| b | `employer_ein` | Optional, format `NN-NNNNNNN`. Not personal data; detects the same W-2 uploaded twice |
+| e | `employee_name` | Optional. Says whose W-2 it is on a joint return |
+| a | `employee_ssn_last4` | Only the last four digits are stored. Extraction passes the full number as `employee_ssn`; the record rejects anything outside the 900–999 test range, then discards all but the last four. A full SSN never reaches state, logs, traces or prompts |
+| 3–6 | `social_security_wages`, `social_security_withheld`, `medicare_wages`, `medicare_withheld` | Optional. Not on the 1040-SR, but they let Review catch vision misreads (box 4 = 6.2% of box 3, box 6 = 1.45% of box 5) |
+| 12, 13 | — | Left out: nothing in scope uses them |
+
+The ground truth for the sample images (`data/fixtures/w2_N_expected.json`) has exactly the `W2Record`
+input fields, so an extraction test can compare its output directly.
+
 ## Stubs still in place
 
 | Piece | Current behaviour | Replaced by |

@@ -1,6 +1,5 @@
 {
   "image": "demo/w2_image_1.jpg",
-  "form_type": "W-2",
   "employer_name": "Finger Lakes Hardware Co.",
   "employer_ein": "00-1234567",
   "employee_name": "Margaret A Ellis",
@@ -10,6 +9,5 @@
   "social_security_wages": "18000.00",
   "social_security_withheld": "1116.00",
   "medicare_wages": "18000.00",
-  "medicare_withheld": "261.00",
-  "retirement_plan": false
+  "medicare_withheld": "261.00"
 }
