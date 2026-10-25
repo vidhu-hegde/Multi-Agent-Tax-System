@@ -6,7 +6,8 @@ validated now; W-2 image extraction with Claude vision replaces the escalation b
 
 from pydantic import TypeAdapter, ValidationError
 
-from src.schemas import DocumentRef, EscalationTicket, Provenance, TaxDocument
+from src.escalation import escalate
+from src.schemas import DocumentRef, Provenance, TaxDocument
 
 _records = TypeAdapter(TaxDocument)
 
@@ -16,14 +17,10 @@ def extraction_ticket_id(document_id: str) -> str:
 
 
 def _cannot_extract(ref: DocumentRef, detail: str) -> dict:
-    ticket = EscalationTicket(
-        ticket_id=extraction_ticket_id(ref.document_id),
-        reason="uncertain",
-        raised_by="extraction",
-        detail=detail,
+    return escalate(
+        "uncertain", raised_by="extraction", key=f"extract:{ref.document_id}", detail=detail,
         evidence={"document_id": ref.document_id, "form_type": ref.form_type, "image_path": ref.image_path},
     )
-    return {"escalations": {ticket.ticket_id: ticket}}
 
 
 def extract_document(payload: dict) -> dict:

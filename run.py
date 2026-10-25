@@ -48,7 +48,9 @@ def format_interrupt(value):
     """Intake questions are plain strings; escalations are dicts from the human node."""
     if not isinstance(value, dict):
         return str(value)
-    return f"\n[Escalation: {value['reason']}] {value['detail']}\n{value['how_to_resolve']}"
+    said = value.get("evidence", {}).get("said_to_taxpayer")
+    lead = f"{said}\n" if said else ""
+    return f"{lead}\n[Escalation: {value['reason']}] {value['detail']}\n{value['how_to_resolve']}"
 
 
 def print_draft(state):

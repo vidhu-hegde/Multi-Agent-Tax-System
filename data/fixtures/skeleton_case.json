@@ -4,6 +4,7 @@
     "filing_status": "single",
     "taxpayer_dob": "1957-05-01",
     "taxpayer_blind": false,
+    "stated_wages": "18000",
     "adjustments": "0",
     "estimated_payments": "1000"
   },

@@ -61,6 +61,30 @@ Intake agent that never finishes.
 any note meaning continue) or a dict `{"action": "continue" | "stop", "note": ..., "resolved_by": ...}`,
 which is what the dashboard will send. Resolved tickets are never reopened (`merge_escalations`).
 
+Agents raise tickets only through `escalate()` / `ticket()` in `src/escalation.py`. The ticket id is
+`<reason>:<key>`, where the key identifies the occurrence, so raising the same issue twice is harmless.
+
+### The six escalation conditions
+
+| # | Condition (brief §4.4) | Raised by | Ticket id | How it's detected now | Test |
+|---|---|---|---|---|---|
+| 1 | Out-of-scope item | Rules | `out_of_scope:<document id>` or `out_of_scope:not_1040sr_eligible` | Document type `other`; nobody born before 2 Jan 1961 | `test_out_of_scope_document_escalates` |
+| 2 | User statement conflicts with a document | Rules | `document_conflict:wages` | Intake asks about wages when there's a W-2; Rules compares that answer with the W-2 box 1 total, and a difference over $500 escalates. "Not sure" is a valid answer and skips the check | `test_stated_wages_that_disagree_with_the_w2_escalate` |
+| 3 | 1099-R box 2b checked | Rules | `1099r_taxable_not_determined:<document id>` | `taxable_not_determined` on the record | `test_1099r_box_2b_escalates_and_resolves` |
+| 4 | Tax advice, planning or optimisation | Intake | `advice_request:<field>:<reply hash>` | Reply that isn't a valid answer and asks for advice | `test_advice_request_escalates_then_intake_carries_on` |
+| 5 | Filing-status ambiguity | Rules | `filing_status_ambiguity:spouse_death` | Intake asks MFJ/QSS filers whether their spouse died; died in 2025, QSS without a 2023/2024 death, or MFJ with a death all escalate | `test_spouse_death_makes_filing_status_a_human_decision` |
+| 6 | Exploitation or third-party pressure | Intake | `exploitation_concern:<field>:<reply hash>` | Reply mentions someone else directing the return or refund | `test_third_party_steering_the_refund_escalates` |
+| — | Honest uncertainty (§4.3) | Intake | `uncertain:<field>:<reply hash>` | "I'm not sure" where a definite answer is needed | `test_not_sure_escalates_as_uncertain` |
+
+When Intake escalates, it stops at the current question, keeps the answers it already has, and picks up
+at the same question once staff resolve the ticket. If the person repeats a reply that was already
+escalated, Intake says so and asks again instead of raising a second ticket. The ticket's evidence holds
+the question, the reply, and what was said to the taxpayer (`said_to_taxpayer`).
+
+**Stub detection:** Intake's `classify_reply()` uses keyword lists. The LLM Intake agent replaces that one
+function with a model call; the escalation path stays the same. Data for eval case 2 is in
+`data/fixtures/conflict_case.json`.
+
 ## Dashboard hook (`src/sessions.py`)
 
 The dashboard talks to sessions only through `open_sessions()`; it never touches the graph or the
@@ -148,7 +172,7 @@ input fields, so an extraction test can compare its output directly.
 | Piece | Current behaviour | Replaced by |
 |---|---|---|
 | `tools.py` tax rules | `standard_deduction`, `senior_deduction`, `taxable_social_security`, `tax_from_schedule` return 0 and mark provenance `stub=True` | tax_math MCP server |
-| Intake | Fixed questions, case file answers | LLM Intake agent |
+| Intake | Fixed questions, case file answers, keyword `classify_reply()` | LLM Intake agent |
 | Extraction | Typed-in values only; images escalate as `uncertain` | Claude vision W-2 extraction |
 | Rules citations | Placeholder `policy.md#...` ids | `data/policy.md` |
 | `run_batch` | Not implemented | Context-window strategy + `docs/metrics.md` |

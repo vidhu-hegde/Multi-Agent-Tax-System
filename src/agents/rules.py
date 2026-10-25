@@ -4,12 +4,39 @@ The citations below are placeholder section ids until policy.md is written.
 """
 
 from datetime import date
+from decimal import Decimal
 
+from src.escalation import ticket
 from src.schemas import EscalationTicket, RuleDecision
 from src.state import SilverFileState, current_answers
+from src.tools import call_tool
 
 # Born before 2 January 1961: 1040-SR eligible, and 65 or older at the end of 2025.
 SENIOR_CUTOFF = date(1961, 1, 2)
+# Stated wages and W-2 box 1 may differ by rounding or memory; beyond this it is a conflict for a human.
+WAGE_TOLERANCE = Decimal("500")
+
+
+def filing_status_problem(status: str, spouse_died_year: int | None) -> str | None:
+    """A spouse's death makes MFJ vs QSS vs Single a judgement call; SilverFile does not make it."""
+    if spouse_died_year == 2025:
+        return "Spouse died in 2025: whether to file MFJ, QSS or Single needs a person to decide."
+    if status == "qss" and spouse_died_year not in (2023, 2024):
+        return "Qualifying surviving spouse needs a spouse who died in 2023 or 2024."
+    if status == "mfj" and spouse_died_year is not None:
+        return f"Filing jointly, but the spouse died in {spouse_died_year}."
+    return None
+
+
+def wage_conflict(stated, w2_records) -> dict | None:
+    """Compare what the taxpayer said they earned with the total of W-2 box 1."""
+    if stated is None or not w2_records:
+        return None
+    total, _ = call_tool("sum", values=[r.wages for r in w2_records])
+    difference, _ = call_tool("subtract", a=total, b=stated)
+    if abs(difference) <= WAGE_TOLERANCE:
+        return None
+    return {"stated_wages": str(stated), "w2_total": str(total), "documents": [r.document_id for r in w2_records]}
 
 
 def rules(state: SilverFileState) -> dict:
@@ -34,25 +61,40 @@ def rules(state: SilverFileState) -> dict:
 
     tickets: list[EscalationTicket] = []
     if not (taxpayer_65 or spouse_65):
-        tickets.append(EscalationTicket(
-            ticket_id="out_of_scope:not_1040sr_eligible", reason="out_of_scope", raised_by="rules",
+        tickets.append(ticket(
+            "out_of_scope", raised_by="rules", key="not_1040sr_eligible",
             detail="Neither the taxpayer nor a joint-filing spouse was born before 2 January 1961.",
         ))
     for ref in state.get("document_inventory", []):
         if ref.form_type == "other":
-            tickets.append(EscalationTicket(
-                ticket_id=f"out_of_scope:{ref.document_id}", reason="out_of_scope", raised_by="rules",
+            tickets.append(ticket(
+                "out_of_scope", raised_by="rules", key=ref.document_id,
                 detail=f"Document {ref.document_id} is out of scope: {ref.description or 'unsupported form'}.",
                 evidence={"document_id": ref.document_id},
             ))
-    for record in state.get("documents", {}).values():
+    records = list(state.get("documents", {}).values())
+    for record in records:
         if record.form_type == "1099-R" and record.taxable_not_determined:
-            tickets.append(EscalationTicket(
-                ticket_id=f"1099r_taxable_not_determined:{record.document_id}",
-                reason="1099r_taxable_not_determined", raised_by="rules",
+            tickets.append(ticket(
+                "1099r_taxable_not_determined", raised_by="rules", key=record.document_id,
                 detail=f"1099-R {record.document_id} has box 2b checked (taxable amount not determined).",
                 evidence={"document_id": record.document_id},
             ))
+
+    status_problem = filing_status_problem(status, value("spouse_died_year"))
+    if status_problem:
+        tickets.append(ticket(
+            "filing_status_ambiguity", raised_by="rules", key="spouse_death", detail=status_problem,
+            evidence={"filing_status": status, "spouse_died_year": value("spouse_died_year")},
+        ))
+
+    conflict = wage_conflict(value("stated_wages"), [r for r in records if r.form_type == "W-2"])
+    if conflict:
+        tickets.append(ticket(
+            "document_conflict", raised_by="rules", key="wages",
+            detail=f"The taxpayer said about ${conflict['stated_wages']} in wages; the W-2s show ${conflict['w2_total']}.",
+            evidence=conflict,
+        ))
 
     decisions = [
         RuleDecision(rule_id="eligibility_1040sr", outcome=taxpayer_65 or spouse_65,
@@ -64,8 +106,14 @@ def rules(state: SilverFileState) -> dict:
         RuleDecision(rule_id="senior_deduction_count", outcome=seniors,
                      explanation="People aged 65+ who qualify for the Schedule 1-A senior deduction.",
                      citation="policy.md#senior-deduction"),
+        RuleDecision(rule_id="filing_status_check", outcome=status_problem is None,
+                     explanation=status_problem or "No spouse death affects the filing status.",
+                     citation="policy.md#filing-status"),
+        RuleDecision(rule_id="wage_check", outcome=conflict is None,
+                     explanation="Stated wages agree with the W-2s." if conflict is None else "Stated wages and W-2s disagree.",
+                     citation="policy.md#document-conflicts"),
         RuleDecision(rule_id="scope", outcome={"issues": [t.ticket_id for t in tickets]},
-                     explanation="Out-of-scope items found; each one escalates to a human.",
+                     explanation="Items that need a human before the draft can be trusted; each one escalates.",
                      citation="policy.md#scope"),
     ]
     remaining = [r for r in state.get("revision_requests") or [] if r.target != "rules"]

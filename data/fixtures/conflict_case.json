@@ -1,0 +1,20 @@
+{
+  "description": "Eval case 2 data: Harold says he earned about $24,000, but his W-2 shows $26,450, so Rules raises a document_conflict escalation for staff to resolve.",
+  "answers": {
+    "filing_status": "single",
+    "taxpayer_dob": "1958-09-12",
+    "taxpayer_blind": false,
+    "stated_wages": "24000",
+    "adjustments": "0",
+    "estimated_payments": "0"
+  },
+  "documents": [
+    {"document_id": "w2-1", "form_type": "W-2", "image_path": "demo/w2_image_2.jpg",
+     "values": {"employer_name": "Cayuga Community Library", "employer_ein": "00-7654321",
+                "employee_name": "Harold J Brennan", "employee_ssn": "902-45-6789",
+                "wages": "26450.00", "federal_withheld": "2380.00",
+                "box12": [{"code": "D", "amount": "1000.00"}], "retirement_plan": true}},
+    {"document_id": "ssa-1", "form_type": "SSA-1099",
+     "values": {"net_benefits": "19800", "federal_withheld": "0"}}
+  ]
+}
