@@ -39,3 +39,45 @@ def test_drive_resumes_after_interrupt():
 
     assert shown == ["What is your filing status?"]
     assert result["answer"] == "Single"
+
+
+def test_resume_recap_is_shown_once(make_graph):
+    from langgraph.types import Command
+
+    graph = make_graph()
+    config = {"configurable": {"thread_id": "resume-recap"}}
+    graph.invoke({}, config)
+    result = graph.invoke(Command(resume="single"), config)
+    assert "So far:" not in result["__interrupt__"][0].value
+    replies = iter(["none", "1950-02-03"])
+    shown = []
+
+    def ask(_):
+        try:
+            return next(replies)
+        except StopIteration:
+            raise EOFError
+
+    run.drive(graph, "resume-recap", None, ask=ask, say=shown.append)
+    assert shown[0].startswith("So far: filing status: single.")
+    assert "So far:" not in "".join(shown[1:])
+
+
+def test_cli_new_session_uses_safe_id(settings, monkeypatch):
+    import uuid
+    from dataclasses import replace
+
+    from src.memory import thread_config
+
+    monkeypatch.setattr(run, "load_settings", lambda: replace(settings, anthropic_api_key="test"))
+    monkeypatch.setattr(uuid, "uuid4", lambda: uuid.UUID("12345678901212345678901234567890"))
+    seen = []
+
+    def drive(graph, thread_id, first_input):
+        config = thread_config(thread_id)  # the old truncated hex id fails here
+        result = graph.invoke(first_input, config)
+        seen.append(result)
+
+    monkeypatch.setattr(run, "drive", drive)
+    run.main([])
+    assert len(seen) == 1

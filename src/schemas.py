@@ -277,3 +277,9 @@ class Handoff(Contract):
     from_agent: str
     to_agent: str
     reason: str
+
+
+class StateWriteConflict(Contract):
+    """Keep competing writes until staff explicitly select a record."""
+
+    candidates: list[TaxDocument | EscalationTicket]

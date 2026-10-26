@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+import pytest
 from langgraph.types import Command
 
 import run
@@ -84,6 +85,40 @@ def test_loop_guard_breaks_a_pathological_cycle(make_graph, settings):
     assert hops == ["intake"] * settings.loop_guard_repeats + ["human"]
 
 
+def test_orchestrator_counts_new_answers_as_progress(make_graph, settings):
+    from src.schemas import IntakeAnswer
+
+    def collecting_intake(state):
+        count = len(state.get("answers", []))
+        if count < settings.loop_guard_repeats + 2:
+            return {"answers": [IntakeAnswer(field=f"field-{count}", value="confirmed")]}
+        return {}  # no more progress: the guard must now trip
+
+    graph = make_graph(agents={"intake": collecting_intake})
+    result = graph.invoke({}, config())
+    assert pending_interrupt(result)["reason"] == "loop_guard"
+    assert len(result["answers"]) == settings.loop_guard_repeats + 2
+
+
+def test_model_reasks_without_answers_cannot_reset_loop_guard(make_graph, settings):
+    from importlib import import_module
+    from langchain_core.messages import AIMessage
+
+    class Provider:
+        def invoke(self, messages):
+            return AIMessage(
+                content='{"reason":null}',
+                usage_metadata={"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+            )
+
+    intake = import_module("src.agents.intake")
+    graph = make_graph(agents={"intake": intake.make_intake(Provider())})
+    graph.invoke({}, config())
+    for _ in range(settings.loop_guard_repeats + 1):
+        result = graph.invoke(Command(resume="unrelated reply"), config())
+    assert pending_interrupt(result)["reason"] == "loop_guard"
+
+
 def test_1099r_box_2b_escalates_and_resolves(make_graph, make_case):
     case_path = make_case(r1_2b=True)
 
@@ -99,7 +134,7 @@ def test_1099r_box_2b_escalates_and_resolves(make_graph, make_case):
 
 
 def test_interactive_intake_asks_one_question_at_a_time(make_graph):
-    replies = iter(["widowed", "single", "1950-02-03", "no", "0", "250"])
+    replies = iter(["widowed", "single", "none", "1950-02-03", "no", "no", "no", "none", "0", "0", "0", "0", "0", "250"])
     asked = []
     result = run.drive(make_graph(), "t", {}, ask=lambda _: next(replies), say=asked.append)
 
@@ -115,13 +150,71 @@ def test_session_resumes_from_sqlite_after_restart(settings, make_graph):
         graph = make_graph(checkpointer=saver)
         graph.invoke({}, config("resume"))
         graph.invoke(Command(resume="single"), config("resume"))
+        graph.invoke(Command(resume="none"), config("resume"))
 
     with open_checkpointer(settings) as saver:  # a new process on Friday
         graph = make_graph(checkpointer=saver)
         waiting_on = graph.get_state(config("resume")).interrupts[0].value
         assert "date of birth" in waiting_on  # picks up at the next question, not the first
-        replies = iter(["1950-02-03", "no", "0", "0"])
+        assert "So far:" not in waiting_on
+        replies = iter(["1950-02-03", "no", "no", "no", "none", "0", "0", "0", "0", "0", "0"])
         result = run.drive(graph, "resume", None, ask=lambda _: next(replies), say=lambda _: None)
 
     assert result["status"] == "draft_ready"
     assert {a.field: a.value for a in result["answers"]}["filing_status"] == "single"
+
+
+def test_conflicting_reread_pauses_until_staff_select_a_document(settings, make_graph):
+    from src.schemas import W2Record, Provenance
+
+    first = W2Record(document_id="w2-reread", employer_name="Synthetic", wages="100", source=Provenance(kind="document", source="test"))
+    second = first.model_copy(update={"wages": Decimal("200")})
+    cfg = config("reread-conflict")
+    with open_checkpointer(settings) as saver:
+        graph = make_graph(checkpointer=saver)
+        result = graph.invoke({"case_path": SKELETON_CASE, "documents": {first.document_id: first}}, cfg)
+        assert result["status"] == "draft_ready"
+        result = graph.invoke({"documents": {second.document_id: second}}, cfg)
+        ticket = pending_interrupt(result)
+        assert ticket["reason"] == "document_conflict"
+
+    with open_checkpointer(settings) as saver:
+        graph = make_graph(checkpointer=saver)
+        result = graph.invoke(Command(resume="continue"), cfg)
+        ticket = pending_interrupt(result)
+        assert ticket["reason"] == "document_conflict"  # no silent winner
+        candidates = ticket["evidence"]["candidates"]
+        choice = next(i for i, record in enumerate(candidates, 1) if record["wages"] == "200")
+        result = graph.invoke(Command(resume={"action": "continue", "choice": choice}), cfg)
+        assert result["documents"][first.document_id].wages == Decimal("200")
+        assert result["lines"]["1z"].amount == Decimal("18200")
+        assert result["status"] == "draft_ready"
+
+
+def test_conflicting_ticket_resolutions_pause_and_allow_stop(make_graph):
+    from src.schemas import EscalationTicket
+
+    first = EscalationTicket(ticket_id="same", reason="uncertain", raised_by="intake", detail="test", status="resolved", resolution={"action": "continue"})
+    second = first.model_copy(update={"resolution": {"action": "stop"}})
+    graph = make_graph()
+    graph.invoke({"case_path": SKELETON_CASE, "escalations": {"same": first}}, config())
+    result = graph.invoke({"escalations": {"same": second}}, config())
+    ticket = pending_interrupt(result)
+    assert ticket["reason"] == "uncertain"
+    assert len(ticket["evidence"]["candidates"]) == 2
+    result = graph.invoke(Command(resume="stop"), config())
+    assert result["status"] == "stopped"
+
+
+@pytest.mark.parametrize("count,schedule2", [("1", "0"), ("0", "120")])
+def test_nonzero_interactive_intake_finishes_after_one_staff_approval(make_graph, count, schedule2):
+    replies = ["single", "none", "1950-02-03", "no", "no", "no", "none", count, "0", schedule2, "0", "0", "0"]
+    if count == "1":
+        replies.extend(["Synthetic Child", "child", "901-12-3456"])
+    replies.append("continue")
+    replies = iter(replies)
+    shown = []
+    result = run.drive(make_graph(), "interactive-nonzero", {}, ask=lambda _: next(replies), say=shown.append)
+    assert result["intake_complete"]
+    assert result["status"] == "draft_ready"
+    assert sum("[Escalation:" in prompt for prompt in shown) == 1

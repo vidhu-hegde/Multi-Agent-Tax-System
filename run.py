@@ -16,9 +16,9 @@ reads a reply from the terminal and resumes with Command(resume=reply).
 """
 
 import argparse
+import json
 import logging
 import sys
-import uuid
 
 from src.config import load_settings
 
@@ -41,6 +41,7 @@ def parse_args(argv=None):
     staff.add_argument("--stop", action="store_true", help="with --resolve: stop the session instead of continuing")
     staff.add_argument("--note", default="", help="with --resolve: note recorded on the ticket")
     staff.add_argument("--staff-id", default="staff", help="with --resolve: who is resolving")
+    staff.add_argument("--choice", type=int, help="with --resolve: select a conflicting record, numbered from 1")
     return parser.parse_args(argv)
 
 
@@ -50,6 +51,9 @@ def format_interrupt(value):
         return str(value)
     said = value.get("evidence", {}).get("said_to_taxpayer")
     lead = f"{said}\n" if said else ""
+    if value.get("evidence", {}).get("state_write"):
+        for number, candidate in enumerate(value["evidence"]["candidates"], 1):
+            lead += f"Candidate {number}: {json.dumps(candidate, sort_keys=True)}\n"
     return f"{lead}\n[Escalation: {value['reason']}] {value['detail']}\n{value['how_to_resolve']}"
 
 
@@ -74,16 +78,24 @@ def print_summary(summary):
 def drive(graph, thread_id, first_input, ask=input, say=print):
     """Run the graph on one thread, pausing for the user at every interrupt."""
     from langgraph.types import Command
+    from src.agents.intake import recap
+    from src.memory import thread_config
+    from src.state import current_answers
 
-    config = {"configurable": {"thread_id": thread_id}}
+    config = thread_config(thread_id)
     payload = first_input
+    show_recap = first_input is None
     while True:
         result = graph.invoke(payload, config)
         interrupts = result.get("__interrupt__") if isinstance(result, dict) else None
         if not interrupts:
             return result
         for item in interrupts:
-            say(format_interrupt(item.value))
+            prompt = format_interrupt(item.value)
+            if show_recap and isinstance(item.value, str):
+                prompt = recap(current_answers(result)) + prompt
+                show_recap = False
+            say(prompt)
         try:
             payload = Command(resume=ask("> "))
         except (EOFError, KeyboardInterrupt):
@@ -99,8 +111,10 @@ def run_staff_command(args, settings):
             thread_id, ticket_id = args.resolve
             action = "stop" if args.stop else "continue"
             try:
-                summary = sessions.resolve(thread_id, ticket_id, action, note=args.note, resolved_by=args.staff_id)
-            except StaleEscalation as exc:
+                summary = sessions.resolve(
+                    thread_id, ticket_id, action, note=args.note, resolved_by=args.staff_id, choice=args.choice
+                )
+            except (StaleEscalation, ValueError) as exc:
                 sys.exit(str(exc))
             print(f"Resolved {ticket_id} ({action}). Session is now:")
             print_summary(summary)
@@ -129,7 +143,7 @@ def main(argv=None):
         return
 
     from src.graph import build_graph, run_batch
-    from src.memory import open_checkpointer
+    from src.memory import open_checkpointer, thread_config
 
     use_context_strategy = not args.no_context_strategy
 
@@ -143,7 +157,7 @@ def main(argv=None):
         if args.thread_id:
             thread_id, first_input = args.thread_id, None  # None resumes from the checkpoint
         else:
-            thread_id = uuid.uuid4().hex[:12]
+            thread_id = thread_config()["configurable"]["thread_id"]
             first_input = {"case_path": args.case} if args.case else {}
             print(f"Session id: {thread_id}")
 
