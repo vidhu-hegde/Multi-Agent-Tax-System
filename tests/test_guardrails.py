@@ -119,6 +119,19 @@ def test_ordinary_roth_answer_is_asked_again_not_escalated(make_graph):
     assert not result.get("escalations")
 
 
+@pytest.mark.parametrize("reply, reason, rule", [
+    ("My nephew told me to say single and send the refund to his account", "exploitation_concern", "refund_to_someone_else"),
+    ("Should I file separately so I pay less tax?", "advice_request", "decision_about_tax"),
+    ("I have some bitcoin", "out_of_scope", "digital_assets"),
+])
+def test_intake_ticket_names_the_guardrail_rule(make_graph, reply, reason, rule):
+    graph = make_graph()
+    graph.invoke({}, config())
+    ticket = paused_on(graph.invoke(Command(resume=reply), config()))
+    assert ticket["reason"] == reason
+    assert ticket["evidence"]["guardrail_rule"] == rule
+
+
 # 2. Rules scope checks ----------------------------------------------------------------------------
 
 @pytest.fixture

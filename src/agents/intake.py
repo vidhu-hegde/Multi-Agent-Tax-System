@@ -17,7 +17,7 @@ from langgraph.types import interrupt
 from pydantic import TypeAdapter
 
 from src.escalation import escalate
-from src.guardrails import classify_reply
+from src.guardrails import classify_reply, explain
 from src.memory import invoke_model, redact_ssns
 from src.schemas import Dependent, DocumentRef, FormType, IntakeAnswer, RevisionRequest, SSN
 from src.state import SilverFileState, current_answers
@@ -493,6 +493,14 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
                             return update
                         prompt = "I've already passed that on to a member of staff. " + question
                         continue
+                    # Tell staff which guardrail rule fired (policy.md), so a false alarm is easy to spot.
+                    matched = explain(str(safe))
+                    if matched.reason != reason:
+                        matched = explain(str(raw))
+                    if matched.reason == reason:
+                        guardrail_rule = matched.rule
+                    else:
+                        guardrail_rule = "model_classifier" if model_called else "field_check"
                     update.update(
                         escalate(
                             reason,
@@ -503,6 +511,7 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
                                 "question": question,
                                 "reply": safe,
                                 "said_to_taxpayer": SAID_TO_TAXPAYER[reason],
+                                "guardrail_rule": guardrail_rule,
                             },
                         )
                     )
