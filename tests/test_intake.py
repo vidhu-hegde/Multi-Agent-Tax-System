@@ -260,9 +260,8 @@ def test_repeated_model_escalation_is_committed_before_next_interrupt(make_graph
         ("schedule2_total_tax", "25"),
         ("schedule3_nonrefundable_credits", "10"),
         ("schedule3_other_payments", "30"),
-        ("taxpayer_claimed_dependent", True),
-        ("dual_status_alien", True),
-        ("spouse_itemizes", True),
+        # taxpayer_claimed_dependent, dual_status_alien and spouse_itemizes are now consumed by Rules and
+        # escalate as out_of_scope: see tests/test_guardrails.py::test_chart_exceptions_escalate_as_out_of_scope
         ("dependent_count", 1),
     ],
 )
@@ -271,8 +270,6 @@ def test_unintegrated_downstream_inputs_pause_instead_of_being_silently_ignored(
 
     case = json.loads(open(SKELETON_CASE).read())
     case["answers"][field] = value
-    if field == "spouse_itemizes":
-        case["answers"]["filing_status"] = "mfs"
     if field == "dependent_count":
         case["answers"].update(
             dependent_1_name="Synthetic Child", dependent_1_relationship="child", dependent_1_ssn="901-12-3456"

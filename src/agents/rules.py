@@ -1,6 +1,7 @@
-"""Eligibility & Rules agent (STUB). Every decision cites a section of data/policy.md.
+"""Eligibility & Rules agent. Every decision cites a section of data/policy.md.
 
-The citations below are placeholder section ids until policy.md is written.
+Scope checks for the standard-deduction exceptions and W-2 scope signals: Juee (Guardrails and ethics),
+following policy.md#standard-deduction-exceptions and policy.md#w2-scope-signals.
 """
 
 from datetime import date
@@ -15,6 +16,55 @@ from src.tools import call_tool
 SENIOR_CUTOFF = date(1961, 1, 2)
 # Stated wages and W-2 box 1 may differ by rounding or memory; beyond this it is a conflict for a human.
 WAGE_TOLERANCE = Decimal("500")
+
+
+# policy.md#w2-scope-signals: W-2 box 12 codes that put a return out of scope, and codes that need nothing.
+W2_OUT_OF_SCOPE_CODES = {
+    "A": "uncollected Social Security tax (Schedule 2)", "B": "uncollected Medicare tax (Schedule 2)",
+    "M": "uncollected Social Security tax (Schedule 2)", "N": "uncollected Medicare tax (Schedule 2)",
+    "K": "excise tax on excess golden parachute payments", "Z": "income under a failed 409A plan",
+    "Q": "nontaxable combat pay election", "R": "Archer MSA contributions", "W": "HSA contributions",
+    "T": "adoption benefits (Form 8839)", "H": "457(b)/501(c)(18)(D) contributions",
+    "FF": "small employer health reimbursement", "GG": "qualified equity grants",
+    "HH": "deferrals under a section 83(i) election", "II": "Medicaid waiver payments",
+}
+W2_NO_ACTION_CODES = {"C", "D", "E", "F", "G", "S", "AA", "BB", "DD", "EE", "J", "L", "P", "V", "Y"}
+MEDICARE_WAGE_LIMIT = Decimal("200000")
+
+
+def w2_scope_tickets(record) -> list[EscalationTicket]:
+    """policy.md#w2-scope-signals. A comparison against a threshold, not tax arithmetic."""
+    found: list[tuple[str, str, str]] = []  # (reason, field key, why)
+    if record.statutory_employee:
+        found.append(("out_of_scope", "statutory_employee", "box 13 statutory employee is checked (Schedule C)"))
+    if record.allocated_tips:
+        found.append(("out_of_scope", "allocated_tips", "box 8 shows allocated tips (Form 4137)"))
+    if record.dependent_care_benefits:
+        found.append(("out_of_scope", "dependent_care_benefits", "box 10 shows dependent care benefits (Form 2441)"))
+    if record.medicare_wages is not None and record.medicare_wages > MEDICARE_WAGE_LIMIT:
+        found.append(("out_of_scope", "medicare_wages", "box 5 is over $200,000 (Additional Medicare Tax)"))
+    for entry in record.box12:
+        if entry.code in W2_OUT_OF_SCOPE_CODES:
+            found.append(("out_of_scope", f"box12_{entry.code}", f"box 12 code {entry.code}: {W2_OUT_OF_SCOPE_CODES[entry.code]}"))
+        elif entry.code not in W2_NO_ACTION_CODES:
+            found.append(("uncertain", f"box12_{entry.code}", f"box 12 code {entry.code} is not in SilverFile's list"))
+    return [
+        ticket(reason, raised_by="rules", key=f"{record.document_id}:{field}",
+               detail=f"W-2 {record.document_id}: {why}. This return needs a full preparer.",
+               evidence={"document_id": record.document_id, "field": field, "policy": "policy.md#w2-scope-signals"})
+        for reason, field, why in found
+    ]
+
+
+# policy.md#standard-deduction-exceptions: answers that mean the Standard Deduction Chart does not apply.
+CHART_EXCEPTIONS = [
+    ("taxpayer_claimed_dependent", "taxpayer_is_a_dependent",
+     "Someone else can claim the taxpayer as a dependent, so the Standard Deduction Chart does not apply."),
+    ("spouse_itemizes", "mfs_spouse_itemizes",
+     "Filing separately and the spouse itemizes, so the Standard Deduction Chart does not apply."),
+    ("dual_status_alien", "dual_status_alien",
+     "The taxpayer was a dual-status alien in 2025, so the Standard Deduction Chart does not apply."),
+]
 
 
 def filing_status_problem(status: str, spouse_died_year: int | None) -> str | None:
@@ -81,6 +131,20 @@ def rules(state: SilverFileState) -> dict:
                 evidence={"document_id": record.document_id},
             ))
 
+    chart_exceptions = []
+    for field, key, detail in CHART_EXCEPTIONS:
+        if field == "spouse_itemizes" and status != "mfs":
+            continue
+        if value(field) is True:
+            chart_exceptions.append(key)
+            tickets.append(ticket(
+                "out_of_scope", raised_by="rules", key=key, detail=detail,
+                evidence={"answer": field, "policy": "policy.md#standard-deduction-exceptions"},
+            ))
+    for record in records:
+        if record.form_type == "W-2":
+            tickets.extend(w2_scope_tickets(record))
+
     status_problem = filing_status_problem(status, value("spouse_died_year"))
     if status_problem:
         tickets.append(ticket(
@@ -112,6 +176,10 @@ def rules(state: SilverFileState) -> dict:
         RuleDecision(rule_id="wage_check", outcome=conflict is None,
                      explanation="Stated wages agree with the W-2s." if conflict is None else "Stated wages and W-2s disagree.",
                      citation="policy.md#document-conflicts"),
+        RuleDecision(rule_id="standard_deduction_chart_applies", outcome=not chart_exceptions,
+                     explanation=("The chart does not apply: " + ", ".join(chart_exceptions)) if chart_exceptions
+                     else "None of the chart exceptions apply.",
+                     citation="policy.md#standard-deduction-exceptions"),
         RuleDecision(rule_id="scope", outcome={"issues": [t.ticket_id for t in tickets]},
                      explanation="Items that need a human before the draft can be trusted; each one escalates.",
                      citation="policy.md#scope"),
