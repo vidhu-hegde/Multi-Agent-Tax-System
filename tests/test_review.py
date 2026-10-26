@@ -128,3 +128,93 @@ def test_review_rejects_refund_and_amount_owed_both_positive():
         and "both positive" in problem.reason
         for problem in problems
     )
+
+
+def test_review_detects_incorrect_total_income():
+    state = complete_zero_state()
+    set_amount(state, "9", "1")
+
+    problems = find_problems(state)
+
+    assert any(
+        problem.line == "9"
+        and "recompute" in problem.reason
+        for problem in problems
+    )
+
+
+def test_review_detects_missing_provenance():
+    state = complete_zero_state()
+
+    # Deliberately bypass Pydantic validation to simulate corrupted state.
+    state["lines"]["16"] = LineValue.model_construct(
+        line="16",
+        amount=Decimal("0"),
+        provenance=[],
+        depends_on=[],
+    )
+
+    problems = find_problems(state)
+
+    assert any(
+        problem.line == "16"
+        and problem.reason == "no provenance record"
+        for problem in problems
+    )
+
+
+def test_review_detects_unresolved_scope_issue_and_routes_to_rules():
+    state = complete_zero_state()
+
+    state["rule_decisions"]["scope"] = RuleDecision(
+        rule_id="scope",
+        outcome={"issues": ["out_of_scope:nec-1"]},
+        explanation="Unsupported document found.",
+        citation="policy.md#scope",
+    )
+
+    problems = find_problems(state)
+
+    assert any(
+        problem.target == "rules"
+        and problem.line is None
+        and "out_of_scope:nec-1" in problem.reason
+        for problem in problems
+    )
+
+
+def test_review_does_not_modify_lines():
+    state = complete_zero_state(stub_line="16")
+    before = {
+        line: value.model_dump(mode="json")
+        for line, value in state["lines"].items()
+    }
+
+    update = review(state)
+
+    after = {
+        line: value.model_dump(mode="json")
+        for line, value in state["lines"].items()
+    }
+
+    assert after == before
+    assert "lines" not in update
+    assert update["revision_requests"]
+
+
+def test_corrected_return_is_reviewed_again_and_can_pass():
+    first_state = complete_zero_state(stub_line="16")
+
+    first_review = review(first_state)
+
+    assert first_review["review_status"] == "failed"
+    assert first_review["review_passes"] == 1
+
+    corrected_state = complete_zero_state()
+    corrected_state["review_passes"] = first_review["review_passes"]
+
+    second_review = review(corrected_state)
+
+    assert second_review["review_status"] == "passed"
+    assert second_review["revision_requests"] == []
+    assert second_review["review_passes"] == 2
