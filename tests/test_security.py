@@ -2,6 +2,7 @@
 
 import pytest
 
+import src.memory as memory
 from src.schemas import SSN_PATTERN
 from src.security import (
     SSNValidationError,
@@ -79,3 +80,18 @@ def test_redaction_recurses_through_log_and_trace_payloads():
 
 def test_schema_and_security_use_the_same_ssn_pattern():
     assert SSN_PATTERN == TEST_SSN_PATTERN
+
+
+def test_memory_uses_shared_redaction_helper():
+    """Memory and model paths must use the central security boundary."""
+    assert memory.redact_ssns is redact_ssns
+
+
+def test_redaction_masks_integer_ssn_in_trace_payload():
+    """Nine-digit integers must not bypass recursive trace redaction."""
+    payload = {"tool_input": {"taxpayer_id": 123456789}}
+
+    redacted = redact_ssns(payload)
+
+    assert redacted["tool_input"]["taxpayer_id"] == "***-**-6789"
+    assert "123456789" not in str(redacted)

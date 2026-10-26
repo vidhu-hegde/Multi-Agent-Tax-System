@@ -17,7 +17,8 @@ from langgraph.types import interrupt
 from pydantic import TypeAdapter
 
 from src.escalation import escalate
-from src.memory import invoke_model, redact_ssns
+from src.memory import invoke_model
+from src.security import redact_ssns
 from src.schemas import Dependent, DocumentRef, FormType, IntakeAnswer, RevisionRequest, SSN
 from src.state import SilverFileState, current_answers
 

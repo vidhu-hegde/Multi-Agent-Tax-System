@@ -40,6 +40,11 @@ def validate_test_ssn(value: Any) -> str:
 def redact_ssns(value: Any) -> Any:
     """Return a safe copy with SSN-shaped values masked to ***-**-1234."""
 
+    # bool is a subclass of int, so require the exact int type.
+    if type(value) is int and 100_000_000 <= value <= 999_999_999:
+        digits = str(value)
+        return f"***-**-{digits[-4:]}"
+
     if isinstance(value, str):
         return _SSN_SHAPE_RE.sub(
             lambda match: f"***-**-{match.group(3)}",
