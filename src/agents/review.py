@@ -21,7 +21,12 @@ SUBTRACT_CHECKS = {
     "34": ("subtract_floor_zero", "33", "24"),
     "37": ("subtract_floor_zero", "24", "33"),
 }
-NOT_MORE_THAN = [("2a", None), ("4b", "4a"), ("5b", "5a"), ("6b", "6a")]
+NOT_MORE_THAN = [
+    ("3a", "3b"),
+    ("4b", "4a"),
+    ("5b", "5a"),
+    ("6b", "6a"),
+]
 
 
 def find_problems(state: SilverFileState) -> list[RevisionRequest]:
@@ -56,8 +61,17 @@ def find_problems(state: SilverFileState) -> list[RevisionRequest]:
             problem(line, f"total does not recompute (expected {expected})")
 
     for taxable, total in NOT_MORE_THAN:
-        if total and lines[taxable].amount > lines[total].amount:
-            problem(taxable, f"line {taxable} is larger than line {total}")
+        if lines[taxable].amount > lines[total].amount:
+            problem(
+                taxable,
+                f"line {taxable} is larger than line {total}",
+            )
+
+    if lines["34"].amount > 0 and lines["37"].amount > 0:
+        problem(
+            "34",
+            "refund line 34 and amount owed line 37 are both positive",
+        )
 
     scope = state.get("rule_decisions", {}).get("scope")
     escalations = state.get("escalations", {})

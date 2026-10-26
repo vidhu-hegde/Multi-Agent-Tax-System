@@ -42,6 +42,12 @@ def complete_zero_state(*, stub_line: str | None = None) -> dict:
     }
 
 
+def set_amount(state: dict, line: str, amount: str) -> None:
+    state["lines"][line] = state["lines"][line].model_copy(
+        update={"amount": Decimal(amount)}
+    )
+
+
 def test_review_rejects_stubbed_tax_value_and_sends_it_back_to_computation():
     state = complete_zero_state(stub_line="16")
 
@@ -79,4 +85,46 @@ def test_production_placeholder_tools_cannot_reach_draft_ready(make_graph):
     assert all(
         "stub" in request["reason"].lower()
         for request in requests
+    )
+
+
+@pytest.mark.parametrize(
+    ("taxable_line", "total_line"),
+    [
+        ("3a", "3b"),
+        ("4b", "4a"),
+        ("5b", "5a"),
+        ("6b", "6a"),
+    ],
+)
+def test_review_detects_taxable_amount_above_its_total(
+    taxable_line,
+    total_line,
+):
+    state = complete_zero_state()
+    set_amount(state, taxable_line, "2")
+    set_amount(state, total_line, "1")
+
+    problems = find_problems(state)
+
+    assert any(
+        problem.target == "computation"
+        and problem.line == taxable_line
+        and total_line in problem.reason
+        for problem in problems
+    )
+
+
+def test_review_rejects_refund_and_amount_owed_both_positive():
+    state = complete_zero_state()
+    set_amount(state, "34", "10")
+    set_amount(state, "37", "5")
+
+    problems = find_problems(state)
+
+    assert any(
+        problem.target == "computation"
+        and problem.line == "34"
+        and "both positive" in problem.reason
+        for problem in problems
     )
