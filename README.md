@@ -169,6 +169,13 @@ pytest tests/
 
 ## Demo / eval cases
 
+End-to-end eval cases live in [`evals/cases.json`](evals/cases.json) (format: [`evals/README.md`](evals/README.md)).
+They run offline and are part of `pytest`:
+
+```bash
+python -m evals.run_evals
+```
+
 - [`demo/eval_case_1.md`](demo/eval_case_1.md): a clean run with no escalations
 - [`demo/eval_case_2.md`](demo/eval_case_2.md): triggers a HITL event, with steps to resolve it
 
