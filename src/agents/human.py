@@ -13,6 +13,7 @@ from pydantic import TypeAdapter
 
 from src.schemas import EscalationTicket, RevisionRequest, TaxDocument
 from src.state import SilverFileState
+from src.evidence import invalidate_evidence
 
 
 def normalize_resolution(answer) -> dict:
@@ -60,6 +61,7 @@ def human(state: SilverFileState) -> dict:
                 if channel == "documents":
                     documents[key] = TypeAdapter(TaxDocument).validate_python(record)
                     update["documents"] = Overwrite(documents)
+                    update.update(invalidate_evidence(state))
                     requests = list(update.get("revision_requests", state.get("revision_requests", [])))
                     requests.extend(
                         RevisionRequest(target=target, reason=f"Staff selected document {key}", raised_by="human")

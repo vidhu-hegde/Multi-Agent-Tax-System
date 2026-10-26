@@ -176,3 +176,20 @@ pytest tests/
 - [`docs/IMPLEMENTATION_NOTES.md`](docs/IMPLEMENTATION_NOTES.md)
 - [`docs/metrics.md`](docs/metrics.md)
 - [`docs/AI_DISCLOSURE.md`](docs/AI_DISCLOSURE.md)
+
+
+## Extraction and provenance draft view
+
+The communication/extraction integration is documented in [Anupama's handoff](docs/ANUPAMA_HANDOFF.md).
+Render the existing synthetic typed case without a model key:
+
+```powershell
+.\.venv\Scripts\python -m src.render --case data/fixtures/skeleton_case.json --output output/draft_1040sr.html
+```
+
+Open the HTML file and click or keyboard-activate an amount to inspect its sources and calculation.
+Stub-dependent or stale amounts are withheld. For live W-2 vision, configure local `.env` credentials
+and use `demo/anupama_vision_case.json`; live accuracy testing is pending. See the handoff for
+manual-entry metadata, agent contracts, revisions, test commands and integration dependencies.
+[Anupama's report section](docs/ANUPAMA_REPORT.md) and [AI-use disclosure](docs/AI_DISCLOSURE.md)
+record the scope and limits of this contribution.

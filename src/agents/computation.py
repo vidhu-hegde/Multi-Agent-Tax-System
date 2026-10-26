@@ -31,7 +31,8 @@ def computation(state: SilverFileState) -> dict:
                 kind="document",
                 source=f"{r.form_type} {r.document_id}, box {box if isinstance(box, str) else box[r.form_type]}",
                 value=getattr(r, field),
-                inputs={"record_source": r.source.source},
+                inputs={"record_source": r.source.model_dump(mode="json"), "document_id": r.document_id, "field": field},
+                entered_by=r.source.entered_by, recorded_at=r.source.recorded_at, stub=r.source.stub,
             )
             for r in docs
             if getattr(r, field) is not None
@@ -48,7 +49,8 @@ def computation(state: SilverFileState) -> dict:
 
     def derive(line, tool, depends_on, rule=None, **inputs):
         result, step = call_tool(tool, **inputs)
-        steps = [step]
+        steps = [p for parent in depends_on for p in lines[parent].provenance]
+        steps.append(step)
         if rule:
             decision = decisions[rule]
             steps.insert(0, Provenance(kind="rule", source=decision.rule_id, value=decision.outcome,
