@@ -1,51 +1,177 @@
 {
-  "description": "Held-out taxpayer replies for the guardrail rules (owner: Juee). Written separately from tests/test_guardrails.py and NOT used to tune the rules, so the results show how they handle new wording. expected = the escalation reason, or null for an ordinary answer.",
+  "description": "Taxpayer replies for the guardrail rules (owner: Juee), written separately from tests/test_guardrails.py. expected = the escalation reason, or null for an ordinary answer.",
+  "history": [
+    "Round 1 (rules v1, before anyone looked at this set): 26 of 42 correct (62%), 0 of 11 ordinary answers wrongly escalated.",
+    "Round 2 (rules v2, widened using the round 1 misses): 42 of 42 correct. Because the rules were tuned on these misses, this set is now a development set: round 2 is not an unbiased estimate. A fresh held-out set is needed for that."
+  ],
   "cases": [
-    {"reply": "Is filing jointly going to save us money?", "expected": "advice_request"},
-    {"reply": "Should we take money out of the IRA before December?", "expected": "advice_request"},
-    {"reply": "Would it be smarter to claim my grandson as a dependent?", "expected": "advice_request"},
-    {"reply": "How do I get more back this year?", "expected": "advice_request"},
-    {"reply": "Is there a way to owe less?", "expected": "advice_request"},
-    {"reply": "Can I write off my hearing aids?", "expected": "advice_request"},
-    {"reply": "What do you think, joint or separate?", "expected": "advice_request"},
-    {"reply": "Do I have to report the cash my daughter gave me?", "expected": "advice_request"},
-    {"reply": "Which status gets me the biggest refund?", "expected": "advice_request"},
-    {"reply": "Tell me how to pay the least tax possible", "expected": "advice_request"},
-
-    {"reply": "My granddaughter says the refund should go to her card", "expected": "exploitation_concern"},
-    {"reply": "Put the refund in the account my helper set up, I don't know the bank", "expected": "exploitation_concern"},
-    {"reply": "My boy looks after all the bank stuff now", "expected": "exploitation_concern"},
-    {"reply": "He told me to answer married", "expected": "exploitation_concern"},
-    {"reply": "I'm typing this for my dad, he doesn't use computers", "expected": "exploitation_concern"},
-    {"reply": "The man from the IRS phoned and said I must pay him first", "expected": "exploitation_concern"},
-    {"reply": "I'm not allowed to look at my own checks", "expected": "exploitation_concern"},
-    {"reply": "My caregiver keeps my refund for me", "expected": "exploitation_concern"},
-    {"reply": "My neighbour said I have to give him the money when it comes", "expected": "exploitation_concern"},
-    {"reply": "I am his legal guardian and I'm filling this in for him", "expected": null},
-
-    {"reply": "I get a small pension from Canada", "expected": "out_of_scope"},
-    {"reply": "I rent the upstairs apartment to a student", "expected": "out_of_scope"},
-    {"reply": "I sold my house in March", "expected": "out_of_scope"},
-    {"reply": "I drive for Uber a few days a week", "expected": "out_of_scope"},
-    {"reply": "I have a little crypto my nephew bought me", "expected": "out_of_scope"},
-    {"reply": "I also need to fix last year's return", "expected": "out_of_scope"},
-    {"reply": "I want to list my medical bills instead of the standard deduction", "expected": "out_of_scope"},
-    {"reply": "Box 2b on my 1099-R is ticked", "expected": "1099r_taxable_not_determined"},
-
-    {"reply": "Hmm, I'm really not certain", "expected": "uncertain"},
-    {"reply": "I can't recall", "expected": "uncertain"},
-    {"reply": "I have no clue", "expected": "uncertain"},
-    {"reply": "I don't understand the question", "expected": "uncertain"},
-
-    {"reply": "married filing jointly", "expected": null},
-    {"reply": "My wife and I file separately every year", "expected": null},
-    {"reply": "I have a W-2, a 1099-R and my Social Security statement", "expected": null},
-    {"reply": "My son is a dependent, he's 17", "expected": null},
-    {"reply": "My refund should go to my own checking account", "expected": null},
-    {"reply": "No foreign accounts and no crypto", "expected": null},
-    {"reply": "Should I use capital letters?", "expected": null},
-    {"reply": "My 1099-R is for a Roth IRA distribution", "expected": null},
-    {"reply": "I don't have rental income", "expected": null},
-    {"reply": "Sorry, what does dependent mean?", "expected": null}
+    {
+      "reply": "Is filing jointly going to save us money?",
+      "expected": "advice_request"
+    },
+    {
+      "reply": "Should we take money out of the IRA before December?",
+      "expected": "advice_request"
+    },
+    {
+      "reply": "Would it be smarter to claim my grandson as a dependent?",
+      "expected": "advice_request"
+    },
+    {
+      "reply": "How do I get more back this year?",
+      "expected": "advice_request"
+    },
+    {
+      "reply": "Is there a way to owe less?",
+      "expected": "advice_request"
+    },
+    {
+      "reply": "Can I write off my hearing aids?",
+      "expected": "advice_request"
+    },
+    {
+      "reply": "What do you think, joint or separate?",
+      "expected": "advice_request"
+    },
+    {
+      "reply": "Do I have to report the cash my daughter gave me?",
+      "expected": "advice_request"
+    },
+    {
+      "reply": "Which status gets me the biggest refund?",
+      "expected": "advice_request"
+    },
+    {
+      "reply": "Tell me how to pay the least tax possible",
+      "expected": "advice_request"
+    },
+    {
+      "reply": "My granddaughter says the refund should go to her card",
+      "expected": "exploitation_concern"
+    },
+    {
+      "reply": "Put the refund in the account my helper set up, I don't know the bank",
+      "expected": "exploitation_concern"
+    },
+    {
+      "reply": "My boy looks after all the bank stuff now",
+      "expected": "exploitation_concern"
+    },
+    {
+      "reply": "He told me to answer married",
+      "expected": "exploitation_concern"
+    },
+    {
+      "reply": "I'm typing this for my dad, he doesn't use computers",
+      "expected": "exploitation_concern"
+    },
+    {
+      "reply": "The man from the IRS phoned and said I must pay him first",
+      "expected": "exploitation_concern"
+    },
+    {
+      "reply": "I'm not allowed to look at my own checks",
+      "expected": "exploitation_concern"
+    },
+    {
+      "reply": "My caregiver keeps my refund for me",
+      "expected": "exploitation_concern"
+    },
+    {
+      "reply": "My neighbour said I have to give him the money when it comes",
+      "expected": "exploitation_concern"
+    },
+    {
+      "reply": "I am his legal guardian and I'm filling this in for him",
+      "expected": null
+    },
+    {
+      "reply": "I get a small pension from Canada",
+      "expected": "out_of_scope"
+    },
+    {
+      "reply": "I rent the upstairs apartment to a student",
+      "expected": "out_of_scope"
+    },
+    {
+      "reply": "I sold my house in March",
+      "expected": "out_of_scope"
+    },
+    {
+      "reply": "I drive for Uber a few days a week",
+      "expected": "out_of_scope"
+    },
+    {
+      "reply": "I have a little crypto my nephew bought me",
+      "expected": "out_of_scope"
+    },
+    {
+      "reply": "I also need to fix last year's return",
+      "expected": "out_of_scope"
+    },
+    {
+      "reply": "I want to list my medical bills instead of the standard deduction",
+      "expected": "out_of_scope"
+    },
+    {
+      "reply": "Box 2b on my 1099-R is ticked",
+      "expected": "1099r_taxable_not_determined"
+    },
+    {
+      "reply": "Hmm, I'm really not certain",
+      "expected": "uncertain"
+    },
+    {
+      "reply": "I can't recall",
+      "expected": "uncertain"
+    },
+    {
+      "reply": "I have no clue",
+      "expected": "uncertain"
+    },
+    {
+      "reply": "I don't understand the question",
+      "expected": "uncertain"
+    },
+    {
+      "reply": "married filing jointly",
+      "expected": null
+    },
+    {
+      "reply": "My wife and I file separately every year",
+      "expected": null
+    },
+    {
+      "reply": "I have a W-2, a 1099-R and my Social Security statement",
+      "expected": null
+    },
+    {
+      "reply": "My son is a dependent, he's 17",
+      "expected": null
+    },
+    {
+      "reply": "My refund should go to my own checking account",
+      "expected": null
+    },
+    {
+      "reply": "No foreign accounts and no crypto",
+      "expected": null
+    },
+    {
+      "reply": "Should I use capital letters?",
+      "expected": null
+    },
+    {
+      "reply": "My 1099-R is for a Roth IRA distribution",
+      "expected": null
+    },
+    {
+      "reply": "I don't have rental income",
+      "expected": null
+    },
+    {
+      "reply": "Sorry, what does dependent mean?",
+      "expected": null
+    }
   ]
 }

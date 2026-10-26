@@ -76,15 +76,29 @@ must escalate, across five reasons. It includes every example from the brief and
 the team's existing tests. All are classified correctly. The false-positive cases from the old keyword
 lists are part of the set.
 
-This is a hand-written set, not real taxpayers. It shows the rules do what the policy says, not how
+`evals/guardrail_replies.json` is a second set of 42 replies, written separately and not used to build
+the first rules ([results](guardrail_eval.md)):
+
+| Rules version | Correct | Ordinary answers wrongly escalated |
+|---|---|---|
+| v1, before seeing the set | 26 of 42 (62%) | 0 of 11 |
+| v2, widened using the v1 misses | 42 of 42 | 0 of 11 |
+
+The v1 number is the honest one for new wording: the rules were careful (no false alarms) but missed
+about half of risky replies phrased in unexpected ways, such as "My boy looks after all the bank stuff
+now". v2 was tuned on those misses, so its 100% is not an independent score. Widening the rules also
+briefly flagged ordinary form questions ("How do I find my tax documents?") as advice; these are now
+regression tests. A fresh set of replies written by someone else would give the next honest number.
+
+Both sets are hand-written, not real taxpayers. It shows the rules do what the policy says, not how
 they would perform on real conversations. Intake also has an optional model fallback for replies that
 don't parse (`make_intake(model)`). It can only return an approved escalation reason or none, and its
 live accuracy has not been measured.
 
 ## Known limits and failure modes
 
-- **Wording we didn't anticipate.** Lexical rules miss paraphrases ("my boy looks after the bank
-  stuff"). The model fallback only runs on replies that don't parse as an answer, so a valid answer with
+- **Wording we didn't anticipate.** Lexical rules miss paraphrases: v1 missed 16 of 31 risky replies
+  phrased in new ways (see Measured behaviour). The model fallback only runs on replies that don't parse as an answer, so a valid answer with
   a worrying remark attached is only caught if a rule matches. Mitigation: grow the labelled set from
   demo sessions; staff can also flag a session by hand.
 - **Over-flagging.** Broad rules ("I'm answering for my mother") will sometimes stop an honest helper.

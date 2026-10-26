@@ -44,6 +44,15 @@ ORDINARY_ANSWERS = [
     "I don't have any rental income",
     "no crypto, no business income",
     "I'm answering for my mother, I have power of attorney",  # stated authority
+    # Questions about the form, not tax decisions (some were flagged before rules v2):
+    "Can I go back and change my filing status?",
+    "How do I find my tax documents?",
+    "How do I type my filing status?",
+    "Can I skip this question about my refund?",
+    "Is my tax refund going to be direct deposited?",
+    "What do you think I should type here?",
+    "Do I have to answer every question?",
+    "Please send the refund to my checking account",
 ]
 
 LABELLED = {
@@ -103,6 +112,13 @@ def test_exploitation_outranks_advice():
 def test_refund_routing_is_flagged_even_with_a_stated_authority():
     reply = "I have power of attorney, send the refund to my account instead of hers"
     assert classify_reply(reply) == "exploitation_concern"
+
+
+def test_evaluation_set_has_no_false_alarms_and_misses_nothing():
+    # evals/guardrail_replies.json; see docs/guardrail_eval.md for its history (round 1 was held-out).
+    cases = json.loads(Path("evals/guardrail_replies.json").read_text())["cases"]
+    wrong = [(c["reply"], c["expected"], explain(c["reply"])) for c in cases if classify_reply(c["reply"]) != c["expected"]]
+    assert not wrong, wrong
 
 
 def test_every_guardrail_reason_is_a_shared_escalation_reason():
