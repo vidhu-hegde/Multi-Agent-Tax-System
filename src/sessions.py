@@ -95,7 +95,8 @@ class Sessions:
         return [(s.thread_id, t) for s in self.list_sessions() for t in s.open_tickets]
 
     def resolve(
-        self, thread_id: str, ticket_id: str, action: str = "continue", note: str = "", resolved_by: str = "staff"
+        self, thread_id: str, ticket_id: str, action: str = "continue", note: str = "", resolved_by: str = "staff",
+        choice: int | None = None,
     ) -> SessionSummary:
         """Record a staff decision on the ticket the session is paused on, then let the graph continue.
 
@@ -110,7 +111,13 @@ class Sessions:
             )
             if paused_on is None:
                 raise StaleEscalation(f"Session {thread_id} is not waiting on ticket {ticket_id}.")
+            evidence = paused_on.value.get("evidence", {})
+            if evidence.get("state_write") and action == "continue":
+                if type(choice) is not int or not 1 <= choice <= len(evidence["candidates"]):
+                    raise ValueError("Select a conflicting record with choice (numbered from 1), or stop.")
             decision = {"action": action, "note": note, "resolved_by": resolved_by}
+            if choice is not None:
+                decision["choice"] = choice
             self.graph.invoke(Command(resume={paused_on.id: decision}), self._config(thread_id))
         return self.summary(thread_id)
 

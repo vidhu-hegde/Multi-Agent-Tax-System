@@ -6,7 +6,14 @@
     "taxpayer_blind": false,
     "stated_wages": "18000",
     "adjustments": "0",
-    "estimated_payments": "1000"
+    "estimated_payments": "1000",
+    "spouse_died_year": null,
+    "taxpayer_claimed_dependent": false,
+    "dual_status_alien": false,
+    "dependent_count": 0,
+    "schedule2_total_tax": "0",
+    "schedule3_nonrefundable_credits": "0",
+    "schedule3_other_payments": "0"
   },
   "documents": [
     {"document_id": "w2-1", "form_type": "W-2", "image_path": "demo/w2_image_1.jpg",

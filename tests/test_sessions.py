@@ -105,3 +105,26 @@ def test_staff_cli_lists_and_resolves(settings, make_case, monkeypatch, capsys):
 
     run.main(["--resolve", "abc123", "1099r_taxable_not_determined:r-1", "--note", "ok", "--staff-id", "staff-7"])
     assert "draft_ready" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("action", ["continue", "stop"])
+def test_staff_selects_a_conflicting_ticket_resolution(settings, action):
+    from src.schemas import EscalationTicket
+
+    first = EscalationTicket(
+        ticket_id="conflicted", reason="uncertain", raised_by="intake", detail="Synthetic issue",
+        status="resolved", resolution={"action": "continue"},
+    )
+    second = first.model_copy(update={"resolution": {"action": "stop"}})
+    with open_sessions(settings) as sessions:
+        sessions.graph.invoke({"case_path": SKELETON_CASE, "escalations": {"conflicted": first}}, config("conflict"))
+        sessions.graph.invoke({"escalations": {"conflicted": second}}, config("conflict"))
+        pending = sessions.summary("conflict")
+        ticket_id = pending.awaiting_ticket_id
+        with pytest.raises(ValueError, match="choice"):
+            sessions.resolve("conflict", ticket_id)
+        candidates = pending.open_tickets[0].evidence["candidates"]
+        choice = next(i for i, candidate in enumerate(candidates, 1) if candidate["resolution"]["action"] == action)
+        summary = sessions.resolve("conflict", ticket_id, choice=choice)
+        assert summary.status == ("draft_ready" if action == "continue" else "stopped")
+        assert sessions.state("conflict")["escalations"]["conflicted"].resolution["action"] == action
