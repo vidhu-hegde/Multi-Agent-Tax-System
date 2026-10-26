@@ -40,6 +40,11 @@ def find_problems(state: SilverFileState) -> list[RevisionRequest]:
     for line, value in lines.items():
         if not value.provenance:
             problem(line, "no provenance record")
+        elif value.is_stub:
+            problem(
+                line,
+                "stub/placeholder provenance is not acceptable in a reviewed draft",
+            )
 
     for line, parts in SUM_CHECKS.items():
         expected, _ = call_tool("sum", values=[lines[p].amount for p in parts])
