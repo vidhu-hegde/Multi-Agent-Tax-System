@@ -159,6 +159,37 @@ python run.py --batch --no-context-strategy  # strategy disabled
 
 Results are recorded in [`docs/metrics.md`](docs/metrics.md).
 
+### Docker
+
+Everything runs in one image, with no local Python needed. You need Docker Desktop (Compose 2.24 or later).
+
+1. Create `.env` from `.env.example` and add your own `ANTHROPIC_API_KEY`. It's passed to the container
+   when it starts and is never copied into the image.
+2. Build the image:
+
+```bash
+docker compose build
+```
+
+3. Run a case, an interactive session, or the staff commands:
+
+```bash
+docker compose run --rm silverfile --case data/fixtures/skeleton_case.json
+docker compose run --rm silverfile
+docker compose run --rm silverfile --sessions
+docker compose run --rm silverfile --thread-id <session id>
+```
+
+4. Run the tests inside the container:
+
+```bash
+docker compose run --rm --entrypoint python silverfile -m pytest -q -p no:cacheprovider
+```
+
+Sessions are saved in the `silverfile-data` Docker volume, so you can stop a session and resume it later
+in a new container. To start again from nothing, run `docker compose down -v`, which deletes the volume
+and every saved session.
+
 ### Tests
 
 ```bash

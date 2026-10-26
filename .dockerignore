@@ -1,0 +1,23 @@
+# Secrets never go into the image
+.env
+.env.*
+!.env.example
+
+# Local environments and caches
+.git
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.DS_Store
+
+# Runtime state and generated files
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.db
+output
+traces/*
+!traces/demo_*
+data/fixtures/w2_*.pdf
