@@ -17,6 +17,7 @@ from langgraph.types import interrupt
 from pydantic import TypeAdapter
 
 from src.escalation import escalate
+from src.guardrails import classify_reply
 from src.memory import invoke_model, redact_ssns
 from src.schemas import Dependent, DocumentRef, FormType, IntakeAnswer, RevisionRequest, SSN
 from src.state import SilverFileState, current_answers
@@ -232,10 +233,9 @@ QUESTIONS = [
 
 # These inputs are collected here but their owner modules do not consume them yet.
 # Remove each gate only alongside its downstream integration and end-to-end tests.
+# taxpayer_claimed_dependent, spouse_itemizes and dual_status_alien are consumed by Rules
+# (policy.md#standard-deduction-exceptions) and escalate as out_of_scope there.
 PENDING_DOWNSTREAM_FIELDS = (
-    "taxpayer_claimed_dependent",
-    "spouse_itemizes",
-    "dual_status_alien",
     "dependent_count",
     "schedule2_total_tax",
     "schedule3_nonrefundable_credits",
@@ -245,68 +245,8 @@ PENDING_DOWNSTREAM_FIELDS = (
 # Existing Computation from_answer() bindings, not new message-schema fields.
 INTAKE_LINE_FIELDS = {"10": "adjustments", "26": "estimated_payments"}
 
-ADVICE_PHRASES = [
-    "should i",
-    "would i pay less",
-    "can i deduct",
-    "is it better",
-    "roth",
-    "lower my tax",
-    "save on tax",
-    "file separately",
-    "pay less tax",
-]
-EXPLOITATION_PHRASES = [
-    "send the refund",
-    "refund to his",
-    "refund to her",
-    "refund to their",
-    "refund to my son",
-    "refund to my daughter",
-    "not my account",
-    "whose account",
-    "answering for",
-    "on her behalf",
-    "on his behalf",
-    "told me to say",
-    "said i have to",
-]
-UNCERTAIN_PHRASES = ["not sure", "unsure", "don't know", "dont know", "no idea", "can't remember", "cannot remember"]
-
-# Disclosure vocabulary from assignment §3.3, routed through the shared out_of_scope
-# catalogue entry. This notices what the person says; Rules still decides eligibility.
-SCOPE_DISCLOSURES = re.compile(
-    r"\b(?:foreign (?:income|(?:bank )?accounts?)|digital assets?|1099[- ]?NEC|"
-    r"self[- ]employment(?: income)?|business income|rental income|capital gains|"
-    r"schedule [ACDE]|itemi[sz]ed deductions?|amended (?:tax )?returns?|"
-    r"prior[- ]year (?:tax )?returns?|state (?:tax )?returns?)\b",
-    re.I,
-)
-
-
-def scope_disclosure(text: str) -> bool:
-    for match in SCOPE_DISCLOSURES.finditer(text):
-        prefix = text[: match.start()]
-        if not re.search(r"\b(?:no|without|(?:do not|don't|did not|didn't) have)(?: any)?\s*$", prefix, re.I):
-            return True
-    return False
-
-
-def classify_reply(text: str) -> str | None:
-    lowered = str(text).lower()
-    if any(p in lowered for p in EXPLOITATION_PHRASES):
-        return "exploitation_concern"
-    if any(p in lowered for p in ADVICE_PHRASES):
-        return "advice_request"
-    if "taxable amount not determined" in lowered or (
-        re.search(r"\b1099[- ]?r\b", lowered) and re.search(r"\bbox\s*2b\s+(?:is\s+)?checked\b", lowered)
-    ):
-        return "1099r_taxable_not_determined"
-    if scope_disclosure(lowered):
-        return "out_of_scope"
-    if any(p in lowered for p in UNCERTAIN_PHRASES):
-        return "uncertain"
-    return None
+# Guardrail vocabulary and checks live in src/guardrails.py (owner: Juee; policy: data/policy.md).
+# Intake calls classify_reply() on every turn before accepting an answer.
 
 
 def classify_with_model(model, state, text, use_context_strategy=True):
