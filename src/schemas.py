@@ -4,12 +4,16 @@ Money is always Decimal (never float). Every amount on the draft is a LineValue,
 cannot exist without at least one Provenance record explaining where the amount came from.
 """
 
-import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from src.security import (
+    SSNValidationError,
+    TEST_SSN_PATTERN,
+    validate_test_ssn,
+)
 
 
 def _now() -> datetime:
@@ -21,7 +25,8 @@ class Contract(BaseModel):
 
 
 # Only IRS test-range SSNs (900-999 prefix) are accepted, so a real SSN can never be entered.
-SSN_PATTERN = r"^9\d{2}-\d{2}-\d{4}$"
+# Backward-compatible schema name; the security module is authoritative.
+SSN_PATTERN = TEST_SSN_PATTERN
 SSN = Annotated[str, StringConstraints(pattern=SSN_PATTERN)]
 EIN = Annotated[str, StringConstraints(pattern=r"^\d{2}-\d{7}$")]
 Money = Annotated[Decimal, Field(ge=0)]
@@ -168,9 +173,15 @@ class W2Record(_Record):
             data = dict(data)
             ssn = data.pop("employee_ssn")
             if ssn is not None:
-                if not re.fullmatch(SSN_PATTERN, str(ssn)):
-                    raise ValueError("the W-2 shows an SSN outside the 900-999 test range; only test SSNs are accepted")
-                data["employee_ssn_last4"] = str(ssn)[-4:]
+                try:
+                    validated_ssn = validate_test_ssn(ssn)
+                except SSNValidationError as exc:
+                    raise ValueError(
+                        "the W-2 shows an SSN outside the 900-999 test range; "
+                        "only test SSNs are accepted"
+                    ) from exc
+
+                data["employee_ssn_last4"] = validated_ssn[-4:]
         return data
 
 
