@@ -147,6 +147,7 @@ The same actions the dashboard offers, from the terminal:
 python run.py --sessions                                   # list sessions and open escalations
 python run.py --resolve <session id> <ticket id> --note "Checked with client"
 python run.py --resolve <session id> <ticket id> --stop    # end the session instead
+python run.py --resolve <session id> <ticket id> --values '{"employer_name": "...", "wages": "..."}'  # a document that couldn't be read
 ```
 
 ### Context-window strategy measurement

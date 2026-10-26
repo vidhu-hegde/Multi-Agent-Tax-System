@@ -2,15 +2,18 @@
 
 Resume with Command(resume=...) where the value is either a string ("stop", or any note meaning
 continue) or a dict {"action": "continue" | "stop", "note": str, "resolved_by": str}.
-Conflicting state writes additionally require a one-based "choice". The CLI accepts JSON for these.
+Conflicting state writes additionally require a one-based "choice". A document that could not be read
+(evidence "needs_document_values") requires "values": the fields typed from the document. The CLI accepts
+JSON for both. Plain "continue" is not enough for either, so nothing is chosen or left out silently.
 """
 
 import json
 from datetime import datetime, timezone
 
 from langgraph.types import Overwrite, interrupt
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
+from src.agents.extraction import invalid_fields, staff_entered_record
 from src.schemas import EscalationTicket, RevisionRequest, TaxDocument
 from src.state import SilverFileState
 
@@ -32,6 +35,7 @@ def human(state: SilverFileState) -> dict:
     documents = dict(state.get("documents", {}))
     for ticket in open_tickets:
         channel = ticket.evidence.get("state_write")
+        needs_values = bool(ticket.evidence.get("needs_document_values"))
         prompt = {
             "ticket_id": ticket.ticket_id,
             "reason": ticket.reason,
@@ -43,17 +47,44 @@ def human(state: SilverFileState) -> dict:
             prompt["how_to_resolve"] = (
                 'Reply with {"action":"continue","choice":1} to select a candidate (numbered from 1), or stop.'
             )
+        if needs_values:
+            example = ", ".join(f'"{name}": ...' for name in ticket.evidence["required_fields"])
+            prompt["how_to_resolve"] = (
+                'Type the values from the document as {"action":"continue","values":{' + example + "}}, or stop."
+            )
         while True:
             answer = interrupt(prompt)
-            if channel and isinstance(answer, str):
+            if (channel or needs_values) and isinstance(answer, str):
                 try:
                     answer = json.loads(answer)
                 except ValueError:
                     pass
             resolution = normalize_resolution(answer)
             choice = resolution.get("choice")
-            if not channel or resolution.get("action") == "stop":
+            if resolution.get("action") == "stop" or not (channel or needs_values):
                 break
+            if needs_values:
+                document_id = ticket.evidence["document_id"]
+                values = resolution.get("values")
+                problem = "Type the document's values before continuing, or stop the session."
+                if isinstance(values, dict):
+                    try:
+                        record = staff_entered_record(
+                            document_id, ticket.evidence["form_type"], values, resolution.get("resolved_by", "staff")
+                        )
+                    except ValidationError as exc:
+                        # Name the fields only; never echo typed values (they may include identifiers).
+                        problem = "Some values need checking: " + invalid_fields(exc) + "."
+                    else:
+                        documents[document_id] = record
+                        current = update.get("documents")
+                        update["documents"] = Overwrite(documents) if isinstance(current, Overwrite) else {
+                            **(current or {}), document_id: record}
+                        resolution = {k: v for k, v in resolution.items() if k != "values"}
+                        resolution["entered_document"] = document_id
+                        break
+                prompt = {**prompt, "detail": problem}
+                continue
             if type(choice) is int and 1 <= choice <= len(ticket.evidence["candidates"]):
                 record = ticket.evidence["candidates"][choice - 1]
                 key = ticket.evidence["key"]

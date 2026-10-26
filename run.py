@@ -10,6 +10,7 @@ Staff (the same actions the dashboard offers):
     python run.py --sessions                                 # list sessions and open escalations
     python run.py --resolve abc123 TICKET_ID --note "..."    # resolve and let the session continue
     python run.py --resolve abc123 TICKET_ID --stop          # resolve by stopping the session
+    python run.py --resolve abc123 TICKET_ID --values '{"employer_name": "...", "wages": "..."}'  # unreadable document
 
 When the graph pauses with interrupt(), the taxpayer session shows the question or escalation,
 reads a reply from the terminal and resumes with Command(resume=reply).
@@ -42,6 +43,7 @@ def parse_args(argv=None):
     staff.add_argument("--note", default="", help="with --resolve: note recorded on the ticket")
     staff.add_argument("--staff-id", default="staff", help="with --resolve: who is resolving")
     staff.add_argument("--choice", type=int, help="with --resolve: select a conflicting record, numbered from 1")
+    staff.add_argument("--values", help='with --resolve: JSON values typed from an unreadable document, e.g. \'{"employer_name": "...", "wages": "26450.00"}\'')
     return parser.parse_args(argv)
 
 
@@ -111,8 +113,10 @@ def run_staff_command(args, settings):
             thread_id, ticket_id = args.resolve
             action = "stop" if args.stop else "continue"
             try:
+                values = json.loads(args.values) if args.values else None
                 summary = sessions.resolve(
-                    thread_id, ticket_id, action, note=args.note, resolved_by=args.staff_id, choice=args.choice
+                    thread_id, ticket_id, action, note=args.note, resolved_by=args.staff_id, choice=args.choice,
+                    values=values,
                 )
             except (StaleEscalation, ValueError) as exc:
                 sys.exit(str(exc))
