@@ -5,9 +5,14 @@ in decide() (documented in docs/IMPLEMENTATION_NOTES.md). It also enforces the t
 the review -> revise limit and the loop guard on repeated identical handoffs.
 """
 
+import hashlib
+import json
+
+from langgraph.types import Overwrite
+
 from src.agents.extraction import extraction_ticket_id
 from src.config import Settings
-from src.schemas import DocumentRef, EscalationTicket, Handoff
+from src.schemas import DocumentRef, EscalationTicket, Handoff, StateWriteConflict
 from src.state import SilverFileState
 
 
@@ -77,6 +82,34 @@ def loop_guard(state: SilverFileState, handoff: Handoff, settings: Settings) -> 
 
 def make_orchestrator(settings: Settings):
     def orchestrator(state: SilverFileState) -> dict:
+        escalations = dict(state.get("escalations", {}))
+        conflicts = False
+        for channel in ("documents", "escalations"):
+            for key, value in state.get(channel, {}).items():
+                if not isinstance(value, StateWriteConflict):
+                    continue
+                conflicts = True
+                if channel == "escalations":
+                    del escalations[key]
+                candidates = [record.model_dump(mode="json") for record in value.candidates]
+                fingerprint = hashlib.sha256(json.dumps(candidates, sort_keys=True).encode()).hexdigest()[:12]
+                conflict_reason = "document_conflict" if channel == "documents" else "uncertain"
+                ticket_id = f"{conflict_reason}:state-write:{channel}:{key}:{fingerprint}"
+                if ticket_id not in escalations:
+                    escalations[ticket_id] = EscalationTicket(
+                        ticket_id=ticket_id,
+                        reason=conflict_reason,
+                        raised_by="orchestrator",
+                        detail=f"Conflicting writes for {channel} / {key}. Staff must select a record before continuing.",
+                        evidence={"state_write": channel, "key": key, "candidates": candidates},
+                    )
+        if conflicts:
+            state = {**state, "escalations": escalations}
+        progress = {}
+        answer_count = len(state.get("answers", []))
+        if answer_count > state.get("guard_answer_count", 0):
+            progress = {"guard_window_start": len(state.get("handoffs", [])), "guard_answer_count": answer_count}
+            state = {**state, **progress}
         next_agent, reason, tickets = decide(state, settings)
         handoff = Handoff(from_agent=state.get("last_agent", "start"), to_agent=next_agent, reason=reason)
         if next_agent not in ("human", "end"):
@@ -93,9 +126,13 @@ def make_orchestrator(settings: Settings):
         else:
             status = "in_progress"
         return {
+            **progress,
             "next_agent": next_agent,
             "handoffs": [handoff],
-            "escalations": {t.ticket_id: t for t in tickets},
+            "escalations": (
+                Overwrite({**escalations, **{t.ticket_id: t for t in tickets}})
+                if conflicts else {t.ticket_id: t for t in tickets}
+            ),
             "status": status,
         }
 

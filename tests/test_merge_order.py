@@ -1,6 +1,7 @@
 """Parallel branches write to the same state keys; the merged result must not depend on arrival order."""
 
 from itertools import permutations
+from decimal import Decimal
 
 import pytest
 
@@ -39,10 +40,16 @@ def test_parallel_documents_survive_both_merge_orders():
     assert state.merge_documents({"a": a}, {"a": a}) == {"a": a}
 
 
-def test_conflicting_document_keys_fail_in_both_orders():
-    for left, right in (({"a": "old"}, {"a": "new"}), ({"a": "new"}, {"a": "old"})):
-        with pytest.raises(ValueError, match="a"):
-            state.merge_documents(left, right)
+def test_conflicting_document_keys_preserve_both_versions_in_both_orders():
+    from src.schemas import StateWriteConflict
+
+    a = W2Record(document_id="a", employer_name="A", wages="10", source=Provenance(kind="document", source="test"))
+    b = a.model_copy(update={"wages": Decimal("20")})
+    for left, right in ((a, b), (b, a)):
+        conflict = state.merge_documents({"a": left}, {"a": right})["a"]
+        assert isinstance(conflict, StateWriteConflict)
+        assert set(c.wages for c in conflict.candidates) == {10, 20}
+        assert state.merge_documents({"a": conflict}, {"a": left})["a"] == conflict
 
 
 def test_answer_replay_is_idempotent_but_corrections_keep_history():
@@ -61,17 +68,21 @@ def test_same_answer_event_cannot_change_its_value():
         state.merge_answers([answer], [answer.model_copy(update={"value": "20"})])
 
 
-def test_conflicting_escalation_identity_or_resolution_is_rejected_in_both_orders():
+def test_conflicting_escalation_identity_or_resolution_is_preserved_in_both_orders():
+    from src.schemas import StateWriteConflict
+
     first = EscalationTicket(ticket_id='same', reason='uncertain', raised_by='intake', detail='original')
     other = first.model_copy(update={'detail': 'different issue'})
     for left, right in ((first, other), (other, first)):
-        with pytest.raises(ValueError, match='same'):
-            merge_escalations({'same': left}, {'same': right})
+        conflict = merge_escalations({'same': left}, {'same': right})['same']
+        assert isinstance(conflict, StateWriteConflict)
+        assert {c.detail for c in conflict.candidates} == {'original', 'different issue'}
     yes = first.model_copy(update={'status': 'resolved', 'resolution': {'action': 'continue'}})
     no = first.model_copy(update={'status': 'resolved', 'resolution': {'action': 'stop'}})
     for left, right in ((yes, no), (no, yes)):
-        with pytest.raises(ValueError, match='same'):
-            merge_escalations({'same': left}, {'same': right})
+        conflict = merge_escalations({'same': left}, {'same': right})['same']
+        assert isinstance(conflict, StateWriteConflict)
+        assert {c.resolution['action'] for c in conflict.candidates} == {'continue', 'stop'}
 
 
 def test_delayed_retry_of_suppressed_single_answer_cannot_undo_mfj_correction():

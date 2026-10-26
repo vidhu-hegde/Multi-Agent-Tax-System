@@ -28,9 +28,10 @@ with open_checkpointer(settings) as saver:
 1. Enter `single`, `none`, `1950-02-03`, then Ctrl-C. Close the terminal process completely.
 2. Run the command again. Show the short recap and the **blindness** question; the birth date is not
    requested again. This demonstrates persistence across process restart.
-3. Say `I was walking my dog earlier`. Show the same pending question and retained recap.
-4. Enter `go back to filing status`, then `married filing jointly`. Show the changed status in the
-   recap. Enter `change filing status to single` to return to the original status without erasing history.
+3. Say `I was walking my dog earlier`. Show the same pending question without repeating the recap.
+4. Enter `go back to filing status`, then `married filing jointly`. Show that the next question advances
+   without repeating the recap. Enter `change filing status to single` to return to the original status
+   without erasing history. A later restart summarizes the current confirmed status.
 5. Enter `I'm not sure` at the pending blindness question. Show the volunteer wording and typed
    uncertainty pause. Ctrl-C to stop the taxpayer-side process before staff resolution.
 6. In a separately labelled **staff** terminal, resolve the pause through the existing staff API:

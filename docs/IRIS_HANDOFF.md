@@ -1,5 +1,9 @@
 # Iris Agent Memory / Intake completion and coordination report
 
+> Historical report from before PR #6 review. Current review dispositions and verification are in
+> [PR6_REVIEW_FIXES.md](PR6_REVIEW_FIXES.md); those supersede the guard, recap, reducer and
+> downstream-resume descriptions below.
+
 Date: **2026-10-25**. The user authorized following the supplied Iris handoff; its team checklist was
 kept separate from the professor's assignment text. The assignment defines acceptance, including its
 no-advice/no-filing constraints. This report does not claim that all professor deliverables are complete.

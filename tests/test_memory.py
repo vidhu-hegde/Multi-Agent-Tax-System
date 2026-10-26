@@ -70,7 +70,7 @@ with open_checkpointer(load_settings()) as saver:
     other = process("return-b", [])
     assert other["answers"] == {}
     assert "So far:" not in other["question"]
-    assert "So far:" in third["question"]
+    assert "So far:" not in third["question"]  # the CLI adds a recap only when a session resumes
 
 
 def test_uncertainty_pause_survives_restart_and_staff_resolution(settings, make_graph):
@@ -87,7 +87,7 @@ def test_uncertainty_pause_survives_restart_and_staff_resolution(settings, make_
     with memory.open_checkpointer(settings) as saver:
         graph = make_graph(checkpointer=saver)
         result = graph.invoke(Command(resume={"action": "continue", "resolved_by": "staff-test"}), config)
-        assert "spouse pass away" in result["__interrupt__"][0].value
+        assert "spouse who died" in result["__interrupt__"][0].value
         assert current_answers(result)["filing_status"].value == "single"
         result = graph.invoke(Command(resume="none"), config)
         assert "date of birth" in result["__interrupt__"][0].value

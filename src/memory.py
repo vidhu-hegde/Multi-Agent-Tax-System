@@ -10,14 +10,25 @@ import re
 import sqlite3
 import uuid
 from contextlib import contextmanager
+from typing import Annotated, TypedDict
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.graph.message import add_messages
 
 from src.config import Settings
-from src.schemas import Contract
-from src.state import current_answers
+from src.schemas import Contract, EscalationReason, IntakeAnswer
+from src.state import current_answers, merge_answers, merge_dicts
+
+
+class ContextBenchmarkState(TypedDict, total=False):
+    context_item: str
+    context_reason: EscalationReason | None
+    messages: Annotated[list[AnyMessage], add_messages]
+    answers: Annotated[list[IntakeAnswer], merge_answers]
+    input_token_usage: Annotated[dict[str, int], merge_dicts]
+
 
 SSN_LIKE = re.compile(r"(?<!\d)(?:\d{3}-\d{2}-\d{4}|\d{9})(?!\d)")
 CLASSIFIER_PROMPT = (
@@ -129,8 +140,6 @@ def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=T
     """
     from langgraph.graph import END, START, StateGraph
     from src.agents.intake import classify_with_model
-    from src.schemas import IntakeAnswer
-    from src.state import SilverFileState
 
     config = thread_config(thread_id)
     if checkpointer.get_tuple(config) is not None:
@@ -140,7 +149,7 @@ def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=T
         reason, update = classify_with_model(model, state, state["context_item"], use_context_strategy)
         return {**update, "context_reason": reason}
 
-    builder = StateGraph(SilverFileState)
+    builder = StateGraph(ContextBenchmarkState)
     builder.add_node("intake_model", classify_item)
     builder.add_edge(START, "intake_model")
     builder.add_edge("intake_model", END)

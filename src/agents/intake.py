@@ -159,7 +159,7 @@ QUESTIONS = [
     ),
     (
         "spouse_died_year",
-        "In what year did your spouse pass away? Type none if this does not apply.",
+        "If you had a spouse who died, what year was it? Type none if this does not apply to you.",
         parse_year_or_none,
         None,
     ),
@@ -458,17 +458,23 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
             unsupported = [field for field in PENDING_DOWNSTREAM_FIELDS if field in known and known[field].value]
             if unsupported:
                 fingerprint = hashlib.sha256(str([(f, known[f].value) for f in unsupported]).encode()).hexdigest()[:12]
-                update.update(
-                    escalate(
-                        "uncertain",
-                        raised_by="intake",
-                        key=f"downstream-integration:{fingerprint}",
-                        detail="These recorded inputs still need downstream integration before a draft can be prepared.",
-                        evidence={"fields": unsupported, "said_to_taxpayer": SAID_TO_TAXPAYER["uncertain"]},
+                ticket_id = f"uncertain:downstream-integration:{fingerprint}"
+                approved = state.get("escalations", {}).get(ticket_id)
+                if approved is None or approved.status != "resolved":
+                    update.update(
+                        escalate(
+                            "uncertain",
+                            raised_by="intake",
+                            key=f"downstream-integration:{fingerprint}",
+                            detail=(
+                                "These recorded inputs still need downstream integration. Continue only after staff "
+                                "review; the current draft calculations do not use these fields."
+                            ),
+                            evidence={"fields": unsupported, "said_to_taxpayer": SAID_TO_TAXPAYER["uncertain"]},
+                        )
                     )
-                )
-                update["intake_revisit"] = unsupported[0]
-                return update
+                    return update
+            update["intake_revisit"] = None
             update["intake_complete"] = True
             return update
         field, question, parse, _ = pending
@@ -481,7 +487,7 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
             except (ValueError, TypeError):
                 from_case = False
         if not from_case:
-            prompt = recap(known) + question
+            prompt = question
             while True:
                 reply = interrupt(prompt)
                 model_called = False
@@ -539,13 +545,11 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
                         if reason is None:
                             # Commit the model result before asking again: interrupt replay must
                             # not repeat a completed, billed model call on the next resume.
-                            update["guard_window_start"] = len(state.get("handoffs", []))
                             return update
                 if reason:
                     key = f"{field}:{hashlib.sha256(str(safe).encode()).hexdigest()[:12]}"
                     if f"{reason}:{key}" in state.get("escalations", {}):
                         if model_called:
-                            update["guard_window_start"] = len(state.get("handoffs", []))
                             return update
                         prompt = "I've already passed that on to a member of staff. " + question
                         continue
@@ -607,7 +611,5 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
             update.update(revision_requests=requests, review_status="pending", review_passes=0, status="in_progress")
         if not from_case:
             update["intake_revisit"] = None
-            # A confirmed reply is progress, unlike a pathological handoff loop.
-            update["guard_window_start"] = len(state.get("handoffs", []))
             return update
         pending = None

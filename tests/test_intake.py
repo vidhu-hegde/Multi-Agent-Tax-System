@@ -35,7 +35,7 @@ def test_each_reply_is_checkpointed_before_the_next_question(make_graph):
     graph.invoke({}, config())
     result = graph.invoke(Command(resume="single"), config())
     assert current_answers(graph.get_state(config()).values)["filing_status"].value == "single"
-    assert "single" in question(result).lower()
+    assert "So far:" not in question(result)
     assert question(result).count("?") == 1
 
 
@@ -129,7 +129,7 @@ def test_repetition_and_drift_preserve_confirmed_answers(make_graph):
     graph.invoke(Command(resume="single"), config())
     graph.invoke(Command(resume="change filing status to single"), config())
     result = graph.invoke(Command(resume="I was walking my dog earlier"), config())
-    assert "spouse pass away" in question(result)
+    assert "spouse who died" in question(result)
     assert len(graph.get_state(config()).values["answers"]) == 1
 
 
@@ -286,8 +286,9 @@ def test_unintegrated_downstream_inputs_pause_instead_of_being_silently_ignored(
     assert field in question(result)["evidence"]["fields"]
     assert not result.get("lines")
     result = graph.invoke(Command(resume="continue"), config())
-    assert isinstance(question(result), str)  # staff continue returns to the affected input
-    assert not result.get("intake_complete")
+    assert result["intake_complete"]
+    assert result["status"] == "draft_ready"
+    assert "__interrupt__" not in result
 
 
 @pytest.mark.parametrize(
@@ -522,3 +523,23 @@ def test_foreign_bank_account_disclosure_is_a_scope_handoff(make_graph):
     result = graph.invoke(Command(resume="I have a foreign bank account"), config())
     assert isinstance(question(result), dict)
     assert question(result)["reason"] == "out_of_scope"
+
+
+def test_changed_downstream_input_requires_fresh_staff_review(make_graph, tmp_path):
+    from tests.conftest import SKELETON_CASE
+
+    case = json.loads(open(SKELETON_CASE).read())
+    case["answers"]["schedule2_total_tax"] = "120"
+    path = tmp_path / "downstream-review.json"
+    path.write_text(json.dumps(case))
+    graph = make_graph()
+    result = graph.invoke({"case_path": str(path)}, config())
+    first_id = question(result)["ticket_id"]
+    result = graph.invoke(Command(resume="continue"), config())
+    assert result["intake_complete"]
+    graph.invoke({"intake_complete": False, "intake_revisit": "schedule2_total_tax"}, config())
+    result = graph.invoke(Command(resume="240"), config())
+    assert question(result)["ticket_id"] != first_id
+    assert result["status"] == "waiting_on_human"
+    result = graph.invoke(Command(resume="stop"), config())
+    assert result["status"] == "stopped"

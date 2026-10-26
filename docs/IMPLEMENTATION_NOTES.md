@@ -31,8 +31,10 @@ First matching row wins.
 
 Row 4 fans out one `extract_document` branch per document with `Send`. The branches write to
 `documents`, a dict merged by `merge_documents`, keyed by `document_id`. Disjoint writes merge in either
-order, identical retries are idempotent, and conflicting values for one key raise an error instead of
-silently choosing a winner (`tests/test_merge_order.py`). `aggregate_documents` is the join.
+order and identical retries are idempotent. Competing writes are preserved in `StateWriteConflict`;
+the orchestrator turns them into a human escalation before any consumer runs
+(`tests/test_merge_order.py`). `aggregate_documents` is the join. Staff select one numbered candidate
+or stop; a selected document queues fresh Rules, Computation and Review work.
 Rules and computed lines use `merge_dicts` for sequential revision; same-key replacement there is
 explicitly order-dependent and must not be used for competing parallel writes.
 
@@ -54,7 +56,9 @@ Resolving the ticket with `continue` resets the counter.
 Every routing decision is recorded as a `Handoff(from_agent, to_agent, reason)`. Before routing, the
 orchestrator counts identical handoffs since `guard_window_start`; if this one has already happened
 `SILVERFILE_LOOP_GUARD_REPEATS` times (default 3), it raises a `loop_guard` ticket and routes to a human
-instead. Resolving the ticket moves the window forward. The review loop cannot trip it by accident, because
+instead. The orchestrator advances the window when the deduplicated confirmed-answer history grows;
+Intake never resets it, including after model-assisted re-asks. Resolving a guard ticket also moves the
+window forward. The review loop cannot trip it by accident, because
 the review bound (row 6) is checked first. Test: `test_loop_guard_breaks_a_pathological_cycle`, using an
 Intake agent that never finishes.
 
@@ -192,10 +196,12 @@ including for legacy checkpoints whose history was written in arrival order.
 Intake is the single answer writer; this history is not a commutative multi-writer CRDT.
 
 `IntakeAnswer`, `Dependent`, `DocumentRef`, `SSN`, `RevisionRequest`, and `EscalationTicket` remain the
-existing contracts in `src/schemas.py`. No competing models were added. Shared `TaxDocument`,
-`RuleDecision` and `LineValue` records still round-trip through the serializer. Document writes reject
-conflicts. Escalations preserve a resolved ticket over an identical open retry, reject changed issue
-identity or conflicting resolutions, and deterministically retain the earlier equivalent record.
+existing contracts in `src/schemas.py`. `StateWriteConflict` preserves competing document or escalation
+writes until staff choose one. Shared records and pending conflicts round-trip through the serializer.
+Escalations preserve a resolved ticket over an identical open retry; changed identities or contradictory
+resolutions become an `uncertain` staff ticket. Candidate order and deduplication are deterministic.
+The CLI displays the candidates and accepts `{"action":"continue","choice":1}` or `stop`.
+Staff API callers use `sessions.resolve(..., choice=1)`; staff CLI callers add `--choice 1`.
 
 `thread_config()` generates opaque return ids and rejects SSN-shaped supplied ids. The SQLite saver
 enforces that boundary for existing entry points too. One id identifies one return workflow, not an SSN
@@ -207,9 +213,10 @@ our process-restart evidence. The DB is ignored by Git; no real taxpayer data wa
 Corrections during a question accept `change filing status to married filing jointly`,
 `go back to filing status`, or `{"field": "estimated_payments", "value": "2000"}`. A changed confirmed
 field queues the existing `RevisionRequest` contract for Rules and Computation, marks Review pending,
-and resets its pass count. The existing graph performs those reruns. A confirmed answer advances
-`guard_window_start` because user progress must not trip the repeated-handoff guard. The pathological
-agent test still trips that guard. A finished return can be reopened through the existing graph API
+and resets its pass count. The existing graph performs those reruns. The orchestrator tracks new
+confirmed answers with `guard_answer_count` and advances `guard_window_start` when that count grows.
+Pathological Intake and model re-ask cycles with no new answers still trip the guard.
+A finished return can be reopened through the existing graph API
 with `{"intake_complete": false, "intake_revisit": "estimated_payments"}`; dashboard hookup is Max's task.
 
 Review-to-Intake requests use the existing line bindings: `10` asks for `adjustments`, and `26` asks for
@@ -224,7 +231,12 @@ A document-list change after extraction pauses on an `uncertain` ticket and keep
 The graph has no record-retraction API. A staff "continue" resumes the question, not acceptance of the
 unapplied change. Vidhatri/Anupama must coordinate record retraction and fresh review; use staff stop
 and a fresh workflow until then. Corrections that change a previously resolved issue also need an
-owner-approved issue/version key; the reducer rejects conflicting identity instead of reusing approval.
+owner-approved issue/version key; conflicting identities now require explicit staff selection.
+
+Nonzero inputs awaiting downstream integration create one uncertainty ticket for their fingerprint.
+Staff `continue` lets Intake finish without re-asking the same field; `stop` ends the workflow.
+Changed unsupported values create a fresh ticket. This approval does not implement dependent or
+Schedule 2/3 calculations: the escalation explicitly discloses that those inputs remain unused.
 
 ## Iris: accessibility and dignity
 
@@ -234,10 +246,10 @@ These are working dialogue choices with automated evidence. The live demo instru
 | Brief §4.3 choice | Behavior | Verification |
 |---|---|---|
 | One question at a time | Each prompt asks for one field. Dependent name, relationship and requested test SSN are separate turns. | `test_interactive_intake_asks_one_question_at_a_time`, `test_dependents_are_collected_as_separate_questions` |
-| Plain language | Filing statuses have full names; estimated payments and schedule totals have short explanations. MAGI never appears in Intake. | Full interactive test plus explicit question text; Juee still needs to sign off on wording. |
+| Plain language | Filing statuses have full names; estimated payments and schedule totals have short explanations. The spouse-death question begins "If you had a spouse who died" and offers none, including for single filers. | Full interactive test plus explicit question text; Juee still needs to sign off on wording. |
 | Repetition and drift | Invalid unrelated replies re-ask; repeated effective answers deduplicate; corrections and go-back preserve previous fields and history. | Correction, repetition and go-back tests in `tests/test_intake.py` |
 | Minimize PII | No taxpayer SSN prompt. Only dependent records request required test SSNs via the existing 900-series schema. Recaps omit names, birth-date values and SSNs. Model summaries exclude typed DOB/dependent/document records. | Dependent, unsolicited-SSN and selective-context tests |
-| Resumability | A recap of covered fields precedes the pending question, using current confirmed values. | `test_multiple_real_process_restarts_and_thread_isolation` |
+| Resumability | The CLI shows a recap once, on the first question after resuming. Ordinary questions and retries omit it. Other frontends should use the same resume boundary. | `test_resume_recap_is_shown_once`, process-restart tests |
 | Honest uncertainty | "I'm not sure; let me flag this for a volunteer" creates the existing typed ticket, and the existing human node interrupts. Staff resolution returns to the unfinished question. | `test_uncertainty_pause_survives_restart_and_staff_resolution`, existing escalation tests |
 
 **PII boundary requiring Qiyan/Max coordination:** Intake sanitizes unsolicited SSNs before storing
@@ -261,7 +273,8 @@ Actual `AIMessage.usage_metadata.input_tokens` is recorded by call id in `input_
 usage raises an error; text length is never substituted. The benchmark sums all new call entries per
 item, verifies outcomes, and persists ten sequential items in a single fresh thread for each run.
 It calls the same classifier as Intake, using synthetic unclear replies. Its small evaluation graph
-is separate from the unchanged production orchestration. See `docs/metrics.md` for commands and blockers.
+uses its own `ContextBenchmarkState`; `context_item` and `context_reason` are absent from
+`SilverFileState`. See `docs/metrics.md` for commands and blockers.
 
 The default `run.py` graph still uses deterministic Intake. Vidhatri/Max can opt into the tested model
 path without replacing the graph:
