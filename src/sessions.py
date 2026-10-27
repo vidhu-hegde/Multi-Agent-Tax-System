@@ -39,6 +39,18 @@ def _is_escalation(value) -> bool:
     return isinstance(value, dict) and "ticket_id" in value
 
 
+def _question_text(value) -> str:
+    """Return taxpayer-facing text without exposing internal metadata."""
+
+    if (
+        isinstance(value, dict)
+        and value.get("type") == "intake_question"
+    ):
+        return str(value["prompt"])
+
+    return str(value)
+
+
 class Sessions:
     def __init__(self, graph, checkpointer):
         self.graph = graph
@@ -83,7 +95,11 @@ class Sessions:
             updated_at=snapshot.created_at,
             open_tickets=[t for t in values.get("escalations", {}).values() if t.status == "open"],
             awaiting_ticket_id=escalation["ticket_id"] if escalation else None,
-            pending_question=str(question) if question is not None else None,
+            pending_question=(
+                _question_text(question)
+                if question is not None
+                else None
+            ),
         )
 
     def list_sessions(self, status: str | None = None) -> list[SessionSummary]:

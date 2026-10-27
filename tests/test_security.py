@@ -1,6 +1,7 @@
 """Security tests for SSN validation and PII redaction."""
 
 import pytest
+import run
 
 import src.memory as memory
 from src.schemas import SSN_PATTERN
@@ -10,6 +11,8 @@ from src.security import (
     redact_ssns,
     validate_test_ssn,
 )
+from src.graph import build_graph
+import src.security as security
 
 
 @pytest.mark.parametrize(
@@ -95,3 +98,90 @@ def test_redaction_masks_integer_ssn_in_trace_payload():
 
     assert redacted["tool_input"]["taxpayer_id"] == "***-**-6789"
     assert "123456789" not in str(redacted)
+
+
+def test_checkpoint_contains_no_full_ssn_from_cli_resume(settings):
+    """Raw taxpayer replies must be protected before SQLite persistence."""
+    raw_ssn = "123-45-6789"
+    ask_count = 0
+
+    def ask(_prompt):
+        nonlocal ask_count
+        ask_count += 1
+        if ask_count == 1:
+            return f"My SSN is {raw_ssn}"
+        raise KeyboardInterrupt
+
+    with memory.open_checkpointer(settings) as saver:
+        graph = build_graph(settings, checkpointer=saver)
+        run.drive(
+            graph,
+            "security-checkpoint-test",
+            {},
+            ask=ask,
+            say=lambda _message: None,
+        )
+
+    sqlite_artifacts = list(
+        settings.db_path.parent.glob(settings.db_path.name + "*")
+    )
+    assert sqlite_artifacts
+
+    persisted_bytes = b"".join(
+        path.read_bytes()
+        for path in sqlite_artifacts
+    )
+
+    assert raw_ssn.encode() not in persisted_bytes
+
+
+def test_resume_ingress_protection_is_field_aware():
+    """Ingress protection must distinguish text, money, and requested test SSNs."""
+    assert (
+        security.protect_resume_input(
+            "My SSN is 123-45-6789",
+            input_type="text",
+        )
+        == "My SSN is ***-**-6789"
+    )
+
+    # A nine-digit amount is valid in a money field and must not be mistaken for an SSN.
+    assert (
+        security.protect_resume_input(
+            "123456789",
+            input_type="money",
+        )
+        == "123456789"
+    )
+
+    # Requested synthetic SSNs are validated rather than masked before parsing.
+    assert (
+        security.protect_resume_input(
+            "901-23-4567",
+            input_type="test_ssn",
+        )
+        == "901-23-4567"
+    )
+
+    with pytest.raises(SSNValidationError):
+        security.protect_resume_input(
+            "123-45-6789",
+            input_type="test_ssn",
+        )
+
+
+def test_intake_interrupt_exposes_security_context(settings):
+    """The caller needs trusted metadata before creating Command(resume=...)."""
+    with memory.open_checkpointer(settings) as saver:
+        graph = build_graph(settings, checkpointer=saver)
+        result = graph.invoke(
+            {},
+            memory.thread_config("security-contract-test"),
+        )
+
+    question = result["__interrupt__"][0].value
+
+    assert question["type"] == "intake_question"
+    assert question["field"] == "filing_status"
+    assert question["input_type"] == "text"
+    assert "filing status" in question["prompt"]

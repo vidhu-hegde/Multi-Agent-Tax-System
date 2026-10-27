@@ -155,7 +155,9 @@ def test_session_resumes_from_sqlite_after_restart(settings, make_graph):
     with open_checkpointer(settings) as saver:  # a new process on Friday
         graph = make_graph(checkpointer=saver)
         waiting_on = graph.get_state(config("resume")).interrupts[0].value
-        assert "date of birth" in waiting_on  # picks up at the next question, not the first
+        assert waiting_on["type"] == "intake_question"
+        assert waiting_on["field"] == "taxpayer_dob"
+        assert "date of birth" in waiting_on["prompt"]
         assert "So far:" not in waiting_on
         replies = iter(["1950-02-03", "no", "no", "no", "none", "0", "0", "0", "0", "0", "0"])
         result = run.drive(graph, "resume", None, ask=lambda _: next(replies), say=lambda _: None)

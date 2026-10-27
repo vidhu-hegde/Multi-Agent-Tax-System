@@ -22,7 +22,10 @@ def test_lists_every_session_with_its_status(settings, make_case):
 
     assert by_id["done"].status == "draft_ready"
     assert by_id["asking"].status == "waiting_on_taxpayer"
-    assert "filing status" in by_id["asking"].pending_question
+    assert by_id["asking"].pending_question.startswith(
+        "Which filing status"
+    )
+    assert "input_type" not in by_id["asking"].pending_question
     assert by_id["escalated"].status == "waiting_on_human"
     assert by_id["escalated"].awaiting_ticket_id == "1099r_taxable_not_determined:r-1"
 

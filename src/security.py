@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from typing import Any
+from decimal import Decimal, InvalidOperation
 
 
 # SilverFile accepts only synthetic SSNs with a 900-999 prefix.
@@ -70,3 +71,27 @@ def redact_ssns(value: Any) -> Any:
         return frozenset(redact_ssns(item) for item in value)
 
     return value
+
+
+def protect_resume_input(value: Any, *, input_type: str) -> Any:
+    """Protect a reply before it is placed inside Command(resume=...)."""
+
+    if input_type not in {"text", "money", "test_ssn"}:
+        raise ValueError("Unsupported resume input type")
+
+    if input_type == "test_ssn":
+        candidate = value.strip() if isinstance(value, str) else value
+        return validate_test_ssn(candidate)
+
+    if input_type == "money":
+        try:
+            candidate = Decimal(
+                str(value).strip().replace("$", "").replace(",", "")
+            )
+        except (InvalidOperation, ValueError, TypeError):
+            return redact_ssns(value)
+
+        if candidate.is_finite() and candidate >= 0:
+            return value
+
+    return redact_ssns(value)
