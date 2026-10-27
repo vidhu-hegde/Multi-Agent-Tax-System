@@ -53,6 +53,11 @@ def format_interrupt(value):
     if not isinstance(value, dict):
         return str(value)
     said = value.get("evidence", {}).get("said_to_taxpayer")
+    if value.get("reason") == "exploitation_concern":
+        # policy.md#exploitation: notice and stop, never accuse. The person steering the return may be
+        # reading this screen, so the taxpayer sees only the neutral message; staff see the full ticket
+        # with python run.py --sessions or in the dashboard.
+        return f"{said or 'Thank you.'}\n\n[Paused: a member of staff will continue this with you.]"
     lead = f"{said}\n" if said else ""
     if value.get("evidence", {}).get("state_write"):
         for number, candidate in enumerate(value["evidence"]["candidates"], 1):
