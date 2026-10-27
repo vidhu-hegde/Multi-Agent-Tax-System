@@ -88,6 +88,13 @@ Intake agent that never finishes.
 any note meaning continue) or a dict `{"action": "continue" | "stop", "note": ..., "resolved_by": ...}`,
 which is what the dashboard will send. Resolved tickets are never reopened (`merge_escalations`).
 
+An `out_of_scope` ticket can always be stopped, but "continue" needs a written reason in `note`
+(for example "Client confirms the 1099-NEC was issued in error"). Plain `continue`, an empty note or
+"ok" asks again, and `Sessions.resolve` / `run.py --resolve` refuse it before touching the session.
+SilverFile does not prepare those returns, so continuing is a staff override, and the reason stays on
+the ticket's `resolution` for the reviewer. False alarms (for example a guardrail match on a reply)
+are the expected reason to continue.
+
 Agents raise tickets only through `escalate()` / `ticket()` in `src/escalation.py`. The ticket id is
 `<reason>:<key>`, where the key identifies the occurrence, so raising the same issue twice is harmless.
 

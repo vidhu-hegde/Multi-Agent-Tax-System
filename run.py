@@ -8,7 +8,7 @@ Taxpayer session:
 
 Staff (the same actions the dashboard offers):
     python run.py --sessions                                 # list sessions and open escalations
-    python run.py --resolve abc123 TICKET_ID --note "..."    # resolve and let the session continue
+    python run.py --resolve abc123 TICKET_ID --note "..."    # resolve and let the session continue (out_of_scope needs a reason)
     python run.py --resolve abc123 TICKET_ID --stop          # resolve by stopping the session
     python run.py --resolve abc123 TICKET_ID --values '{"employer_name": "...", "wages": "..."}'  # unreadable document
 
