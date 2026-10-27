@@ -11,9 +11,27 @@
       "expect": {
         "status": "draft_ready",
         "escalations": [],
-        "hops": ["intake", "extraction", "rules", "computation", "review", "end"],
-        "lines": {"1z": "18000", "2a": "80", "2b": "420", "4a": "6000", "4b": "6000", "6a": "22000",
-                  "25a": "1500", "25b": "600", "25d": "2100", "26": "1000", "33": "3100"}
+        "hops": [
+          "intake",
+          "extraction",
+          "rules",
+          "computation",
+          "review",
+          "end"
+        ],
+        "lines": {
+          "1z": "18000",
+          "2a": "80",
+          "2b": "420",
+          "4a": "6000",
+          "4b": "6000",
+          "6a": "22000",
+          "25a": "1500",
+          "25b": "600",
+          "25d": "2100",
+          "26": "1000",
+          "33": "3100"
+        }
       }
     },
     {
@@ -22,11 +40,23 @@
       "area": "hitl",
       "description": "Harold says he earned about $24,000; his W-2 shows $26,450. Rules escalates the conflict; staff confirm the W-2 and the draft finishes.",
       "case_file": "data/fixtures/conflict_case.json",
-      "staff": [{"reason": "document_conflict", "action": "continue", "note": "Client confirmed the W-2 is right", "resolved_by": "staff-1"}],
+      "staff": [
+        {
+          "reason": "document_conflict",
+          "action": "continue",
+          "note": "Client confirmed the W-2 is right",
+          "resolved_by": "staff-1"
+        }
+      ],
       "expect": {
         "status": "draft_ready",
-        "escalations": ["document_conflict"],
-        "lines": {"1z": "26450.00", "25a": "2380.00"}
+        "escalations": [
+          "document_conflict"
+        ],
+        "lines": {
+          "1z": "26450.00",
+          "25a": "2380.00"
+        }
       }
     },
     {
@@ -35,9 +65,25 @@
       "area": "hitl",
       "description": "The taxpayer also has a 1099-NEC (self-employment), which is out of scope. Staff stop the session.",
       "case_file": "data/fixtures/skeleton_case.json",
-      "add_documents": [{"document_id": "nec-1", "form_type": "other", "description": "1099-NEC for consulting work"}],
-      "staff": [{"reason": "out_of_scope", "action": "stop"}],
-      "expect": {"status": "stopped", "escalations": ["out_of_scope"]}
+      "add_documents": [
+        {
+          "document_id": "nec-1",
+          "form_type": "other",
+          "description": "1099-NEC for consulting work"
+        }
+      ],
+      "staff": [
+        {
+          "reason": "out_of_scope",
+          "action": "stop"
+        }
+      ],
+      "expect": {
+        "status": "stopped",
+        "escalations": [
+          "out_of_scope"
+        ]
+      }
     },
     {
       "id": "hitl-not-1040sr-eligible",
@@ -45,9 +91,21 @@
       "area": "hitl",
       "description": "Taxpayer born 1965, so not eligible for the 1040-SR. Escalates as out of scope.",
       "case_file": "data/fixtures/skeleton_case.json",
-      "answers": {"taxpayer_dob": "1965-03-01"},
-      "staff": [{"reason": "out_of_scope", "action": "stop"}],
-      "expect": {"status": "stopped", "escalations": ["out_of_scope"]}
+      "answers": {
+        "taxpayer_dob": "1965-03-01"
+      },
+      "staff": [
+        {
+          "reason": "out_of_scope",
+          "action": "stop"
+        }
+      ],
+      "expect": {
+        "status": "stopped",
+        "escalations": [
+          "out_of_scope"
+        ]
+      }
     },
     {
       "id": "hitl-1099r-box-2b",
@@ -55,9 +113,24 @@
       "area": "hitl",
       "description": "The IRA 1099-R has box 2b checked (taxable amount not determined), which always escalates. Staff continue.",
       "case_file": "data/fixtures/skeleton_case.json",
-      "document_values": {"r-1": {"taxable_not_determined": true}},
-      "staff": [{"reason": "1099r_taxable_not_determined", "action": "continue", "note": "Volunteer will review the 1099-R"}],
-      "expect": {"status": "draft_ready", "escalations": ["1099r_taxable_not_determined"]}
+      "document_values": {
+        "r-1": {
+          "taxable_not_determined": true
+        }
+      },
+      "staff": [
+        {
+          "reason": "1099r_taxable_not_determined",
+          "action": "continue",
+          "note": "Volunteer will review the 1099-R"
+        }
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [
+          "1099r_taxable_not_determined"
+        ]
+      }
     },
     {
       "id": "hitl-advice-request",
@@ -65,10 +138,26 @@
       "area": "hitl",
       "description": "Asked for their filing status, the taxpayer asks for tax advice instead. Intake escalates, then picks up at the same question.",
       "case_file": "data/fixtures/skeleton_case.json",
-      "remove_answers": ["filing_status"],
-      "replies": ["Should I file separately so I pay less tax?", "single"],
-      "staff": [{"reason": "advice_request", "action": "continue", "note": "Noted for the volunteer"}],
-      "expect": {"status": "draft_ready", "escalations": ["advice_request"]}
+      "remove_answers": [
+        "filing_status"
+      ],
+      "replies": [
+        "Should I file separately so I pay less tax?",
+        "single"
+      ],
+      "staff": [
+        {
+          "reason": "advice_request",
+          "action": "continue",
+          "note": "Noted for the volunteer"
+        }
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [
+          "advice_request"
+        ]
+      }
     },
     {
       "id": "hitl-spouse-died-2025",
@@ -76,9 +165,25 @@
       "area": "hitl",
       "description": "Filing jointly, but the spouse died in 2025: MFJ vs QSS vs Single needs a person to decide.",
       "case_file": "data/fixtures/skeleton_case.json",
-      "answers": {"filing_status": "mfj", "spouse_died_year": "2025", "spouse_dob": "1956-01-01", "spouse_blind": "no"},
-      "staff": [{"reason": "filing_status_ambiguity", "action": "continue", "note": "Confirmed MFJ for year of death"}],
-      "expect": {"status": "draft_ready", "escalations": ["filing_status_ambiguity"]}
+      "answers": {
+        "filing_status": "mfj",
+        "spouse_died_year": "2025",
+        "spouse_dob": "1956-01-01",
+        "spouse_blind": "no"
+      },
+      "staff": [
+        {
+          "reason": "filing_status_ambiguity",
+          "action": "continue",
+          "note": "Confirmed MFJ for year of death"
+        }
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [
+          "filing_status_ambiguity"
+        ]
+      }
     },
     {
       "id": "qss-with-2024-death-no-escalation",
@@ -86,8 +191,14 @@
       "area": "hitl",
       "description": "Qualifying surviving spouse with a spouse who died in 2024 is a valid status, so nothing escalates.",
       "case_file": "data/fixtures/skeleton_case.json",
-      "answers": {"filing_status": "qss", "spouse_died_year": "2024"},
-      "expect": {"status": "draft_ready", "escalations": []}
+      "answers": {
+        "filing_status": "qss",
+        "spouse_died_year": "2024"
+      },
+      "expect": {
+        "status": "draft_ready",
+        "escalations": []
+      }
     },
     {
       "id": "hitl-third-party-pressure",
@@ -95,10 +206,24 @@
       "area": "hitl",
       "description": "A reply says a nephew is directing the answers and the refund. Escalates as possible exploitation; staff stop.",
       "case_file": "data/fixtures/skeleton_case.json",
-      "remove_answers": ["filing_status"],
-      "replies": ["My nephew told me to say single and send the refund to his account"],
-      "staff": [{"reason": "exploitation_concern", "action": "stop"}],
-      "expect": {"status": "stopped", "escalations": ["exploitation_concern"]}
+      "remove_answers": [
+        "filing_status"
+      ],
+      "replies": [
+        "My nephew told me to say single and send the refund to his account"
+      ],
+      "staff": [
+        {
+          "reason": "exploitation_concern",
+          "action": "stop"
+        }
+      ],
+      "expect": {
+        "status": "stopped",
+        "escalations": [
+          "exploitation_concern"
+        ]
+      }
     },
     {
       "id": "hitl-honest-uncertainty",
@@ -106,10 +231,25 @@
       "area": "hitl",
       "description": "The taxpayer isn't sure whether they're legally blind. Intake flags it for a volunteer, then carries on.",
       "case_file": "data/fixtures/skeleton_case.json",
-      "remove_answers": ["taxpayer_blind"],
-      "replies": ["I'm not sure, my eye doctor never said", "no"],
-      "staff": [{"reason": "uncertain", "action": "continue"}],
-      "expect": {"status": "draft_ready", "escalations": ["uncertain"]}
+      "remove_answers": [
+        "taxpayer_blind"
+      ],
+      "replies": [
+        "I'm not sure, my eye doctor never said",
+        "no"
+      ],
+      "staff": [
+        {
+          "reason": "uncertain",
+          "action": "continue"
+        }
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [
+          "uncertain"
+        ]
+      }
     },
     {
       "id": "unreadable-w2-staff-types-values",
@@ -117,10 +257,36 @@
       "area": "hitl",
       "description": "The W-2 is an image with nothing typed in and no API key to read it. Staff type its values from the document.",
       "case_file": "data/fixtures/skeleton_case.json",
-      "document_values": {"w2-1": null},
-      "staff": [{"reason": "uncertain", "action": "continue", "resolved_by": "staff-7",
-                 "values": {"employer_name": "Finger Lakes Hardware Co.", "wages": "18000.00", "federal_withheld": "1500.00"}}],
-      "expect": {"status": "draft_ready", "escalations": ["uncertain"], "lines": {"1z": "18000.00", "25a": "1500.00"}}
+      "document_values": {
+        "w2-1": null
+      },
+      "staff": [
+        {
+          "reason": "uncertain",
+          "action": "continue",
+          "resolved_by": "staff-7",
+          "values": {
+            "employer_name": "Finger Lakes Hardware Co.",
+            "wages": "18000.00",
+            "federal_withheld": "1500.00",
+            "medicare_wages": "18000.00",
+            "allocated_tips": null,
+            "dependent_care_benefits": null,
+            "box12": [],
+            "statutory_employee": false
+          }
+        }
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [
+          "uncertain"
+        ],
+        "lines": {
+          "1z": "18000.00",
+          "25a": "1500.00"
+        }
+      }
     },
     {
       "id": "unreadable-w2-plain-continue-never-skips",
@@ -128,9 +294,22 @@
       "area": "hitl",
       "description": "Staff reply plain 'continue' to an unreadable W-2. The session keeps asking for the values instead of finishing without the W-2.",
       "case_file": "data/fixtures/skeleton_case.json",
-      "document_values": {"w2-1": null},
-      "staff": [{"reason": "uncertain", "action": "continue"}],
-      "expect": {"status": "waiting_on_human", "escalations": ["uncertain", "uncertain"]}
+      "document_values": {
+        "w2-1": null
+      },
+      "staff": [
+        {
+          "reason": "uncertain",
+          "action": "continue"
+        }
+      ],
+      "expect": {
+        "status": "waiting_on_human",
+        "escalations": [
+          "uncertain",
+          "uncertain"
+        ]
+      }
     },
     {
       "id": "review-loop-is-bounded",
@@ -139,7 +318,15 @@
       "description": "A faulty Computation keeps producing line 6b larger than 6a. Review sends it back; after 3 passes the orchestrator escalates instead of looping.",
       "case_file": "data/fixtures/skeleton_case.json",
       "fault": "computation_6b_too_large",
-      "expect": {"status": "waiting_on_human", "escalations": ["review_limit"], "state": {"review_passes": 3}}
+      "expect": {
+        "status": "waiting_on_human",
+        "escalations": [
+          "review_limit"
+        ],
+        "state": {
+          "review_passes": 3
+        }
+      }
     },
     {
       "id": "loop-guard-breaks-a-cycle",
@@ -148,7 +335,18 @@
       "description": "A faulty Intake never finishes. The same handoff repeats 3 times, then the loop guard escalates to a human.",
       "case_file": "data/fixtures/skeleton_case.json",
       "fault": "intake_never_finishes",
-      "expect": {"status": "waiting_on_human", "escalations": ["loop_guard"], "hops": ["intake", "intake", "intake", "human"]}
+      "expect": {
+        "status": "waiting_on_human",
+        "escalations": [
+          "loop_guard"
+        ],
+        "hops": [
+          "intake",
+          "intake",
+          "intake",
+          "human"
+        ]
+      }
     },
     {
       "id": "real-ssn-is-refused",
@@ -156,10 +354,28 @@
       "area": "security",
       "description": "A dependent's SSN is typed as a real-looking number. It is refused and asked again; only the test-range SSN is kept.",
       "case_file": "data/fixtures/skeleton_case.json",
-      "answers": {"dependent_count": 1, "dependent_1_name": "Ann Lee", "dependent_1_relationship": "granddaughter"},
-      "replies": ["123-45-6789", "901-12-3456"],
-      "staff": [{"reason": "uncertain", "action": "continue", "note": "Dependents not yet on the draft; acknowledged"}],
-      "expect": {"status": "draft_ready", "escalations": ["uncertain"]}
+      "answers": {
+        "dependent_count": 1,
+        "dependent_1_name": "Ann Lee",
+        "dependent_1_relationship": "granddaughter"
+      },
+      "replies": [
+        "123-45-6789",
+        "901-12-3456"
+      ],
+      "staff": [
+        {
+          "reason": "uncertain",
+          "action": "continue",
+          "note": "Dependents not yet on the draft; acknowledged"
+        }
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [
+          "uncertain"
+        ]
+      }
     }
   ]
 }
