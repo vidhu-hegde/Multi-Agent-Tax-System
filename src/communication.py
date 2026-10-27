@@ -19,7 +19,7 @@ ALLOWED_OUTPUTS = {
     "rules": COMMON | {"rule_decisions", "revision_requests"},
     "computation": COMMON | {"lines", "revision_requests", "review_status", "computed_evidence_fingerprint"},
     "review": {"revision_requests", "review_status", "review_passes", "last_agent"},
-    "human": COMMON | {"documents", "revision_requests", "review_status", "review_passes", "guard_window_start",
+    "human": COMMON | {"documents", "document_readiness", "revision_requests", "review_status", "review_passes", "guard_window_start",
                         "rule_decisions", "lines", "evidence_epoch", "evidence_history", "computed_evidence_fingerprint"},
     "orchestrator": {"next_agent", "handoffs", "escalations", "status", "guard_window_start", "guard_answer_count", "evidence_history", "evidence_epoch", "lines", "rule_decisions", "review_status", "review_passes", "computed_evidence_fingerprint"},
 }

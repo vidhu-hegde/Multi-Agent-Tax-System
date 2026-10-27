@@ -10,23 +10,24 @@ import json
 
 from langgraph.types import Overwrite
 
-from src.agents.extraction import extraction_ticket_id
 from src.config import Settings
 from src.schemas import DocumentRef, EscalationTicket, Handoff, StateWriteConflict
 from src.state import SilverFileState
 
 
 def pending_documents(state: SilverFileState) -> list[DocumentRef]:
-    """In-scope documents not yet extracted, skipping any a human already looked at."""
+    """In-scope documents without a record yet.
+
+    A document that cannot be read is not skipped: its ticket stays open until staff type the values in
+    (which creates the record) or stop the session. So a draft is never produced with a document missing.
+    """
     documents = state.get("documents", {})
-    escalations = state.get("escalations", {})
     requested = {r.document_id for r in state.get("revision_requests", []) if r.target == "extraction"}
     return [
         ref
         for ref in state.get("document_inventory", [])
         if ref.form_type != "other"
         and (ref.document_id not in documents or ref.document_id in requested)
-        and (ref.document_id in requested or extraction_ticket_id(ref.document_id, ref) not in escalations)
     ]
 
 
