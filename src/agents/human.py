@@ -16,6 +16,7 @@ from pydantic import TypeAdapter
 from src.agents.extraction import StaffEntryError, staff_entered_record
 from src.schemas import EscalationTicket, RevisionRequest, TaxDocument
 from src.state import SilverFileState
+from src.evidence import invalidate_evidence
 
 
 def normalize_resolution(answer) -> dict:
@@ -81,6 +82,7 @@ def human(state: SilverFileState) -> dict:
                             **(current or {}), document_id: record}
                         resolution = {k: v for k, v in resolution.items() if k != "values"}
                         resolution["entered_document"] = document_id
+                        update["document_readiness"] = {**update.get("document_readiness", {}), document_id: True}
                         break
                 prompt = {**prompt, "detail": problem}
                 continue
@@ -90,6 +92,7 @@ def human(state: SilverFileState) -> dict:
                 if channel == "documents":
                     documents[key] = TypeAdapter(TaxDocument).validate_python(record)
                     update["documents"] = Overwrite(documents)
+                    update.update(invalidate_evidence(state))
                     requests = list(update.get("revision_requests", state.get("revision_requests", [])))
                     requests.extend(
                         RevisionRequest(target=target, reason=f"Staff selected document {key}", raised_by="human")

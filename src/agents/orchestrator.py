@@ -22,10 +22,12 @@ def pending_documents(state: SilverFileState) -> list[DocumentRef]:
     (which creates the record) or stop the session. So a draft is never produced with a document missing.
     """
     documents = state.get("documents", {})
+    requested = {r.document_id for r in state.get("revision_requests", []) if r.target == "extraction"}
     return [
         ref
         for ref in state.get("document_inventory", [])
-        if ref.form_type != "other" and ref.document_id not in documents
+        if ref.form_type != "other"
+        and (ref.document_id not in documents or ref.document_id in requested)
     ]
 
 

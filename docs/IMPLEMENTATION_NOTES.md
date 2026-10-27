@@ -340,3 +340,12 @@ use the shared 900-series schema and have no raw-text copy. Qiyan/Max must use t
 for their ingress protection before resume commands; upstream checkpoint/trace PII protection remains
 unverified. No other owner's module was modified. See `docs/IRIS_HANDOFF.md` for regression results and
 all ten updated checklist statuses. Live context measurements remain unavailable.
+
+
+## Communication/extraction integration update (Anupama, 2026-10-25)
+
+[ANUPAMA_HANDOFF.md](ANUPAMA_HANDOFF.md) supersedes earlier descriptions of extraction as a typed-values-only
+stub, missing generic revision-field targeting, and blocked inventory retraction. It documents the
+Claude vision interface (live testing pending), audited manual records, graph message validation,
+evidence epochs/archives and the HTML provenance view. Existing tax_math stubs, policy placeholders,
+normal model/batch integration and full dashboard remain dependencies. This update changes no tax policy.

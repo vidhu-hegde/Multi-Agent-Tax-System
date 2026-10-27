@@ -135,3 +135,14 @@ def test_staff_missing_a_field_is_asked_again(make_graph, image_only_case):
 
     assert "federal_withheld" in paused_on(result)["detail"]
     assert result["status"] == "waiting_on_human"
+
+
+def test_staff_entered_document_is_marked_ready_so_the_draft_page_shows(make_graph, image_only_case):
+    from src.render import render_draft
+
+    graph = make_graph()
+    graph.invoke({"case_path": image_only_case}, config())
+    result = graph.invoke(Command(resume={"action": "continue", "values": W2_VALUES}), config())
+
+    assert result["document_readiness"]["w2-1"] is True
+    assert "Sources and calculation" in render_draft(result)

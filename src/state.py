@@ -9,6 +9,7 @@ from langgraph.graph.message import add_messages
 
 from src.schemas import (
     DocumentRef,
+    EvidenceSnapshot,
     EscalationTicket,
     Handoff,
     IntakeAnswer,
@@ -95,6 +96,9 @@ def merge_escalations(left: dict | None, right: dict | None) -> dict:
 
 
 class SilverFileState(TypedDict, total=False):
+    evidence_history: Annotated[list[EvidenceSnapshot], operator.add]
+    computed_evidence_fingerprint: str | None
+    evidence_epoch: int  # changes invalidate prior rule-ticket approvals
     case_path: str | None  # optional JSON case file with answers and documents
 
     # Intake
@@ -106,6 +110,7 @@ class SilverFileState(TypedDict, total=False):
     document_inventory: list[DocumentRef]
 
     # Work products
+    document_readiness: Annotated[dict[str, bool], merge_dicts]
     documents: Annotated[dict[str, TaxDocument | StateWriteConflict], merge_documents]
     rule_decisions: Annotated[dict[str, RuleDecision], merge_dicts]
     lines: Annotated[dict[str, LineValue], merge_dicts]
