@@ -4,6 +4,7 @@ import pytest
 import run
 
 import src.memory as memory
+import src.security as security
 from src.schemas import SSN_PATTERN
 from src.security import (
     SSNValidationError,
@@ -12,7 +13,7 @@ from src.security import (
     validate_test_ssn,
 )
 from src.graph import build_graph
-import src.security as security
+from src.sessions import open_sessions
 
 
 @pytest.mark.parametrize(
@@ -185,3 +186,100 @@ def test_intake_interrupt_exposes_security_context(settings):
     assert question["field"] == "filing_status"
     assert question["input_type"] == "text"
     assert "filing status" in question["prompt"]
+
+
+def test_staff_resolution_does_not_persist_ssns(
+    settings,
+    make_case,
+):
+    """Dashboard/staff metadata must be protected before graph resume."""
+
+    note_ssn = "123-45-6789"
+    thread_id = "security-staff-resolution"
+    config = {
+        "configurable": {
+            "thread_id": thread_id,
+        }
+    }
+
+    case_path = make_case(r1_2b=True)
+
+    with open_sessions(settings) as sessions:
+        sessions.graph.invoke(
+            {"case_path": case_path},
+            config,
+        )
+
+        ticket_id = sessions.summary(thread_id).awaiting_ticket_id
+        assert ticket_id is not None
+
+        sessions.resolve(
+            thread_id,
+            ticket_id,
+            note=f"Called taxpayer about {note_ssn}",
+            resolved_by="staff-security-test",
+        )
+
+        ticket = sessions.state(thread_id)["escalations"][ticket_id]
+
+        assert note_ssn not in str(ticket.resolution)
+        assert ticket.resolution["note"] == (
+            "Called taxpayer about ***-**-6789"
+        )
+        assert ticket.resolved_by == "staff-security-test"
+
+    sqlite_artifacts = list(
+        settings.db_path.parent.glob(settings.db_path.name + "*")
+    )
+    persisted_bytes = b"".join(
+        path.read_bytes()
+        for path in sqlite_artifacts
+    )
+
+    assert note_ssn.encode() not in persisted_bytes
+
+
+def test_staff_identifier_rejects_ssn_before_resume(
+    settings,
+    make_case,
+):
+    """Audit identities must never be SSNs or SSN-derived identifiers."""
+
+    staff_ssn = "234-56-7890"
+    thread_id = "security-staff-identity"
+    config = {
+        "configurable": {
+            "thread_id": thread_id,
+        }
+    }
+
+    with open_sessions(settings) as sessions:
+        sessions.graph.invoke(
+            {"case_path": make_case(r1_2b=True)},
+            config,
+        )
+
+        ticket_id = sessions.summary(thread_id).awaiting_ticket_id
+        assert ticket_id is not None
+
+        with pytest.raises(ValueError, match="staff identifier"):
+            sessions.resolve(
+                thread_id,
+                ticket_id,
+                note="Reviewed",
+                resolved_by=f"staff-{staff_ssn}",
+            )
+
+        # Rejection happens before Command(resume=...), so the ticket remains open.
+        assert (
+            sessions.summary(thread_id).awaiting_ticket_id
+            == ticket_id
+        )
+
+    persisted_bytes = b"".join(
+        path.read_bytes()
+        for path in settings.db_path.parent.glob(
+            settings.db_path.name + "*"
+        )
+    )
+    assert staff_ssn.encode() not in persisted_bytes

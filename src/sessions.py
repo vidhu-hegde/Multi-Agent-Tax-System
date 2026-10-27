@@ -17,6 +17,7 @@ from langgraph.types import Command
 from src.config import Settings, load_settings
 from src.memory import open_checkpointer
 from src.schemas import EscalationTicket
+from src.security import redact_ssns, validate_staff_identifier
 
 STATUSES = ("in_progress", "waiting_on_taxpayer", "waiting_on_human", "draft_ready", "stopped")
 
@@ -131,7 +132,13 @@ class Sessions:
             if evidence.get("state_write") and action == "continue":
                 if type(choice) is not int or not 1 <= choice <= len(evidence["candidates"]):
                     raise ValueError("Select a conflicting record with choice (numbered from 1), or stop.")
-            decision = {"action": action, "note": note, "resolved_by": resolved_by}
+            safe_resolved_by = validate_staff_identifier(resolved_by)
+
+            decision = {
+                "action": action,
+                "note": redact_ssns(note),
+                "resolved_by": safe_resolved_by,
+            }
             if choice is not None:
                 decision["choice"] = choice
             self.graph.invoke(Command(resume={paused_on.id: decision}), self._config(thread_id))

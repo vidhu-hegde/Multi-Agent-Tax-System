@@ -38,6 +38,21 @@ def validate_test_ssn(value: Any) -> str:
     return value
 
 
+def validate_staff_identifier(value: Any) -> str:
+    """Return a non-PII staff identifier without echoing unsafe input."""
+
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or _SSN_SHAPE_RE.search(value) is not None
+    ):
+        raise ValueError(
+            "Use a non-SSN staff identifier for audit records."
+        )
+
+    return value.strip()
+
+
 def redact_ssns(value: Any) -> Any:
     """Return a safe copy with SSN-shaped values masked to ***-**-1234."""
 
