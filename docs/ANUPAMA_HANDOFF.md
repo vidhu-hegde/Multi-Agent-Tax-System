@@ -1,7 +1,7 @@
 # Anupama: inter-agent communication handoff
 
 Date: 2026-10-25. Branch: `anupama/inter-agent-communication`, based on `origin/main` at `0451244`.
-No commits, pushes, PRs, or changes to local main were made for this contribution.
+The initial implementation was subsequently committed and pushed as `6906db7` in PR #7. Local `main` was left unchanged. The review follow-up below records the current fixes and verification.
 
 ## Scope and source documents
 
@@ -11,7 +11,7 @@ Read `Assignment 7_ Implement a multi agent tax system.pdf` and `Working doc.pdf
 
 The initial system-Python attempt failed because pytest was absent. Created ignored `.venv` and installed unchanged `requirements.txt` (Python 3.14 on this Windows machine). Before any source changes, `.venv\Scripts\python -m pytest -q` reported **137 passed in 13.95s**, rather than the previously unverified 126.
 
-Final verification after all code changes: full suite **190 passed in 31.25s**; focused communication suite **53 passed** (latest focused run: 2.06s). `git diff --check` is clean. Mocked vision uses actual bytes from both committed images and their independently committed expected records. These are provider-double tests, not evidence of Claude OCR accuracy.
+Initial implementation verification: full suite **190 passed in 31.25s**; focused communication suite **53 passed** (latest focused run: 2.06s). `git diff --check` is clean. Mocked vision uses actual bytes from both committed images and their independently committed expected records. These are provider-double tests, not evidence of Claude OCR accuracy.
 
 Local Chrome headless checks verify Enter opens a monetary disclosure, Space closes it, mouse click reopens it, the hover source summary is populated, source metadata is visible, and a 390px viewport has no horizontal overflow. Screenshot: ignored `output/draft-browser.png`. This is a browser smoke check, not a screen-reader audit or final accessibility certification.
 
@@ -32,13 +32,13 @@ Local Chrome headless checks verify Enter opens a monetary disclosure, Space clo
 | Review | Assembled lines, sources, rule decisions and escalation status | `RevisionRequest`, review status/count; sends work back | Modify lines or source documents |
 | Human node | Open ticket, staff resolution, explicit conflict choice | Recorded resolutions; explicit candidate selection and downstream invalidation | Silently select a competing record |
 
-`src/communication.py:checked_agent` wraps the existing graph nodes, including supplied test/integration overrides. It validates input contracts and output channels before reducer writes. Dictionary keys must match embedded IDs. Impersonation, invalid routing names, wrong output channels, malformed control values, invalid monetary messages, and unknown extraction revision IDs fail explicitly. An invalid programmer-authored message raises `ValueError`/Pydantic validation, whereas unreadable document contents produce the existing HITL escalation. This validation is an integration boundary, not an authentication system or a guarantee against every possible semantically incorrect agent output.
+`src/communication.py:checked_agent` wraps the existing graph nodes, including supplied test/integration overrides. It validates input contracts and output channels before reducer writes. Dictionary keys must match embedded IDs. Impersonation, invalid routing names, wrong output channels, malformed control values, invalid monetary messages, and unknown extraction revision IDs fail explicitly. A message contract violation in `checked_agent` raises `ValueError`/Pydantic validation and stops the current session execution. It does **not** automatically create a human escalation ticket or invoke the human node. The caller must handle the error and correct the violating message before retrying. In contrast, unreadable document contents follow the explicitly implemented HITL escalation path. This validation is an integration boundary, not an authentication system or a guarantee against every possible semantically incorrect agent output.
 
 Messages with `Any` payloads (notably answer values, rule outcomes and tool arguments) intentionally retain the existing flexible wire contract. Model JSON roundtrips preserve wire values; strict LangGraph serialization also preserves Decimal/date/model types inside those payloads. Do not assume JSON can recover arbitrary Python types stored under `Any` without an agreed field parser.
 
 ## Extraction integration
 
-`make_extraction(settings, client=None)` is wired into `build_graph`; tests can inject a provider double through the existing `agents={"extraction": ...}` override. Production lazily creates the Anthropic client using `load_settings()` and `SILVERFILE_MODEL`, sends an image block before the transcription instructions, and validates its JSON observation against the existing `W2Record`. API retries are disabled; timeout is 60 seconds. See [Anthropic vision documentation](https://platform.claude.com/docs/en/build-with-claude/vision) for the image message interface.
+`make_extraction(settings, client=None)` is wired into `build_graph`; tests can inject a provider double through the existing `agents={"extraction": ...}` override. Production lazily creates the Anthropic client using `load_settings()` and `SILVERFILE_MODEL`, sends an image block before the transcription instructions, and validates its JSON observation against the existing `W2Record`. Bare JSON, a JSON Markdown fence, and a plain-text preamble of up to 512 characters followed by JSON (optionally fenced) are accepted. Malformed/truncated JSON, incomplete fences, multiple objects and trailing non-JSON text still fail safely. API retries are disabled; timeout is 60 seconds. See [Anthropic vision documentation](https://platform.claude.com/docs/en/build-with-claude/vision) for the image message interface.
 
 Every supported field must be observed. Visibly blank optional amounts can be null; visibly unchecked boxes are false; visibly empty box 12 is an empty list. The model must list unreadable/missing fields as issues. An issue, omitted observation, unreadable box 2, malformed data, invalid SSN, truncated response, unsupported/corrupt/missing image, or provider error publishes no partial record. Errors are sanitized before ticket creation. This does not claim that model confidence guarantees correct transcription; live comparison remains necessary.
 
@@ -63,7 +63,7 @@ Other non-W-2 images are not transcribed; enter their typed values. Optional man
 
 ## Provenance, revisions and evidence changes
 
-Document-to-line provenance now preserves the complete original source object, entrant identity, timestamp, document ID and field/box reference. Existing tool result/source/inputs remain attached. Derived lines include ancestor provenance and still carry `depends_on`; stub flags therefore propagate through totals. Future MCP code must retain the actual tool name, arguments, result, time and available call identifiers in this same provenance contract.
+Document-to-line provenance now preserves the complete original source object, entrant identity, timestamp, document ID and field/box reference. Existing tool result/source/inputs remain attached. Derived lines store only their own calculation/rule steps and retain `depends_on` links to their inputs. The renderer traverses those links and displays each ancestor once per displayed line, linking repeated references to its first audit entry. Stub status is checked across dependencies during rendering; `LineValue.is_stub` describes only the line's own steps. Future MCP code must retain the actual tool name, arguments, result, time and available call identifiers in this same provenance contract.
 
 `RevisionRequest.field` identifies a specific Intake field; existing line-10/26 mapping and `intake_revisit` remain compatible. `RevisionRequest.document_id` is required for extraction revisions. A re-read uses the existing `Send` fan-out and reducer: an identical manual retry is idempotent; a changed record requires the existing explicit human candidate selection. Failed re-reads flag the document unverified and cannot make the old amount visible as a valid result. A retry failure has a fresh revision ticket identity.
 
@@ -123,4 +123,37 @@ See `ANUPAMA_REPORT.md` for the report contribution and `AI_DISCLOSURE.md` for A
 | Tests | new `tests/test_communication.py`, new `tests/check_draft_browser.py`, `tests/test_intake.py` (two expectations updated for implemented safe retraction/invalidation) |
 | Documentation/demo | `README.md`, `docs/IMPLEMENTATION_NOTES.md`, new `docs/ANUPAMA_HANDOFF.md`, new `docs/ANUPAMA_REPORT.md`, new `docs/AI_DISCLOSURE.md`, new `demo/anupama_vision_case.json` |
 
-The ignored `.venv` and generated `output/` artifacts are local runtime files, not source changes. Requirements were not edited. The branch remains uncommitted at `0451244`; nothing was pushed or submitted.
+The ignored `.venv` and generated `output/` artifacts are local runtime files, not source changes. Requirements were not edited. At the initial handoff the contribution was uncommitted; it was later committed as `6906db7` and pushed to PR #7. See the review follow-up below for subsequent changes.
+
+
+## PR #7 review follow-up (2026-10-26)
+
+PR #7 was open and unmerged at the start of this review pass. Fetch confirmed both the feature branch (`6906db7`) and `origin/main` (`0451244`) were unchanged since the prior push. Local `main` was not updated. No unrelated local changes were present.
+
+The provenance duplication fix retains document source details (`record_source`, `entered_by`, `recorded_at`) on their owning line and tool arguments/results on the line performing the calculation. The renderer expands each reachable ancestor once per displayed amount and uses links for repeated dependency references. Availability checks are memoized to avoid repeatedly walking a shared DAG. Old checkpoint/archive records are not rewritten: recompute a previously saved draft to regenerate compact per-line provenance with this version.
+
+Regression coverage includes a four-node diamond, a 16-layer diamond, the skeleton case with ordinary stub withholding, and the skeleton case with stub flags marked non-stub **only in the test process** to expose the entire audit chain. This is a size/traceability test, not tax validation. Wrapped-JSON tests cover accepted presentation forms and malformed responses, while ensuring tickets do not expose SSNs or provider text.
+
+Live Claude testing remains pending until the team provides API credits. No live vision request was made for this review pass.
+
+
+Review-fix verification:
+
+- Before edits, the existing communication suite passed **53 tests in 3.12s**.
+- After fixes, the focused suite passed **67 tests in 1.91s**.
+- Full suite: **204 passed in 46.15s**.
+- Local browser checks passed: Enter, Space, mouse click, visible sources, hover metadata, and 390px layout.
+- `git diff --check` passed.
+
+The skeleton comparison was measured before and after against the same fixture and code paths:
+
+| Measurement | Before review fixes | After review fixes |
+|---|---:|---:|
+| Total stored provenance steps | 468 | 39 |
+| Line 37 own provenance steps | 68 | 1 |
+| Normal HTML, stub-dependent values withheld (bytes) | 56,863 | 40,175 |
+| All tool flags marked non-stub in memory for the comparison only: HTML bytes | 1,887,821 | 222,554 |
+
+The non-stub comparison does not replace any tax tool or validate its numeric output. Production stub flags remain unchanged. Each displayed line has its own visited set, so shared sources are available independently for each amount while expanding once within that amount's audit trail. Across the full form a source can legitimately appear in multiple amounts' disclosures.
+
+This review changes only `src/agents/computation.py`, `src/agents/extraction.py`, `src/render.py`, `tests/test_communication.py`, and this handoff. No policy corpus, MCP math, or dashboard implementation was added.

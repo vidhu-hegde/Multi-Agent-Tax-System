@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import json
+import re
 from io import BytesIO
 from pathlib import Path
 
@@ -23,6 +24,28 @@ VISION_FIELDS = (set(W2Record.model_fields) - {"document_id", "form_type", "sour
 class W2Observation(Contract):
     fields: dict
     issues: list[str]
+
+
+
+def parse_w2_observation(text: str) -> W2Observation:
+    """Accept one JSON object, optionally fenced or following a short plain-text preamble.
+
+    Never scan past a malformed object or ignore trailing output: ambiguous/partial
+    responses still fail validation and take the sanitized extraction escalation path.
+    """
+    text = text.strip()
+    fenced = re.fullmatch(
+        r"[^{}\[\]`]{0,512}```(?:json)?[ \t]*\r?\n(.*?)\r?\n?```\s*",
+        text, flags=re.DOTALL | re.IGNORECASE,
+    )
+    if fenced:
+        payload = fenced.group(1).strip()
+    else:
+        start = text.find("{")
+        if start < 0 or start > 512 or any(c in text[:start] for c in "{}[]`"):
+            raise ValueError("Expected one W-2 observation object")
+        payload = text[start:]
+    return W2Observation.model_validate_json(payload)
 
 
 def extraction_ticket_id(document_id: str, ref: DocumentRef | None = None) -> str:
@@ -84,7 +107,7 @@ def read_w2(ref: DocumentRef, client, model: str) -> W2Record:
     )
     if response.stop_reason != "end_turn":
         raise ValueError("Incomplete vision response")
-    observation = W2Observation.model_validate_json("".join(b.text for b in response.content if b.type == "text"))
+    observation = parse_w2_observation("".join(b.text for b in response.content if b.type == "text"))
     if observation.issues or set(observation.fields) != VISION_FIELDS:
         raise ValueError("Unreadable or missing W-2 fields; staff verification required")
     if observation.fields.get("federal_withheld") is None:

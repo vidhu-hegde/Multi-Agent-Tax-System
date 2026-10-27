@@ -189,8 +189,9 @@ def test_manual_provenance_and_tool_inputs_reach_derived_line_and_html(make_grap
     assert doc.entered_by == source.entered_by
     assert doc.recorded_at == source.recorded_at
     assert doc.inputs["record_source"] == source.model_dump(mode="json")
-    assert doc in state["lines"]["9"].provenance
-    assert state["lines"]["9"].is_stub  # transitive placeholder cannot masquerade as a valid total
+    assert doc not in state["lines"]["9"].provenance
+    assert state["lines"]["9"].depends_on
+    assert not state["lines"]["9"].is_stub  # own sum is real; renderer checks stub ancestors
     html = render_draft(state)
     assert '$18,000.00' in html
     assert 'direct user input' in html and 'recorded_at' in html and 'case file' in html
@@ -348,3 +349,132 @@ def test_new_document_ingress_invalidates_prior_calculations(make_graph):
     assert done["lines"]["2b"].amount == Decimal("443.45")
     assert done["evidence_history"][0].lines["2b"].amount == Decimal("420")
     assert 'staff-A' in render_draft(done)
+
+
+@pytest.mark.parametrize("wrapper", ["bare", "fenced", "preamble", "preamble_fenced"])
+def test_vision_accepts_json_presentation_variants(settings, wrapper):
+    ref, fields = fixture(1)
+    payload = json.dumps({"fields": fields, "issues": []})
+    response = {
+        "bare": payload,
+        "fenced": "```json\n" + payload + "\n```",
+        "preamble": "Here are the transcribed W-2 fields:\n" + payload,
+        "preamble_fenced": "Here is the transcription:\n```JSON\n" + payload + "\n```",
+    }[wrapper]
+    record = make_extraction(settings, Vision(response))({"doc": ref})["documents"][ref.document_id]
+    assert record.wages == Decimal(fields["wages"])
+    assert record.employee_ssn_last4 == fields["employee_ssn"][-4:]
+    assert fields["employee_ssn"] not in record.model_dump_json()
+
+
+@pytest.mark.parametrize("wrapper", ["truncated", "unclosed_fence", "two_objects", "trailing_text", "bad_fenced", "long_preamble"])
+def test_malformed_wrapped_vision_responses_escalate_without_raw_data(settings, wrapper):
+    ref, fields = fixture(1)
+    payload = json.dumps({"fields": fields, "issues": []})
+    response = {
+        "truncated": "Transcription:\n" + payload[:-2],
+        "unclosed_fence": "```json\n" + payload,
+        "two_objects": payload + "\n" + payload,
+        "trailing_text": payload + " extra text",
+        "bad_fenced": "```json\nnot JSON: 123-45-6789 provider-secret\n```",
+        "long_preamble": "x" * 513 + payload,
+    }[wrapper]
+    result = make_extraction(settings, Vision(response))({"doc": ref})
+    assert "documents" not in result
+    assert not result["document_readiness"][ref.document_id]
+    ticket = next(iter(result["escalations"].values()))
+    assert ticket.reason == "uncertain"
+    assert fields["employee_ssn"] not in ticket.model_dump_json()
+    assert '123-45-6789' not in ticket.model_dump_json()
+    assert 'provider-secret' not in ticket.model_dump_json()
+
+
+def _audit_for(html, line):
+    return html.split(f'<details id="line-{line}">', 1)[1].split('</td>', 1)[0]
+
+
+def test_diamond_audit_visits_each_ancestor_once_and_preserves_sources():
+    when = datetime(2026, 10, 26, tzinfo=timezone.utc)
+    original = Provenance(kind="user_input", source="direct user input: W-2 shared",
+                          entered_by="staff-test", recorded_at=when)
+    shared = Provenance(kind="document", source="shared W-2, box 1", value="100",
+                        inputs={"record_source": original.model_dump(mode="json")},
+                        entered_by=original.entered_by, recorded_at=original.recorded_at)
+    def tool(line, source, parents):
+        return LineValue(line=line, amount="100", provenance=[Provenance(kind="tool", source=source,
+                         value="100", inputs={"values": ["100"]})], depends_on=parents)
+    lines = {
+        "1z": LineValue(line="1z", amount="100", provenance=[shared]),
+        "2a": tool("2a", "left calculation", ["1z"]),
+        "2b": tool("2b", "right calculation", ["1z"]),
+        "9": tool("9", "join calculation", ["2a", "2b"]),
+    }
+    html = render_draft({"lines": lines, "status": "draft_ready", "review_status": "passed"})
+    audit = _audit_for(html, "9")
+    for key in lines:
+        assert audit.count(f'data-source-line="{key}"') == 1
+    for source in [shared.source, "left calculation", "right calculation", "join calculation"]:
+        assert audit.count(f'<strong>{source}</strong>') == 1
+    assert 'record_source' in audit and original.source in audit
+    assert 'staff-test' in audit and when.isoformat() in audit
+    assert 'Calculation inputs:' in audit
+    assert '<a href="#audit-9-2">1z</a> (shown above)' in audit
+    # Visited sets reset per displayed line, so its own source remains available too.
+    assert _audit_for(html, "1z").count('data-source-line="1z"') == 1
+
+
+def test_layered_diamond_audit_size_grows_with_nodes_not_paths():
+    def render_layers(depth):
+        lines = {"shared": LineValue(line="shared", amount="1", provenance=[Provenance(kind="document", source="base source")])}
+        parents = ["shared"]
+        for layer in range(depth):
+            children = [f"left-{layer}", f"right-{layer}"]
+            for key in children:
+                lines[key] = LineValue(line=key, amount="1", depends_on=parents,
+                                      provenance=[Provenance(kind="tool", source=f"calculation-{key}")])
+            parents = children
+        lines["9"] = LineValue(line="9", amount="1", depends_on=parents,
+                               provenance=[Provenance(kind="tool", source="final calculation")])
+        return _audit_for(render_draft({"lines": lines, "status": "draft_ready", "review_status": "passed"}), "9")
+    small, large = render_layers(8), render_layers(16)
+    assert small.count('data-source-line=') == 18
+    assert large.count('data-source-line=') == 34
+    assert large.count('data-source-line="shared"') == 1
+    assert len(large) < 2.5 * len(small)
+
+
+@pytest.mark.parametrize("mark_stubs_nonstub", [False, True])
+def test_skeleton_uses_local_provenance_and_deduplicated_dependency_traces(make_graph, monkeypatch, mark_stubs_nonstub):
+    from src.tools import TOOLS
+    if mark_stubs_nonstub:
+        # Exercise every rendered line without claiming real tax math; flags change only in this test.
+        for name, (fn, _) in list(TOOLS.items()):
+            monkeypatch.setitem(TOOLS, name, (fn, False))
+    state = make_graph().invoke({"case_path": SKELETON_CASE}, {"configurable": {"thread_id": "compact-skeleton"}})
+    for line in state["lines"].values():
+        if line.depends_on:
+            assert not any(p.kind in {"document", "user_input"} for p in line.provenance)
+            assert len([p for p in line.provenance if p.kind == "tool"]) == 1
+    assert sum(len(line.provenance) for line in state["lines"].values()) < 60
+    html = render_draft(state)
+    assert len(html.encode()) < 250000
+    if mark_stubs_nonstub:
+        audit = _audit_for(html, "37")
+        visited = set()
+        def collect(key):
+            if key in visited:
+                return
+            visited.add(key)
+            for parent in state["lines"][key].depends_on:
+                collect(parent)
+        collect("37")
+        assert audit.count('data-source-line=') == len(visited)
+        for key in visited:
+            assert audit.count(f'data-source-line="{key}"') == 1
+            for step in state["lines"][key].provenance:
+                assert step.source in audit
+        assert 'record_source' in audit and 'case file' in audit and 'recorded_at' in audit
+    else:
+        # A real sum depending on a stub is still withheld without copying its ancestor's flags.
+        assert not state["lines"]["9"].is_stub
+        assert 'id="line-9"' not in html

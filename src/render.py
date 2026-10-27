@@ -20,23 +20,36 @@ def render_draft(state: dict) -> str:
                and not state.get("revision_requests")
                and not any(getattr(t, "status", "open") == "open" for t in state.get("escalations", {}).values()))
 
+    availability = {}
+
     def unavailable(key, path=()):
         if key in path:
             return "Calculation dependency cycle"
+        if key in availability:
+            return availability[key]
         if key not in lines:
             return "Calculation dependency missing"
         value = lines[key]
         if value.is_stub:
-            return "Pending real calculation (placeholder tool)"
+            availability[key] = "Pending real calculation (placeholder tool)"
+            return availability[key]
         for parent in value.depends_on:
             reason = unavailable(parent, (*path, key))
             if reason:
+                availability[key] = reason
                 return reason
+        availability[key] = None
         return None
 
-    def trace(key, path=()):
-        if key in path or key not in lines:
+    def trace(key, seen=None, root=None):
+        # A fresh visited set belongs to each displayed line, not to the entire form.
+        if seen is None:
+            seen = {}
+            root = key
+        if key in seen or key not in lines:
             return ""
+        node_id = f"audit-{root}-{len(seen)}"
+        seen[key] = node_id
         value = lines[key]
         steps = []
         for step in value.provenance:
@@ -49,8 +62,13 @@ def render_draft(state: dict) -> str:
                          + inputs + "<details><summary>Full audit record</summary><pre>"
                          + escape(step.model_dump_json(indent=2)) + "</pre></details></li>")
         steps = "".join(steps)
-        parents = "".join(f"<li>Source line {escape(parent)}{trace(parent, (*path, key))}</li>" for parent in value.depends_on)
-        return f"<ol>{steps}{parents}</ol>"
+        parents = []
+        for parent in value.depends_on:
+            if parent in seen:
+                parents.append(f'<li>Source line <a href="#{seen[parent]}">{escape(parent)}</a> (shown above)</li>')
+            else:
+                parents.append(f"<li>Source line {escape(parent)}{trace(parent, seen, root)}</li>")
+        return f'<ol id="{node_id}" data-source-line="{escape(key, quote=True)}">{steps}{"".join(parents)}</ol>'
 
     rows = []
     for key, label in FORM_LINES.items():

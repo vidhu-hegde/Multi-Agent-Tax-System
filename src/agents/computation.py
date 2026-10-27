@@ -49,8 +49,8 @@ def computation(state: SilverFileState) -> dict:
 
     def derive(line, tool, depends_on, rule=None, **inputs):
         result, step = call_tool(tool, **inputs)
-        steps = [p for parent in depends_on for p in lines[parent].provenance]
-        steps.append(step)
+        # Store only this calculation; ancestors remain linked through depends_on.
+        steps = [step]
         if rule:
             decision = decisions[rule]
             steps.insert(0, Provenance(kind="rule", source=decision.rule_id, value=decision.outcome,
