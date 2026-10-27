@@ -2,6 +2,7 @@
 
 import pytest
 import run
+import re
 
 import src.memory as memory
 import src.security as security
@@ -14,6 +15,8 @@ from src.security import (
 )
 from src.graph import build_graph
 from src.sessions import open_sessions
+from dataclasses import replace
+from pathlib import Path
 
 
 @pytest.mark.parametrize(
@@ -283,3 +286,156 @@ def test_staff_identifier_rejects_ssn_before_resume(
         )
     )
     assert staff_ssn.encode() not in persisted_bytes
+
+
+def test_settings_repr_does_not_expose_api_key(settings):
+    """Exceptions and debug output must not reveal configured secrets."""
+
+    secret = "unit-test-provider-secret"
+    configured = replace(
+        settings,
+        anthropic_api_key=secret,
+    )
+
+    rendered = repr(configured)
+
+    assert secret not in rendered
+    assert "anthropic_api_key" not in rendered
+
+
+def test_docker_context_excludes_secrets_and_runtime_data():
+    """Future Docker builds must not receive local secrets or checkpoints."""
+
+    repository = Path(__file__).resolve().parents[1]
+    entries = {
+        line.strip()
+        for line in (repository / ".dockerignore")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+    required = {
+        ".env",
+        ".env.*",
+        "!.env.example",
+        ".venv/",
+        "__pycache__/",
+        ".pytest_cache/",
+        "*.sqlite",
+        "*.sqlite3",
+        "*.sqlite-wal",
+        "*.sqlite-shm",
+        "*.db",
+        "output/",
+        "traces/",
+        ".git/",
+    }
+
+    assert required <= entries
+
+
+def test_api_key_is_not_serialized_to_state_or_checkpoint(settings):
+    """Runtime credentials must stay in configuration, not workflow data."""
+
+    secret = "unit-test-provider-secret"
+    configured = replace(
+        settings,
+        anthropic_api_key=secret,
+    )
+
+    with memory.open_checkpointer(configured) as saver:
+        graph = build_graph(
+            configured,
+            checkpointer=saver,
+        )
+        result = graph.invoke(
+            {},
+            memory.thread_config("security-secret-test"),
+        )
+
+        assert secret not in str(result)
+        assert secret not in str(
+            graph.get_state(
+                memory.thread_config("security-secret-test")
+            ).values
+        )
+
+    persisted_bytes = b"".join(
+        path.read_bytes()
+        for path in configured.db_path.parent.glob(
+            configured.db_path.name + "*"
+        )
+    )
+    assert secret.encode() not in persisted_bytes
+
+
+def test_repository_text_files_do_not_contain_secret_values():
+    """Committed source, docs, and fixtures must not contain live credentials."""
+
+    repository = Path(__file__).resolve().parents[1]
+    text_suffixes = {
+        ".py",
+        ".md",
+        ".json",
+        ".txt",
+        ".toml",
+        ".yaml",
+        ".yml",
+    }
+    explicit_files = {
+        ".env.example",
+        ".gitignore",
+        ".dockerignore",
+        "requirements.txt",
+    }
+    ignored_parts = {
+        ".git",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".pytest_cache",
+        "output",
+    }
+
+    patterns = [
+        re.compile(
+            r"(?m)^\s*(?:export\s+)?"
+            r"(?:ANTHROPIC_API_KEY|OPENAI_API_KEY|AWS_SECRET_ACCESS_KEY)"
+            r"\s*=\s*"
+            r"(?:[\"'][^\"']+[\"']|[^\s#]+)"
+            r"\s*$"
+        ),
+        re.compile(
+            r"\b(?:sk-ant-|sk-proj-|ghp_)"
+            r"[A-Za-z0-9_-]{12,}\b"
+        ),
+        re.compile(
+            r"-----BEGIN [A-Z ]*PRIVATE KEY-----"
+        ),
+    ]
+
+    offenders = []
+
+    for path in repository.rglob("*"):
+        if not path.is_file():
+            continue
+        if any(part in ignored_parts for part in path.parts):
+            continue
+        if (
+            path.suffix.lower() not in text_suffixes
+            and path.name not in explicit_files
+        ):
+            continue
+
+        text = path.read_text(
+            encoding="utf-8",
+            errors="ignore",
+        )
+
+        if any(pattern.search(text) for pattern in patterns):
+            offenders.append(
+                str(path.relative_to(repository))
+            )
+
+    assert offenders == []

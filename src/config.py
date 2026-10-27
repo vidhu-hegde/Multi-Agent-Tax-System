@@ -1,7 +1,7 @@
 """Settings loaded from the environment (.env). Import `load_settings()` rather than reading os.environ directly."""
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 @dataclass(frozen=True)
 class Settings:
-    anthropic_api_key: str
+    anthropic_api_key: str = field(repr=False)
     model: str
     db_path: Path
     tax_math_mcp_url: str
