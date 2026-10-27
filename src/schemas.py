@@ -17,7 +17,7 @@ def _now() -> datetime:
 
 
 class Contract(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False, revalidate_instances="always")
 
 
 # Only IRS test-range SSNs (900-999 prefix) are accepted, so a real SSN can never be entered.
@@ -27,6 +27,8 @@ EIN = Annotated[str, StringConstraints(pattern=r"^\d{2}-\d{7}$")]
 Money = Annotated[Decimal, Field(ge=0)]
 
 FilingStatus = Literal["single", "mfj", "mfs", "hoh", "qss"]
+NonEmpty = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
 AgentName = Literal["orchestrator", "intake", "extraction", "rules", "computation", "review", "human"]
 
 # The 1040-SR lines SilverFile fills, in form order.
@@ -68,17 +70,17 @@ class Provenance(Contract):
     """One step in how an amount was obtained. A line's provenance list reads like a calculation."""
 
     kind: Literal["document", "user_input", "tool", "rule"]
-    source: str  # "W-2 w2-1, box 1", "intake: estimated_payments", "tax_math.sum", "policy.md#standard-deduction"
+    source: NonEmpty  # "W-2 w2-1, box 1", "intake: estimated_payments", "tax_math.sum", "policy.md#standard-deduction"
     value: Any = None
     inputs: dict[str, Any] = Field(default_factory=dict)  # tool arguments, or extra context
     citation: str | None = None  # policy.md section, for rule steps
-    entered_by: str | None = None  # for user input: "taxpayer", "case file", staff id
+    entered_by: NonEmpty | None = None  # for user input: "taxpayer", "case file", staff id
     recorded_at: datetime = Field(default_factory=_now)
     stub: bool = False  # True while a placeholder stands in for the real tool or agent
 
 
 class LineValue(Contract):
-    line: str
+    line: NonEmpty
     amount: Decimal
     provenance: list[Provenance] = Field(min_length=1)
     depends_on: list[str] = Field(default_factory=list)  # other lines this one was computed from
@@ -98,10 +100,10 @@ class LineValue(Contract):
 class IntakeAnswer(Contract):
     """One answer from the taxpayer. Answers are appended, never overwritten, so history is kept."""
 
-    field: str  # "filing_status", "taxpayer_dob", ...
+    field: NonEmpty  # "filing_status", "taxpayer_dob", ...
     value: Any
     raw_text: str | None = None
-    entered_by: str = "taxpayer"
+    entered_by: NonEmpty = "taxpayer"
     answered_at: datetime = Field(default_factory=_now)
 
 
@@ -119,15 +121,17 @@ FormType = Literal["W-2", "1099-INT", "1099-DIV", "1099-R", "SSA-1099"]
 class DocumentRef(Contract):
     """A document the taxpayer has. Either an image to extract, or values typed in by the user."""
 
-    document_id: str
+    document_id: NonEmpty
     form_type: FormType | Literal["other"]
     image_path: str | None = None
     values: dict[str, Any] | None = None
+    entered_by: NonEmpty = "case file"
+    entered_at: datetime = Field(default_factory=_now)
     description: str = ""  # e.g. "1099-NEC from consulting work" for an out-of-scope document
 
 
 class _Record(Contract):
-    document_id: str
+    document_id: NonEmpty
     source: Provenance  # where the record came from: image extraction or user entry
 
 
@@ -140,7 +144,7 @@ class W2Record(_Record):
     """A W-2. Field choices are recorded in docs/IMPLEMENTATION_NOTES.md (W-2 record fields)."""
 
     form_type: Literal["W-2"] = "W-2"
-    employer_name: str  # box c, first line
+    employer_name: NonEmpty  # box c, first line
     employer_ein: EIN | None = None  # box b: spots the same W-2 uploaded twice
     employee_name: str | None = None  # box e: whose W-2 this is on a joint return
     employee_ssn_last4: Annotated[str, StringConstraints(pattern=r"^\d{4}$")] | None = None  # box a, masked
@@ -176,7 +180,7 @@ class W2Record(_Record):
 
 class Interest1099(_Record):
     form_type: Literal["1099-INT"] = "1099-INT"
-    payer_name: str
+    payer_name: NonEmpty
     interest: Money = Decimal("0")  # box 1
     tax_exempt_interest: Money = Decimal("0")  # box 8
     federal_withheld: Money = Decimal("0")  # box 4
@@ -184,7 +188,7 @@ class Interest1099(_Record):
 
 class Dividend1099(_Record):
     form_type: Literal["1099-DIV"] = "1099-DIV"
-    payer_name: str
+    payer_name: NonEmpty
     ordinary_dividends: Money = Decimal("0")  # box 1a
     qualified_dividends: Money = Decimal("0")  # box 1b
     federal_withheld: Money = Decimal("0")  # box 4
@@ -192,7 +196,7 @@ class Dividend1099(_Record):
 
 class Retirement1099R(_Record):
     form_type: Literal["1099-R"] = "1099-R"
-    payer_name: str
+    payer_name: NonEmpty
     gross_distribution: Money  # box 1
     taxable_amount: Money | None = None  # box 2a
     taxable_not_determined: bool = False  # box 2b: always escalates
@@ -217,19 +221,27 @@ TaxDocument = Annotated[
 
 
 class RuleDecision(Contract):
-    rule_id: str  # "eligibility_1040sr", "age_blind_boxes", "senior_deduction_count", "scope"
+    rule_id: NonEmpty  # "eligibility_1040sr", "age_blind_boxes", "senior_deduction_count", "scope"
     outcome: Any
-    explanation: str
-    citation: str = Field(min_length=1)  # policy.md section id; every rule decision must cite
+    explanation: NonEmpty
+    citation: NonEmpty  # policy.md section id; every rule decision must cite
 
 
 class RevisionRequest(Contract):
     """Review sends work back with one of these. It never fixes anything itself."""
 
-    target: AgentName
-    reason: str
-    line: str | None = None
+    target: Literal["intake", "extraction", "rules", "computation"]
+    field: NonEmpty | None = None
+    document_id: NonEmpty | None = None
+    reason: NonEmpty
+    line: NonEmpty | None = None
     raised_by: AgentName = "review"
+
+    @model_validator(mode="after")
+    def _target_document(self):
+        if self.target == "extraction" and not self.document_id:
+            raise ValueError("Extraction revisions require document_id")
+        return self
 
 
 EscalationReason = Literal[
@@ -248,10 +260,10 @@ EscalationReason = Literal[
 class EscalationTicket(Contract):
     """A human-in-the-loop item. Shown in the dashboard; the graph waits until it is resolved."""
 
-    ticket_id: str  # deterministic, so the same issue is never raised twice
+    ticket_id: NonEmpty  # deterministic, so the same issue is never raised twice
     reason: EscalationReason
     raised_by: AgentName
-    detail: str
+    detail: NonEmpty
     evidence: dict[str, Any] = Field(default_factory=dict)
     status: Literal["open", "resolved"] = "open"
     resolution: dict[str, Any] | None = None  # {"action": "continue" | "stop", "note": ...}
@@ -259,16 +271,32 @@ class EscalationTicket(Contract):
     created_at: datetime = Field(default_factory=_now)
     resolved_at: datetime | None = None
 
+    @model_validator(mode="after")
+    def _resolution_action(self):
+        if self.resolution is not None and self.resolution.get("action") not in {"continue", "stop"}:
+            raise ValueError("Unknown escalation resolution action")
+        if self.status == "resolved" and self.resolution is None:
+            raise ValueError("Resolved escalations require a resolution")
+        return self
+
 
 class Handoff(Contract):
     """One orchestrator routing decision. The loop guard compares these."""
 
-    from_agent: str
-    to_agent: str
-    reason: str
+    from_agent: AgentName | Literal["start"]
+    to_agent: AgentName | Literal["end"]
+    reason: NonEmpty
 
 
 class StateWriteConflict(Contract):
     """Keep competing writes until staff explicitly select a record."""
 
     candidates: list[TaxDocument | EscalationTicket]
+
+
+class EvidenceSnapshot(Contract):
+    """Prior work products retained for audit when evidence changes."""
+    epoch: int = Field(ge=0)
+    documents: dict[str, TaxDocument | StateWriteConflict]
+    lines: dict[str, LineValue]
+    rule_decisions: dict[str, RuleDecision]
