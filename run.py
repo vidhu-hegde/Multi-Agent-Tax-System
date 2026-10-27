@@ -43,6 +43,13 @@ def parse_args(argv=None):
     staff.add_argument("--note", default="", help="with --resolve: note recorded on the ticket")
     staff.add_argument("--staff-id", default="staff", help="with --resolve: who is resolving")
     staff.add_argument("--choice", type=int, help="with --resolve: select a conflicting record, numbered from 1")
+    staff.add_argument(
+        "--taxable-amount",
+        help=(
+            "with --resolve: confirmed 1099-R "
+            "taxable amount for box 2a"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -152,9 +159,23 @@ def run_staff_command(args, settings):
         if args.resolve:
             thread_id, ticket_id = args.resolve
             action = "stop" if args.stop else "continue"
+            corrections = None
+            if args.taxable_amount is not None:
+                corrections = {
+                    "taxable_amount": (
+                        args.taxable_amount
+                    ),
+                }
+
             try:
                 summary = sessions.resolve(
-                    thread_id, ticket_id, action, note=args.note, resolved_by=args.staff_id, choice=args.choice
+                    thread_id,
+                    ticket_id,
+                    action,
+                    note=args.note,
+                    resolved_by=args.staff_id,
+                    choice=args.choice,
+                    corrections=corrections,
                 )
             except (StaleEscalation, ValueError) as exc:
                 sys.exit(str(exc))

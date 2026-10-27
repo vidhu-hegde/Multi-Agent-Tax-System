@@ -221,6 +221,9 @@ def test_staff_resolution_does_not_persist_ssns(
             ticket_id,
             note=f"Called taxpayer about {note_ssn}",
             resolved_by="staff-security-test",
+            corrections={
+                "taxable_amount": "5500",
+            },
         )
 
         ticket = sessions.state(thread_id)["escalations"][ticket_id]
@@ -271,6 +274,9 @@ def test_staff_identifier_rejects_ssn_before_resume(
                 ticket_id,
                 note="Reviewed",
                 resolved_by=f"staff-{staff_ssn}",
+                corrections={
+                    "taxable_amount": "5500",
+                },
             )
 
         # Rejection happens before Command(resume=...), so the ticket remains open.

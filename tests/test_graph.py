@@ -127,7 +127,20 @@ def test_1099r_box_2b_escalates_and_resolves(make_graph, make_case):
     assert pending_interrupt(result)["reason"] == "1099r_taxable_not_determined"
     assert result["status"] == "waiting_on_human"
 
-    result = graph.invoke(Command(resume={"action": "continue", "note": "checked with client", "resolved_by": "staff-1"}), config())
+    result = graph.invoke(
+        Command(
+            resume={
+                "action": "continue",
+                "note": "checked with client",
+                "resolved_by": "staff-1",
+                "corrections": {
+                    "taxable_amount": "5500",
+                },
+            }
+        ),
+        config(),
+    )
+
     assert result["status"] == "draft_ready"
     ticket = result["escalations"]["1099r_taxable_not_determined:r-1"]
     assert ticket.resolved_by == "staff-1"

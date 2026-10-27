@@ -7,11 +7,18 @@ Conflicting state writes additionally require a one-based "choice". The CLI acce
 
 import json
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from langgraph.types import Overwrite, interrupt
 from pydantic import TypeAdapter
 
-from src.schemas import EscalationTicket, RevisionRequest, TaxDocument
+from src.resolution import validate_resolution_corrections
+from src.schemas import (
+    EscalationTicket,
+    Provenance,
+    RevisionRequest,
+    TaxDocument,
+)
 from src.state import SilverFileState
 
 
@@ -39,18 +46,44 @@ def human(state: SilverFileState) -> dict:
             "evidence": ticket.evidence,
             "how_to_resolve": "Reply 'continue' (with an optional note) to carry on, or 'stop' to end the session.",
         }
-        if channel:
+        if ticket.reason == "1099r_taxable_not_determined":
             prompt["how_to_resolve"] = (
-                'Reply with {"action":"continue","choice":1} to select a candidate (numbered from 1), or stop.'
+                'Reply with {"action":"continue",'
+                '"corrections":{"taxable_amount":"5500"}} '
+                "to provide the confirmed taxable amount, "
+                'or reply "stop".'
+            )
+        elif channel:
+            prompt["how_to_resolve"] = (
+                'Reply with {"action":"continue","choice":1} '
+                "to select a candidate (numbered from 1), "
+                "or stop."
             )
         while True:
             answer = interrupt(prompt)
-            if channel and isinstance(answer, str):
+            expects_json = (
+                    bool(channel)
+                    or ticket.reason
+                    == "1099r_taxable_not_determined"
+            )
+
+            if expects_json and isinstance(answer, str):
                 try:
                     answer = json.loads(answer)
                 except ValueError:
                     pass
             resolution = normalize_resolution(answer)
+            validated_corrections = validate_resolution_corrections(
+                ticket.reason,
+                resolution.get("action", "continue"),
+                resolution.get("corrections"),
+            )
+
+            if validated_corrections:
+                resolution["corrections"] = validated_corrections
+            else:
+                resolution.pop("corrections", None)
+
             choice = resolution.get("choice")
             if not channel or resolution.get("action") == "stop":
                 break
@@ -71,6 +104,80 @@ def human(state: SilverFileState) -> dict:
                     selected_ticket = True
                 break
             prompt = {**prompt, "detail": "Select a candidate number before continuing, or stop the session."}
+
+        if (
+            ticket.reason
+            == "1099r_taxable_not_determined"
+            and resolution.get("action") == "continue"
+        ):
+            document_id = ticket.evidence.get(
+                "document_id"
+            )
+            record = documents.get(document_id)
+
+            if (
+                record is None
+                or getattr(record, "form_type", None)
+                != "1099-R"
+            ):
+                raise ValueError(
+                    "The 1099-R correction target "
+                    "is unavailable."
+                )
+
+            taxable_amount = Decimal(
+                resolution["corrections"][
+                    "taxable_amount"
+                ]
+            )
+
+            if (
+                taxable_amount
+                > record.gross_distribution
+            ):
+                raise ValueError(
+                    "The corrected taxable amount "
+                    "cannot exceed the gross "
+                    "distribution."
+                )
+
+            corrected_source = Provenance(
+                kind="user_input",
+                source=(
+                    f"HITL correction: 1099-R "
+                    f"{document_id}, box 2a"
+                ),
+                value=str(taxable_amount),
+                inputs={
+                    "previous_source": (
+                        record.source.model_dump(
+                            mode="json"
+                        )
+                    ),
+                },
+                entered_by=resolution.get(
+                    "resolved_by",
+                    "staff",
+                ),
+            )
+
+            documents[document_id] = (
+                record.model_copy(
+                    update={
+                        "taxable_amount": (
+                            taxable_amount
+                        ),
+                        "taxable_not_determined": (
+                            False
+                        ),
+                        "source": corrected_source,
+                    }
+                )
+            )
+            update["documents"] = Overwrite(
+                documents
+            )
+
         resolved[ticket.ticket_id] = ticket.model_copy(update={
             "status": "resolved",
             "resolution": resolution,

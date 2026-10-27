@@ -16,6 +16,7 @@ from langgraph.types import Command
 
 from src.config import Settings, load_settings
 from src.memory import open_checkpointer
+from src.resolution import validate_resolution_corrections
 from src.schemas import EscalationTicket
 from src.security import redact_ssns, validate_staff_identifier
 
@@ -112,8 +113,14 @@ class Sessions:
         return [(s.thread_id, t) for s in self.list_sessions() for t in s.open_tickets]
 
     def resolve(
-        self, thread_id: str, ticket_id: str, action: str = "continue", note: str = "", resolved_by: str = "staff",
-        choice: int | None = None,
+            self,
+            thread_id: str,
+            ticket_id: str,
+            action: str = "continue",
+            note: str = "",
+            resolved_by: str = "staff",
+            choice: int | None = None,
+            corrections: dict | None = None,
     ) -> SessionSummary:
         """Record a staff decision on the ticket the session is paused on, then let the graph continue.
 
@@ -128,6 +135,12 @@ class Sessions:
             )
             if paused_on is None:
                 raise StaleEscalation(f"Session {thread_id} is not waiting on ticket {ticket_id}.")
+
+            validated_corrections = validate_resolution_corrections(
+                paused_on.value["reason"],
+                action,
+                corrections,
+            )
             evidence = paused_on.value.get("evidence", {})
             if evidence.get("state_write") and action == "continue":
                 if type(choice) is not int or not 1 <= choice <= len(evidence["candidates"]):
@@ -141,6 +154,9 @@ class Sessions:
             }
             if choice is not None:
                 decision["choice"] = choice
+
+            if validated_corrections:
+                decision["corrections"] = validated_corrections
             self.graph.invoke(Command(resume={paused_on.id: decision}), self._config(thread_id))
         return self.summary(thread_id)
 
