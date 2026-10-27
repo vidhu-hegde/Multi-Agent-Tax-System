@@ -18,7 +18,7 @@ from src.guardrails import classify_reply, explain
 from src.schemas import EscalationReason
 from tests.conftest import SKELETON_CASE
 
-POLICY = Path("data/policy.md").read_text()
+POLICY = Path("data/policy.md").read_text(encoding="utf-8")
 
 
 def config(thread_id="g"):
@@ -116,7 +116,7 @@ def test_refund_routing_is_flagged_even_with_a_stated_authority():
 
 def test_evaluation_set_has_no_false_alarms_and_misses_nothing():
     # evals/guardrail_replies.json; see docs/guardrail_eval.md for its history (round 1 was held-out).
-    cases = json.loads(Path("evals/guardrail_replies.json").read_text())["cases"]
+    cases = json.loads(Path("evals/guardrail_replies.json").read_text(encoding="utf-8"))["cases"]
     wrong = [(c["reply"], c["expected"], explain(c["reply"])) for c in cases if classify_reply(c["reply"]) != c["expected"]]
     assert not wrong, wrong
 
@@ -153,11 +153,11 @@ def test_intake_ticket_names_the_guardrail_rule(make_graph, reply, reason, rule)
 @pytest.fixture
 def case(tmp_path):
     def make(answers=None, w2=None):
-        data = json.loads(open(SKELETON_CASE).read())
+        data = json.loads(open(SKELETON_CASE, encoding="utf-8").read())
         data["answers"].update(answers or {})
         data["documents"][0]["values"].update(w2 or {})
         path = tmp_path / "case.json"
-        path.write_text(json.dumps(data))
+        path.write_text(json.dumps(data), encoding="utf-8")
         return str(path)
 
     return make
@@ -217,7 +217,7 @@ def policy_ids():
 
 
 def test_every_rules_citation_has_a_policy_section():
-    cited = set(re.findall(r"policy\.md#([\w-]+)", Path("src/agents/rules.py").read_text()))
+    cited = set(re.findall(r"policy\.md#([\w-]+)", Path("src/agents/rules.py").read_text(encoding="utf-8")))
     assert cited, "Rules should cite policy.md"
     assert cited <= policy_ids(), cited - policy_ids()
 

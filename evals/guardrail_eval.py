@@ -80,11 +80,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--write", action="store_true", help="update docs/guardrail_eval.md")
     args = parser.parse_args()
-    data = json.loads((ROOT / "evals/guardrail_replies.json").read_text())
+    data = json.loads((ROOT / "evals/guardrail_replies.json").read_text(encoding="utf-8"))
     text = report(evaluate(data["cases"]), data.get("history", []))
     print(text)
     if args.write:
-        (ROOT / "docs/guardrail_eval.md").write_text(text)
+        (ROOT / "docs/guardrail_eval.md").write_text(text, encoding="utf-8")
 
 
 if __name__ == "__main__":
