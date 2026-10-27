@@ -35,6 +35,7 @@ def parse_args(argv=None):
         action="store_true",
         help="disable the context-window strategy (for the metrics comparison)",
     )
+    parser.add_argument("--html", help="write an accessible HTML draft with provenance")
     staff = parser.add_argument_group("staff")
     staff.add_argument("--sessions", action="store_true", help="list sessions and their open escalations")
     staff.add_argument("--resolve", nargs=2, metavar=("THREAD_ID", "TICKET_ID"), help="resolve an escalation")
@@ -169,6 +170,12 @@ def main(argv=None):
         result = drive(graph, thread_id, first_input)
         if result is not None:
             print_draft(result)
+            if args.html:
+                from pathlib import Path
+                from src.render import render_draft
+                target = Path(args.html)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(render_draft(result), encoding="utf-8")
 
 
 if __name__ == "__main__":

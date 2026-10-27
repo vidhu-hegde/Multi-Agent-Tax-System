@@ -17,6 +17,7 @@ from langgraph.types import interrupt
 from pydantic import TypeAdapter
 
 from src.escalation import escalate
+from src.evidence import invalidate_evidence, retract_inventory
 from src.guardrails import classify_reply, explain
 from src.memory import invoke_model, redact_ssns
 from src.schemas import Dependent, DocumentRef, FormType, IntakeAnswer, RevisionRequest, SSN
@@ -354,7 +355,7 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
     revision = next((r for r in requests if r.target == "intake"), None)
     revision_field = None
     if revision is not None:
-        revision_field = INTAKE_LINE_FIELDS.get(revision.line) or revisit
+        revision_field = revision.field or INTAKE_LINE_FIELDS.get(revision.line) or revisit
         if revision_field not in {q[0] for q in questions}:
             payload = redact_ssns(revision.model_dump(mode="json"))
             key = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
@@ -523,18 +524,7 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
             and previous.value != value
             and state.get("documents")
         ):
-            # The graph has no retraction interface for extracted records yet. Do not compute
-            # against a mixture of the new inventory and old records while awaiting that hook.
-            update.update(
-                escalate(
-                    "uncertain",
-                    raised_by="intake",
-                    key="inventory-retraction",
-                    detail="Changing extracted documents needs staff coordination before this return can continue.",
-                    evidence={"field": field, "said_to_taxpayer": SAID_TO_TAXPAYER["uncertain"]},
-                )
-            )
-            return update
+            update.update(retract_inventory(state, value))
         answer = IntakeAnswer(
             field=field,
             value=value,
@@ -551,6 +541,8 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
             inventory = value
             update["document_inventory"] = value
         if previous is not None and previous.value != value:
+            if "evidence_epoch" not in update:
+                update.update(invalidate_evidence(state))
             # Use the existing routing contract; do not replace the orchestrator or compute locally.
             requests = list(update.get("revision_requests", state.get("revision_requests", [])))
             for target in ("rules", "computation"):

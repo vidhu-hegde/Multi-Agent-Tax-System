@@ -20,12 +20,13 @@ def pending_documents(state: SilverFileState) -> list[DocumentRef]:
     """In-scope documents not yet extracted, skipping any a human already looked at."""
     documents = state.get("documents", {})
     escalations = state.get("escalations", {})
+    requested = {r.document_id for r in state.get("revision_requests", []) if r.target == "extraction"}
     return [
         ref
         for ref in state.get("document_inventory", [])
         if ref.form_type != "other"
-        and ref.document_id not in documents
-        and extraction_ticket_id(ref.document_id) not in escalations
+        and (ref.document_id not in documents or ref.document_id in requested)
+        and (ref.document_id in requested or extraction_ticket_id(ref.document_id, ref) not in escalations)
     ]
 
 
