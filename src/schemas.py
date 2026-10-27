@@ -4,8 +4,9 @@ Money is always Decimal (never float). Every amount on the draft is a LineValue,
 cannot exist without at least one Provenance record explaining where the amount came from.
 """
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from threading import Lock
 from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
@@ -16,8 +17,25 @@ from src.security import (
 )
 
 
+_timestamp_lock = Lock()
+_last_timestamp = datetime.min.replace(tzinfo=timezone.utc)
+
+
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    """Return a process-local UTC timestamp that is strictly increasing.
+
+    Some platforms can return the same wall-clock value for several rapid
+    calls. SilverFile uses timestamps to identify and order immutable events,
+    so ties would make a legitimate correction look like a conflicting replay.
+    """
+    global _last_timestamp
+
+    with _timestamp_lock:
+        current = datetime.now(timezone.utc)
+        if current <= _last_timestamp:
+            current = _last_timestamp + timedelta(microseconds=1)
+        _last_timestamp = current
+        return current
 
 
 class Contract(BaseModel):
