@@ -7,10 +7,15 @@ import pytest
 from langgraph.types import Command
 
 import run
+from src.agents.extraction import RECORD_TYPES, STAFF_ENTRY_FIELDS, StaffEntryError, staff_entered_record
 from src.sessions import open_sessions
 from tests.conftest import SKELETON_CASE
 
-W2_VALUES = {"employer_name": "Finger Lakes Hardware Co.", "wages": "18000.00", "federal_withheld": "1500.00"}
+W2_VALUES = {
+    "employer_name": "Finger Lakes Hardware Co.", "wages": "18000.00", "federal_withheld": "1500.00",
+    "medicare_wages": "18000.00", "allocated_tips": None, "dependent_care_benefits": None, "box12": [],
+    "statutory_employee": False,
+}
 
 
 def config(thread_id="t"):
@@ -35,7 +40,7 @@ def image_only_case(tmp_path):
 def test_unreadable_w2_asks_staff_for_its_values(make_graph, image_only_case):
     ticket = paused_on(make_graph().invoke({"case_path": image_only_case}, config()))
     assert ticket["evidence"]["needs_document_values"] is True
-    assert ticket["evidence"]["required_fields"] == ["employer_name", "wages"]
+    assert ticket["evidence"]["required_fields"] == list(W2_VALUES)
     assert '"values"' in ticket["how_to_resolve"]
 
 
@@ -103,3 +108,30 @@ def test_staff_cli_accepts_values(settings, image_only_case, monkeypatch, capsys
 
     run.main(["--resolve", "abc", ticket.ticket_id, "--values", json.dumps(W2_VALUES), "--staff-id", "staff-7"])
     assert "draft_ready" in capsys.readouterr().out
+
+
+def test_every_form_has_an_explicit_staff_entry_list():
+    assert set(STAFF_ENTRY_FIELDS) == set(RECORD_TYPES)
+    for form_type, names in STAFF_ENTRY_FIELDS.items():
+        assert set(names) <= set(RECORD_TYPES[form_type].model_fields), form_type
+
+
+def test_an_omitted_field_is_rejected_not_treated_as_zero():
+    values = {k: v for k, v in W2_VALUES.items() if k != "federal_withheld"}
+    with pytest.raises(StaffEntryError, match="Missing values for: federal_withheld"):
+        staff_entered_record("w2-1", "W-2", values, "staff-7")
+
+
+def test_an_explicit_zero_is_accepted():
+    record = staff_entered_record("w2-1", "W-2", {**W2_VALUES, "federal_withheld": "0"}, "staff-7")
+    assert record.federal_withheld == Decimal("0")
+
+
+def test_staff_missing_a_field_is_asked_again(make_graph, image_only_case):
+    graph = make_graph()
+    graph.invoke({"case_path": image_only_case}, config())
+    values = {k: v for k, v in W2_VALUES.items() if k != "federal_withheld"}
+    result = graph.invoke(Command(resume={"action": "continue", "values": values}), config())
+
+    assert "federal_withheld" in paused_on(result)["detail"]
+    assert result["status"] == "waiting_on_human"

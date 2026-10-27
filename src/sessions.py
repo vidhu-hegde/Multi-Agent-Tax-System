@@ -13,9 +13,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from langgraph.types import Command
-from pydantic import ValidationError
 
-from src.agents.extraction import invalid_fields, staff_entered_record
+from src.agents.extraction import StaffEntryError, staff_entered_record
 from src.config import Settings, load_settings
 from src.memory import open_checkpointer
 from src.schemas import EscalationTicket
@@ -125,8 +124,8 @@ class Sessions:
                     raise ValueError("Type the document's values (see required_fields), or stop.")
                 try:
                     staff_entered_record(evidence["document_id"], evidence["form_type"], values, resolved_by)
-                except ValidationError as exc:
-                    raise ValueError("Some values need checking: " + invalid_fields(exc)) from None
+                except StaffEntryError as exc:
+                    raise ValueError(str(exc)) from None
             decision = {"action": action, "note": note, "resolved_by": resolved_by}
             if choice is not None:
                 decision["choice"] = choice

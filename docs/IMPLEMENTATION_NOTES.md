@@ -31,6 +31,10 @@ First matching row wins.
 
 When Extraction can't read a document (an image it can't transcribe, or typed values that don't fit the
 form), it raises an `uncertain` ticket with `needs_document_values` and the form's `required_fields`.
+The fields staff must type for each form are defined in code, in `STAFF_ENTRY_FIELDS` (`src/agents/extraction.py`):
+every field that feeds a 1040-SR line, plus the W-2 values that should escalate. Every listed field must be
+present. An explicit `0`, `false`, `null` or `[]` is fine, but a missing field is rejected, so nothing silently
+defaults (for example, a missing `federal_withheld` can't become $0).
 The document is **never left out**: row 4 keeps it pending until it has a record, so a draft can't be
 produced with it missing. Staff resolve the ticket in one of two ways:
 

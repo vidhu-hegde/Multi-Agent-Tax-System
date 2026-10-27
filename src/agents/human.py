@@ -11,9 +11,9 @@ import json
 from datetime import datetime, timezone
 
 from langgraph.types import Overwrite, interrupt
-from pydantic import TypeAdapter, ValidationError
+from pydantic import TypeAdapter
 
-from src.agents.extraction import invalid_fields, staff_entered_record
+from src.agents.extraction import StaffEntryError, staff_entered_record
 from src.schemas import EscalationTicket, RevisionRequest, TaxDocument
 from src.state import SilverFileState
 
@@ -72,9 +72,8 @@ def human(state: SilverFileState) -> dict:
                         record = staff_entered_record(
                             document_id, ticket.evidence["form_type"], values, resolution.get("resolved_by", "staff")
                         )
-                    except ValidationError as exc:
-                        # Name the fields only; never echo typed values (they may include identifiers).
-                        problem = "Some values need checking: " + invalid_fields(exc) + "."
+                    except StaffEntryError as exc:
+                        problem = str(exc)  # names fields only; never echoes typed values
                     else:
                         documents[document_id] = record
                         current = update.get("documents")
