@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}{{ summary.thread_id }} · SilverFile staff{% endblock %}
+{% block content %}
+<p><a href="/">← All returns</a></p>
+<h1 class="mono">{{ summary.thread_id }}</h1>
+<p><span class="badge {{ summary.status }}">{{ status_labels[summary.status] }}</span>
+  <span class="muted">Last updated {{ when(summary.updated_at) }}</span>
+  {% if has_draft %} · <a href="/sessions/{{ summary.thread_id|urlencode }}/draft">Open the draft with sources</a>{% endif %}</p>
+
+{% if done %}<div class="notice ok" role="status">Recorded your decision on <span class="mono">{{ done }}</span>.
+  {% if summary.status == "waiting_on_human" %}The return is now waiting on its next ticket.{% elif summary.status == "draft_ready" %}The draft is ready.{% endif %}</div>{% endif %}
+{% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+
+{% if awaiting %}
+<section class="panel" aria-labelledby="ticket-title">
+  <h2 id="ticket-title" style="margin-top:0">{{ reason_labels.get(awaiting.reason, awaiting.reason) }}</h2>
+  <p>{{ show(awaiting.detail) }}</p>
+  {% if guidance %}<div class="notice warn">{{ guidance }}</div>{% endif %}
+  <dl class="kv">
+    <dt>Ticket</dt><dd class="mono">{{ awaiting.ticket_id }}</dd>
+    <dt>Raised by</dt><dd>{{ awaiting.raised_by }}, {{ when(awaiting.created_at) }}</dd>
+    {% for key, value in awaiting.evidence|dictsort %}
+      {% if key not in ("candidates", "required_fields", "needs_document_values", "state_write", "key") %}
+      <dt>{{ "Taxpayer was told" if key == "said_to_taxpayer" else "Guardrail rule" if key == "guardrail_rule" else key.replace("_", " ")|capitalize }}</dt>
+      <dd>{% set text = show(value) %}{% if "\n" in text %}<pre>{{ text }}</pre>{% else %}{{ text }}{% endif %}</dd>
+      {% endif %}
+    {% endfor %}
+  </dl>
+
+  <form method="post" action="/sessions/{{ summary.thread_id|urlencode }}/tickets/{{ awaiting.ticket_id|urlencode }}">
+    {% if awaiting.evidence.get("state_write") %}
+    <fieldset>
+      <legend>Choose the record to keep</legend>
+      {% for candidate in awaiting.evidence["candidates"] %}
+      <label class="choice"><input type="radio" name="choice" value="{{ loop.index }}" {% if form.get("choice") == loop.index|string %}checked{% endif %}>
+        <span>Candidate {{ loop.index }}<pre>{{ show(candidate) }}</pre></span></label>
+      {% endfor %}
+    </fieldset>
+    {% endif %}
+
+    {% if fields %}
+    {% if awaiting.evidence.get("document_id") in images %}
+    <figure style="margin:1rem 0">
+      <a href="/sessions/{{ summary.thread_id|urlencode }}/documents/{{ awaiting.evidence['document_id']|urlencode }}/image" target="_blank">
+        <img src="/sessions/{{ summary.thread_id|urlencode }}/documents/{{ awaiting.evidence['document_id']|urlencode }}/image"
+             alt="The {{ awaiting.evidence['form_type'] }} {{ awaiting.evidence['document_id'] }} as uploaded" style="max-width:100%;border:1px solid var(--line);border-radius:6px"></a>
+      <figcaption class="hint">The uploaded {{ awaiting.evidence["form_type"] }}. Open it full size in a new tab.</figcaption>
+    </figure>
+    {% endif %}
+    <fieldset>
+      <legend>Type the values from the {{ awaiting.evidence["form_type"] }}</legend>
+      <p class="hint">Every field is needed. Type 0 for an empty amount box; leave optional boxes blank if they are empty on the form.</p>
+      {% for field in fields %}
+        {% if field.kind == "box12" %}
+        <p><strong>{{ field.label }}</strong> <span class="hint">Leave rows blank if box 12 is empty.</span></p>
+        {% for i in range(box12_rows) %}
+        <div class="row">
+          <input type="text" name="v_box12_code_{{ i }}" aria-label="Box 12 code, row {{ i + 1 }}" placeholder="Code" value="{{ form.get('v_box12_code_' ~ i, '') }}" style="max-width:6rem">
+          <input type="text" name="v_box12_amount_{{ i }}" aria-label="Box 12 amount, row {{ i + 1 }}" placeholder="Amount" inputmode="decimal" value="{{ form.get('v_box12_amount_' ~ i, '') }}">
+        </div>
+        {% endfor %}
+        {% elif field.kind == "bool" %}
+        <label for="v_{{ field.name }}">{{ field.label }}</label>
+        <select id="v_{{ field.name }}" name="v_{{ field.name }}">
+          <option value="" {% if not form.get('v_' ~ field.name) %}selected{% endif %}>Choose…</option>
+          <option value="no" {% if form.get('v_' ~ field.name) == "no" %}selected{% endif %}>No (not checked)</option>
+          <option value="yes" {% if form.get('v_' ~ field.name) == "yes" %}selected{% endif %}>Yes (checked)</option>
+        </select>
+        {% else %}
+        <label for="v_{{ field.name }}">{{ field.label }}{% if field.kind == "optional" %} <span class="hint">optional: blank if the box is empty</span>{% endif %}</label>
+        <input type="text" id="v_{{ field.name }}" name="v_{{ field.name }}" value="{{ form.get('v_' ~ field.name, '') }}" autocomplete="off"
+               {% if field.name not in ("employer_name", "payer_name", "distribution_code") %}inputmode="decimal"{% endif %}>
+        {% endif %}
+      {% endfor %}
+    </fieldset>
+    {% endif %}
+
+    <label for="note">{% if reason_required %}Reason for continuing <span class="hint">required to continue; not needed to stop</span>{% else %}Note <span class="hint">optional, kept on the ticket</span>{% endif %}</label>
+    <textarea id="note" name="note">{{ form.get("note", "") }}</textarea>
+    <label for="staff_id">Your staff ID</label>
+    <input type="text" id="staff_id" name="staff_id" value="{{ staff_id }}" required autocomplete="off" style="max-width:16rem">
+    <div class="actions">
+      <button class="primary" type="submit" name="action" value="continue">Continue the return</button>
+      <button class="secondary" type="submit" name="action" value="stop" formnovalidate>Stop the session</button>
+    </div>
+  </form>
+</section>
+{% elif summary.status == "waiting_on_taxpayer" %}
+<section class="panel"><h2 style="margin-top:0">Waiting on the taxpayer</h2>
+  <p>They are being asked:</p><p><strong>{{ show(summary.pending_question) }}</strong></p></section>
+{% endif %}
+
+{% if queued %}
+<h2>Next tickets</h2>
+<div class="panel scroll"><table>
+  <thead><tr><th>Escalation</th><th class="opt">Raised by</th></tr></thead>
+  <tbody>{% for t in queued %}<tr><td>{{ reason_labels.get(t.reason, t.reason) }}<div class="muted">{{ show(t.detail) }}</div></td><td class="opt">{{ t.raised_by }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+
+{% if resolved %}
+<h2>Decisions so far</h2>
+<div class="panel scroll"><table>
+  <thead><tr><th>Escalation</th><th>Decision</th><th class="opt">By</th></tr></thead>
+  <tbody>
+  {% for t in resolved %}
+    <tr><td>{{ reason_labels.get(t.reason, t.reason) }}<div class="muted mono">{{ t.ticket_id }}</div></td>
+      <td>{{ "Stopped" if t.resolution.get("action") == "stop" else "Continued" }}{% if t.resolution.get("entered_document") %}, typed in {{ t.resolution["entered_document"] }}{% endif %}{% if t.resolution.get("choice") %}, kept candidate {{ t.resolution["choice"] }}{% endif %}
+        {% if t.resolution.get("note") %}<div class="muted">“{{ show(t.resolution["note"]) }}”</div>{% endif %}</td>
+      <td class="opt">{{ t.resolved_by }}<div class="muted">{{ when(t.resolved_at) }}</div></td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endif %}
+
+{% if inventory %}
+<h2>Documents</h2>
+<div class="panel scroll"><table>
+  <thead><tr><th>Document</th><th>Form</th><th>Record</th></tr></thead>
+  <tbody>{% for ref in inventory %}<tr>
+    <td class="mono">{{ ref.document_id }}{% if ref.document_id in images %}<div><a href="/sessions/{{ summary.thread_id|urlencode }}/documents/{{ ref.document_id|urlencode }}/image" target="_blank">View image</a></div>{% endif %}</td>
+    <td>{{ ref.form_type }}{% if ref.description %}<div class="muted">{{ show(ref.description) }}</div>{% endif %}</td>
+    <td>{% if ref.document_id in documents %}{{ show(documents[ref.document_id].source.source) }}{% elif ref.form_type == "other" %}<span class="muted">Out of scope; not read</span>{% else %}<span class="muted">No record yet</span>{% endif %}</td>
+  </tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+
+{% if answers %}
+<h2>Taxpayer's answers</h2>
+<div class="panel scroll"><table>
+  <thead><tr><th>Question</th><th>Answer</th><th class="opt">Entered by</th></tr></thead>
+  <tbody>{% for field, answer in answers %}<tr><td>{{ field.replace("_", " ")|capitalize }}</td><td>{% set text = show(answer.value) %}{% if "\n" in text %}<pre>{{ text }}</pre>{% else %}{{ text }}{% endif %}</td><td class="opt">{{ answer.entered_by }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% endif %}
+{% endblock %}

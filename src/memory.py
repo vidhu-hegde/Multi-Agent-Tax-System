@@ -124,7 +124,7 @@ def serializer() -> JsonPlusSerializer:
 @contextmanager
 def open_checkpointer(settings: Settings):
     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
-    # check_same_thread=False: the Streamlit dashboard calls in from worker threads; SqliteSaver locks.
+    # check_same_thread=False: the dashboard calls in from worker threads; SqliteSaver locks.
     conn = sqlite3.connect(str(settings.db_path), check_same_thread=False)
     try:
         yield WorkflowSqliteSaver(conn, serde=serializer())
