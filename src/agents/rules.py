@@ -67,6 +67,19 @@ CHART_EXCEPTIONS = [
 ]
 
 
+def social_security_base(status: str, mfs_lived_with_spouse: bool | None) -> dict:
+    """policy.md#taxable-social-security. Names the base-amount case; the tax_math tool holds the figures."""
+    if status == "mfj":
+        case = "joint"
+    elif status == "mfs" and mfs_lived_with_spouse:
+        case = "mfs_lived_with_spouse"  # base amount is $0
+    elif status == "mfs" and mfs_lived_with_spouse is None:
+        case = "unknown"  # not asked (no SSA-1099) or not answered; the tool must not assume a base
+    else:
+        case = "standard"
+    return {"case": case, "mfs_lived_with_spouse": mfs_lived_with_spouse}
+
+
 def filing_status_problem(status: str, spouse_died_year: int | None) -> str | None:
     """A spouse's death makes MFJ vs QSS vs Single a judgement call; SilverFile does not make it."""
     if spouse_died_year == 2025:
@@ -180,6 +193,9 @@ def rules(state: SilverFileState) -> dict:
                      explanation=("The chart does not apply: " + ", ".join(chart_exceptions)) if chart_exceptions
                      else "None of the chart exceptions apply.",
                      citation="policy.md#standard-deduction-exceptions"),
+        RuleDecision(rule_id="social_security_base", outcome=social_security_base(status, value("mfs_lived_with_spouse")),
+                     explanation="Which base amount the taxable Social Security worksheet uses.",
+                     citation="policy.md#taxable-social-security"),
         RuleDecision(rule_id="scope", outcome={"issues": [t.ticket_id for t in tickets]},
                      explanation="Items that need a human before the draft can be trusted; each one escalates.",
                      citation="policy.md#scope"),

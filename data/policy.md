@@ -93,6 +93,11 @@ The chart does not apply, and SilverFile escalates `out_of_scope`, if:
 - Provisional income = AGI without Social Security benefits + tax-exempt interest + half of the benefits.
 - Base amounts: $25,000 (single and other statuses) / $32,000 (MFJ).
 - Second-tier amounts: $34,000 / $44,000.
+- **Married filing separately and lived with the spouse at any time in 2025: the base amount is $0**
+  (IRS Publication 915). Intake asks MFS filers who have an SSA-1099 "Did you live with your spouse at any
+  time during 2025?"; "not sure" escalates `uncertain`. Rules records the case as `social_security_base`
+  (`standard`, `joint`, `mfs_lived_with_spouse` or `unknown`) for the `tax_math` tool. Until that tool
+  uses the answer, a "yes" pauses for staff, so the $25,000 base is never applied silently.
 - **Ordering:** 6b needs every other income line first, and 6b then feeds total income and AGI.
   The orchestrator must run it after the other income lines.
 

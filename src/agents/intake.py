@@ -151,6 +151,11 @@ def _has_w2(known, inventory):
     return any(ref.form_type == "W-2" for ref in inventory)
 
 
+def _mfs_with_social_security(known, inventory):
+    """policy.md#taxable-social-security: only MFS filers with an SSA-1099 need the lived-with-spouse answer."""
+    return known["filing_status"].value == "mfs" and any(ref.form_type == "SSA-1099" for ref in inventory)
+
+
 # One field per question. These are inputs, never eligibility conclusions.
 QUESTIONS = [
     (
@@ -192,6 +197,12 @@ QUESTIONS = [
         "Which tax documents do you have for 2025? Type form names separated by commas, such as W-2, SSA-1099; type none if there are none.",
         parse_inventory,
         None,
+    ),
+    (
+        "mfs_lived_with_spouse",
+        "Did you live with your spouse at any time during 2025? Please type yes or no, or say you're not sure.",
+        parse_yes_no,
+        _mfs_with_social_security,
     ),
     ("dependent_count", "How many dependents will you list on this return? Type 0 if none.", parse_count, None),
     (
@@ -236,7 +247,10 @@ QUESTIONS = [
 # Remove each gate only alongside its downstream integration and end-to-end tests.
 # taxpayer_claimed_dependent, spouse_itemizes and dual_status_alien are consumed by Rules
 # (policy.md#standard-deduction-exceptions) and escalate as out_of_scope there.
+# mfs_lived_with_spouse: a "yes" means a $0 Social Security base amount (policy.md#taxable-social-security).
+# It pauses here until the tax_math tool consumes it, so the $25,000 base is never used silently.
 PENDING_DOWNSTREAM_FIELDS = (
+    "mfs_lived_with_spouse",
     "dependent_count",
     "schedule2_total_tax",
     "schedule3_nonrefundable_credits",

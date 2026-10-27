@@ -166,7 +166,7 @@ def case(tmp_path):
 @pytest.mark.parametrize("answers, ticket_id", [
     ({"taxpayer_claimed_dependent": True}, "out_of_scope:taxpayer_is_a_dependent"),
     ({"dual_status_alien": True}, "out_of_scope:dual_status_alien"),
-    ({"filing_status": "mfs", "spouse_itemizes": True}, "out_of_scope:mfs_spouse_itemizes"),
+    ({"filing_status": "mfs", "spouse_itemizes": True, "mfs_lived_with_spouse": False}, "out_of_scope:mfs_spouse_itemizes"),
 ])
 def test_chart_exceptions_escalate_as_out_of_scope(make_graph, case, answers, ticket_id):
     result = make_graph().invoke({"case_path": case(answers)}, config())
