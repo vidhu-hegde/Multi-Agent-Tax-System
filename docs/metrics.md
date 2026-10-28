@@ -70,10 +70,11 @@ She proposed short multi-turn exchanges with unclear replies, corrections and go
 classifier harness. The current harness still uses one classifier call per item. The multi-turn item
 refinement remains to be integrated; this team assumption is not an instructor clarification.
 
-`src/graph.py:run_batch` is still a stub on merged main. Max's open [PR #21](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/21)
-(`max/batch-metrics`, reviewed head `684161c`) prepares `run.py --batch` wiring and a results-table
-generator. Its current diff contains no measured result JSONs; it prepares the commands to obtain and
-retain them. Keep that integration with its owner. Vidhatri offered to perform
+`python run.py --batch [--no-context-strategy]` runs this context benchmark (it calls the `src.memory`
+entry point; [PR #21](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/21)), and
+`python -m src.metrics_table` turns the two result files into the table above and copies the raw JSON
+to `docs/metrics/`. No measured result JSONs are committed yet; the Reproduce section has the commands to
+obtain and retain them. Vidhatri offered to perform
 the live ON/OFF run after integration. Iris does not need to obtain more credits.
 
 For the agreed classifier-only items, record every classifier call per item; a multi-turn item must

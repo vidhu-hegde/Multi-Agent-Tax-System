@@ -313,7 +313,7 @@ input fields, so an extraction test can compare its output directly.
 | Extraction | Typed direct entries plus Claude W-2 vision (#7/#13); unreadable documents require staff fields or stop | Further live quality evidence belongs to the extraction owner; no API needed for offline Intake work |
 | Rules citations | Juee's `data/policy.md` and centralized guardrails are merged (#9) | Policy/wording follow-ups belong to Juee |
 | Staff dashboard | FastAPI/Jinja queue, return details, resolution and provenance draft are merged (#13) | Finished-return correction controls and final accessibility review |
-| `run_batch` | Team entry-point hook not implemented; Iris benchmark available in `src.memory` | Vidhatri/Max wire the hook; live usage needs an API key (`docs/metrics.md`) |
+| Context benchmark | `python run.py --batch [--no-context-strategy]` runs Iris's `src.memory` benchmark; `python -m src.metrics_table` writes the results table (#21) | Live ON/OFF run needs an API key (`docs/metrics.md`) |
 
 ## Iris: memory and state
 
