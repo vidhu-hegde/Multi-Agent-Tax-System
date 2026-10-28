@@ -43,7 +43,8 @@ def parse_args(argv=None):
     staff.add_argument("--resolve", nargs=2, metavar=("THREAD_ID", "TICKET_ID"), help="resolve an escalation")
     staff.add_argument("--stop", action="store_true", help="with --resolve: stop the session instead of continuing")
     staff.add_argument("--note", default="", help="with --resolve: note recorded on the ticket")
-    staff.add_argument("--staff-id", default="staff", help="with --resolve: who is resolving")
+    staff.add_argument("--submit", metavar="THREAD_ID", help="record that a finished, reviewed return was filed")
+    staff.add_argument("--staff-id", default="staff", help="with --resolve or --submit: who is acting")
     staff.add_argument("--choice", type=int, help="with --resolve: select a conflicting record, numbered from 1")
     staff.add_argument(
         "--taxable-amount",
@@ -198,6 +199,14 @@ def run_staff_command(args, settings):
             print(f"Resolved {ticket_id} ({action}). Session is now:")
             print_summary(summary)
             return
+        if args.submit:
+            try:
+                summary = sessions.submit(args.submit, submitted_by=args.staff_id)
+            except ValueError as exc:
+                sys.exit(str(exc))
+            print("Marked as submitted. Session is now:")
+            print_summary(summary)
+            return
         summaries = sessions.list_sessions()
         if not summaries:
             print("No sessions yet.")
@@ -210,7 +219,7 @@ def main(argv=None):
     settings = load_settings()
     logging.basicConfig(level=settings.log_level, format="%(levelname)s %(name)s: %(message)s")
 
-    if args.sessions:
+    if args.sessions or args.submit:  # neither needs the model or the tax math
         run_staff_command(args, settings)
         return
 

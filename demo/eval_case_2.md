@@ -50,6 +50,9 @@ session the taxpayer would not be the one to resolve it.
    **Continue the return**.
 5. The page says *Recorded your decision* and the status becomes **Draft ready**. The decision, note and
    staff ID appear under *Decisions so far*. **Open the draft with sources** shows the finished draft.
+6. Once the return has been filed, enter your staff ID under *Ready to submit* and choose **Mark as
+   submitted**. The status becomes **Submitted**, and the return appears under the *Submitted* filter on
+   the returns list, with who submitted it and when.
 
 ### Or from the command line
 

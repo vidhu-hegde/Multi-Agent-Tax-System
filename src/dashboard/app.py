@@ -24,7 +24,8 @@ from fastapi.templating import Jinja2Templates
 from src.agents.extraction import RECORD_TYPES
 from src.agents.human import REASON_REQUIRED
 from src.config import ROOT
-from src.render import render_draft
+from src.render import draft_is_final, render_draft
+from src.security import validate_staff_identifier
 from src.sessions import STATUSES, Sessions, StaleEscalation, open_sessions
 from src.state import current_answers
 from src.tools import TaxMathUnavailable, check_server
@@ -39,6 +40,7 @@ STATUS_LABELS = {
     "waiting_on_taxpayer": "Waiting on taxpayer",
     "in_progress": "In progress",
     "draft_ready": "Draft ready",
+    "submitted": "Submitted",
     "stopped": "Stopped",
 }
 REASON_LABELS = {
@@ -186,6 +188,14 @@ def outage(exc: TaxMathUnavailable) -> str:
             "recorded are kept. When the server is running again, press Resume.")
 
 
+def safe_staff_id(value) -> str:
+    """The staff ID to put back in the form, or blank if it was refused (an SSN-shaped ID is never echoed)."""
+    try:
+        return validate_staff_identifier(value)
+    except ValueError:
+        return ""
+
+
 def _same_origin(request: Request) -> bool:
     """Refuse a form post made from another site (a page in the staff member's browser posting to localhost)."""
     origin = request.headers.get("origin") or request.headers.get("referer")
@@ -249,8 +259,9 @@ def create_app(sessions: Sessions | None = None, settings=None) -> FastAPI:
             ),
             guidance=STAFF_GUIDANCE.get(awaiting.reason) if awaiting else None,
             box12_rows=BOX12_ROWS, error=error, form=form or {},
-            staff_id=(form or {}).get("staff_id") or request.cookies.get("staff_id", ""),
+            staff_id=safe_staff_id((form or {}).get("staff_id") or request.cookies.get("staff_id", "")),
             done=request.query_params.get("done"), resumed=request.query_params.get("resumed"),
+            submitted=request.query_params.get("submitted"), can_submit=draft_is_final(state),
             has_draft=bool(state.get("lines")),
         )
 
@@ -322,6 +333,25 @@ def create_app(sessions: Sessions | None = None, settings=None) -> FastAPI:
         except TaxMathUnavailable as exc:
             return session_page(request, thread_id, 503, outage(exc))
         return RedirectResponse(f"/sessions/{quote(thread_id)}?resumed=1", status_code=303)
+
+    @app.post("/sessions/{thread_id}/submit", response_class=HTMLResponse)
+    async def submit(request: Request, thread_id: str):
+        if not _same_origin(request):
+            raise HTTPException(status_code=403, detail="Form posts are accepted only from this dashboard.")
+        store = known(thread_id)
+        form = dict(await request.form())
+        staff_id = form.get("staff_id", "").strip()
+        if not staff_id:
+            return session_page(request, thread_id, 400, "Enter your staff ID so the submission is recorded.", form)
+        try:
+            store.submit(thread_id, submitted_by=staff_id)
+        except ValueError as exc:
+            # A bad staff ID is the form's fault; anything else means this return can't be submitted now.
+            status_code = 400 if "staff identifier" in str(exc) else 409
+            return session_page(request, thread_id, status_code, str(exc), form)
+        response = RedirectResponse(f"/sessions/{quote(thread_id)}?submitted=1", status_code=303)
+        response.set_cookie("staff_id", staff_id, httponly=True, samesite="strict")
+        return response
 
     @app.get("/sessions/{thread_id}/documents/{document_id}/image")
     def image(thread_id: str, document_id: str):

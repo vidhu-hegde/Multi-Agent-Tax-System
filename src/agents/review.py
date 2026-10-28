@@ -15,7 +15,7 @@ from src.tools import call_tool
 SUM_CHECKS = {
     "9": ["1z", "2b", "3b", "4b", "5b", "6b"],
     "14": ["12e", "13b"],
-    "18": ["16"],
+    "18": ["16", "17"],
     "21": ["20"],
     "24": ["22", "23"],
     "25d": ["25a", "25b"],
@@ -57,6 +57,7 @@ SOURCE_DOCUMENT_LINES = {
 }
 SOURCE_INTAKE_LINES = {
     "10": "adjustments",
+    "17": "schedule2_line3_tax",
     "20": "schedule3_nonrefundable_credits",
     "23": "schedule2_total_tax",
     "26": "estimated_payments",
@@ -330,7 +331,7 @@ DERIVED_DEPENDENCIES = {
     "14": ["12e", "13b"],
     "15": ["11a", "14"],
     "16": ["15"],
-    "18": ["16"],
+    "18": ["16", "17"],
     "21": ["20"],
     "22": ["18", "21"],
     "24": ["22", "23"],

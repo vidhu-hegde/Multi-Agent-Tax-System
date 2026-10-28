@@ -146,3 +146,17 @@ def test_staff_entered_document_is_marked_ready_so_the_draft_page_shows(make_gra
 
     assert result["document_readiness"]["w2-1"] is True
     assert "Sources and calculation" in render_draft(result)
+
+
+def test_staff_cli_marks_a_finished_return_submitted(settings, monkeypatch, capsys):
+    from tests.conftest import SKELETON_CASE
+
+    monkeypatch.setenv("SILVERFILE_DB_PATH", str(settings.db_path))
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "")  # submitting needs neither the model nor the tax math
+    with open_sessions(settings) as sessions:
+        sessions.graph.invoke({"case_path": SKELETON_CASE}, config("done"))
+
+    run.main(["--submit", "done", "--staff-id", "staff-7"])
+    assert "submitted" in capsys.readouterr().out
+    with pytest.raises(SystemExit, match="already submitted by staff-7"):
+        run.main(["--submit", "done", "--staff-id", "staff-8"])

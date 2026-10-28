@@ -7,11 +7,13 @@ The dashboard calls only this module; it never touches the graph or the checkpoi
             print(s.thread_id, s.status, [t.ticket_id for t in s.open_tickets])
         sessions.resolve(thread_id, ticket_id, action="continue", note="Checked with client", resolved_by="staff-7")
         sessions.resume(thread_id)                           # a return that stopped partway (a tax_math outage)
+        sessions.submit(thread_id, submitted_by="staff-7")   # staff filed the finished return
 """
 
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from langgraph.types import Command
 
@@ -19,6 +21,7 @@ from src.agents.extraction import StaffEntryError, staff_entered_record
 from src.agents.human import REASON_REQUIRED, has_written_reason
 from src.config import Settings, load_settings
 from src.memory import open_checkpointer
+from src.render import draft_is_final
 from src.resolution import (
     validate_1099r_correction_target,
     validate_resolution_corrections,
@@ -26,7 +29,7 @@ from src.resolution import (
 from src.schemas import EscalationTicket
 from src.security import redact_ssns, validate_staff_identifier
 
-STATUSES = ("in_progress", "waiting_on_taxpayer", "waiting_on_human", "draft_ready", "stopped")
+STATUSES = ("in_progress", "waiting_on_taxpayer", "waiting_on_human", "draft_ready", "submitted", "stopped")
 
 
 class StaleEscalation(Exception):
@@ -44,6 +47,8 @@ class SessionSummary:
     # The steps still to run when the return stopped between steps with nothing pending, for example because
     # the tax_math server went down partway. Empty otherwise. resume() continues it.
     stalled_at: tuple[str, ...] = ()
+    # Who recorded that the return was filed, and when (submitted_by, submitted_at). None until then.
+    submission: dict | None = None
 
 
 def _is_escalation(value) -> bool:
@@ -99,6 +104,8 @@ class Sessions:
             status = "waiting_on_taxpayer"
         else:
             status = values.get("status", "in_progress")
+            if status == "draft_ready" and values.get("submission"):
+                status = "submitted"
 
         return SessionSummary(
             thread_id=thread_id,
@@ -112,6 +119,7 @@ class Sessions:
                 else None
             ),
             stalled_at=() if pending else tuple(snapshot.next),
+            submission=values.get("submission"),
         )
 
     def list_sessions(self, status: str | None = None) -> list[SessionSummary]:
@@ -227,6 +235,23 @@ class Sessions:
             if not self.summary(thread_id).stalled_at:
                 raise ValueError(f"Session {thread_id} did not stop partway, so there is nothing to resume.")
             self.graph.invoke(None, self._config(thread_id))
+        return self.summary(thread_id)
+
+    def submit(self, thread_id: str, submitted_by: str) -> SessionSummary:
+        """Record that staff filed this return. Only a reviewed, finished draft can be submitted, once.
+
+        The draft and its sources are not changed; the session just shows as submitted, with who and when.
+        """
+        safe_submitted_by = validate_staff_identifier(submitted_by)
+        with self._lock:
+            summary = self.summary(thread_id)
+            if summary.submission:
+                raise ValueError(f"Session {thread_id} was already submitted by {summary.submission['submitted_by']}.")
+            if summary.status != "draft_ready" or summary.stalled_at or not draft_is_final(self.state(thread_id)):
+                raise ValueError(f"Session {thread_id} has no finished, reviewed draft to submit.")
+            submission = {"submitted_by": safe_submitted_by, "submitted_at": datetime.now(timezone.utc).isoformat()}
+            # As the orchestrator, which already routed this return to the end, so no agent runs again.
+            self.graph.update_state(self._config(thread_id), {"submission": submission}, as_node="orchestrator")
         return self.summary(thread_id)
 
 

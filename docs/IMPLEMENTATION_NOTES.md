@@ -436,11 +436,11 @@ reduction and the completed invoice evaluation remain unmeasured.
 
 New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`), now limited to
 a positive dependent count. Standard-deduction scope exceptions are recorded by Intake and escalated
-by Rules, with policy citations. Schedule 2/3 totals left the gate once Computation consumed them: Schedule 3 line 8
-fills line 20, Schedule 2 line 21 fills line 23 and Schedule 3 line 15 fills line 31, and lines 18, 21,
-22, 24, 32 and 33 are derived through `tax_math` (`tests/test_schedules.py`, eval
-`schedules-2-and-3-typed-totals`). Line 17 and line 19 are not supported, so lines 18 and 21 each have
-one part. Staff continue does not implement dependent output. Preserve truthful answers and stop
+by Rules, with policy citations. Schedule 2/3 totals left the gate once Computation consumed them: Schedule 2 line 3
+fills line 17, Schedule 3 line 8 fills line 20, Schedule 2 line 21 fills line 23 and Schedule 3 line 15
+fills line 31, and lines 18, 21, 22, 24, 32 and 33 are derived through `tax_math` (`tests/test_schedules.py`,
+evals `schedules-2-and-3-typed-totals` and `schedule2-line-3-adds-to-tax`). Line 19 (dependent credits) is
+not supported, so line 21 has one part. Staff continue does not implement dependent output. Preserve truthful answers and stop
 unsupported dependent workflows until their owner integration is complete. This gate checks missing software support; Intake
 does not determine tax eligibility or compute amounts. Remove each gate only with downstream tests.
 

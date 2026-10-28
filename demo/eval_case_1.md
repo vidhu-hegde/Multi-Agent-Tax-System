@@ -63,7 +63,7 @@ Draft 1040-SR (draft_ready)
     37  Amount you owe                                     0.00
 ```
 
-(Lines that are zero, such as 3a/3b, 5a/5b and the Schedule 2/3 lines 20, 23 and 31, are left out above.)
+(Lines that are zero, such as 3a/3b, 5a/5b and the Schedule 2/3 lines 17, 20, 23 and 31, are left out above.)
 
 ## Why these numbers are right
 

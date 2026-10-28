@@ -128,6 +128,7 @@ class SilverFileState(TypedDict, total=False):
     last_agent: str
     next_agent: str
     status: Literal["in_progress", "waiting_on_human", "draft_ready", "stopped"]
+    submission: dict | None  # staff recorded that the finished return was filed: submitted_by, submitted_at
 
 
 def current_answers(state: SilverFileState) -> dict[str, IntakeAnswer]:

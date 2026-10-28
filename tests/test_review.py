@@ -44,6 +44,7 @@ def complete_zero_state(*, stub_line: str | None = None) -> dict:
         "answers": [
             IntakeAnswer(field="adjustments", value="0"),
             IntakeAnswer(field="estimated_payments", value="0"),
+            IntakeAnswer(field="schedule2_line3_tax", value="0"),
             IntakeAnswer(field="schedule2_total_tax", value="0"),
             IntakeAnswer(field="schedule3_nonrefundable_credits", value="0"),
             IntakeAnswer(field="schedule3_other_payments", value="0"),
@@ -282,6 +283,7 @@ def _source_state() -> dict:
             IntakeAnswer(field="taxpayer_dob", value="1957-05-01"),
             IntakeAnswer(field="adjustments", value="0"),
             IntakeAnswer(field="estimated_payments", value="1000"),
+            IntakeAnswer(field="schedule2_line3_tax", value="0"),
             IntakeAnswer(field="schedule2_total_tax", value="0"),
             IntakeAnswer(field="schedule3_nonrefundable_credits", value="0"),
             IntakeAnswer(field="schedule3_other_payments", value="0"),
@@ -350,6 +352,7 @@ def test_review_detects_stale_line_after_source_record_changes(document_id, fiel
 
 @pytest.mark.parametrize(("field", "line"), [
     ("adjustments", "10"),
+    ("schedule2_line3_tax", "17"),
     ("schedule3_nonrefundable_credits", "20"),
     ("schedule2_total_tax", "23"),
     ("estimated_payments", "26"),

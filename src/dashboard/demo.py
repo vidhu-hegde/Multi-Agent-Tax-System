@@ -21,7 +21,10 @@ DEMO_RETURNS = [
     ("demo-spouse-died-2025", "hitl-spouse-died-2025", True),
     ("demo-third-party-pressure", "hitl-third-party-pressure", True),
     ("demo-waiting-on-taxpayer", "hitl-advice-request", False),
+    ("demo-submitted-return", "schedules-2-and-3-typed-totals", True),
 ]
+# Finished demo returns that are also marked submitted, so the Submitted list isn't empty.
+DEMO_SUBMITTED = {"demo-submitted-return": "staff-demo"}
 
 
 def seed(sessions, case_folder: Path) -> list[str]:
@@ -42,6 +45,8 @@ def seed(sessions, case_folder: Path) -> list[str]:
             if not pending or (isinstance(pending[0].value, dict) and "ticket_id" in pending[0].value):
                 break  # paused on staff: leave it for the dashboard
             result = sessions.graph.invoke(Command(resume=replies.pop(0)), config)
+        if thread_id in DEMO_SUBMITTED:
+            sessions.submit(thread_id, submitted_by=DEMO_SUBMITTED[thread_id])
         started.append(thread_id)
     return started
 

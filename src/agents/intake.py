@@ -237,6 +237,12 @@ QUESTIONS = [
         None,
     ),
     (
+        "schedule2_line3_tax",
+        "What is the total on Schedule 2, line 3 (alternative minimum tax or excess premium tax credit repayment)? Type 0 if you don't have one.",
+        parse_money,
+        None,
+    ),
+    (
         "schedule2_total_tax",
         "What is the total additional tax on Schedule 2, line 21? Type 0 if you don't have one.",
         parse_money,
@@ -266,12 +272,13 @@ QUESTIONS = [
 # Remove each gate only alongside its downstream integration and end-to-end tests.
 # taxpayer_claimed_dependent, spouse_itemizes and dual_status_alien are consumed by Rules
 # (policy.md#standard-deduction-exceptions) and escalate as out_of_scope there.
-# The Schedule 2/3 totals are consumed by Computation (lines 20, 23 and 31).
+# The Schedule 2/3 totals are consumed by Computation (lines 17, 20, 23 and 31).
 PENDING_DOWNSTREAM_FIELDS = ("dependent_count",)
 
 # Existing Computation from_answer() bindings, not new message-schema fields.
 INTAKE_LINE_FIELDS = {
     "10": "adjustments",
+    "17": "schedule2_line3_tax",
     "20": "schedule3_nonrefundable_credits",
     "23": "schedule2_total_tax",
     "26": "estimated_payments",
