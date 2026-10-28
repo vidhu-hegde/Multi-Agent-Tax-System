@@ -97,6 +97,8 @@ LangGraph interrupts fire for:
 │   ├── state.py
 │   ├── graph.py
 │   ├── memory.py
+│   ├── tools.py        # call_tool(): in-process, or the tax_math MCP server
+│   ├── tax_math/       # rules.py, registry.py, server.py (python -m src.tax_math.server)
 │   └── agents/
 ├── data/
 │   ├── generate_fixtures.py
@@ -130,6 +132,22 @@ source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # then add your API keys
 ```
+
+### tax_math MCP server
+
+Every amount on the draft comes from a tax_math tool call (`call_tool()` in `src/tools.py`). `.env.example`
+sets `TAX_MATH_MCP_URL=http://localhost:8001/mcp`, so the tools run on the MCP server, and it must be running
+before `run.py` or the dashboard starts:
+
+```bash
+python -m src.tax_math.server              # http://127.0.0.1:8001/mcp (TAX_MATH_MCP_HOST; 0.0.0.0 in Docker)
+python -m src.tax_math.server --port 8002  # another port: change TAX_MATH_MCP_URL to match
+```
+
+`run.py` and the dashboard read `TAX_MATH_MCP_URL` from `.env` and check the server at startup; if it is not
+answering they stop with a message instead of failing partway through a return. Comment the line out of `.env`
+to run the same tools in-process, with no server. There is never a silent fallback from one to the other. Tests
+always run in-process, except `tests/test_tax_math_mcp.py`, which starts its own server on a free local port.
 
 ### Run
 
