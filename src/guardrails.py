@@ -125,8 +125,9 @@ SCOPE_RULES: list[tuple[str, str]] = [
     ("self_employment", r"1099[- ]?nec|self[- ]employ(?:ed|ment)(?: income)?|business income|schedule c\b|"
                         r"freelanc\w+|side business|my own business|independent contractor|gig work|1099[- ]?k|"
                         r"(?:drive|deliver|work) for (?:uber|lyft|doordash|instacart|grubhub)|sell on (?:etsy|ebay)"),
-    ("rental", r"rental (?:income|property)|schedule e\b|rent (?:out|from) (?:a|my|our)|airbnb|"
-               r"rent(?:ing)? (?:out )?(?:the|a|an|my|our) [\w ]{0,25}\bto (?:a|an|my|some)\b"),
+    # "Rent out" in any form is letting property; a tenant who rents an apartment does not match.
+    ("rental", r"rental (?:income|property)|schedule e\b|rent(?:s|ed|ing)? out\b|rent from (?:a|my|our)|airbnb|"
+               r"rent(?:ing)? (?:the|a|an|my|our) [\w ]{0,25}\bto (?:a|an|my|some)\b"),
     ("capital_gains", r"capital gains?|schedule d\b|sold (?:some |my |our |a )?(?:stocks?|shares|house|home|property|investments?)|1099[- ]?b\b"),
     ("itemized", r"itemi[sz]ed deductions?|itemi[sz]e|schedule a\b|instead of (?:the )?standard deduction"),
     ("amended_or_prior", r"amended (?:tax )?returns?|amend my|prior[- ]year (?:tax )?returns?|"

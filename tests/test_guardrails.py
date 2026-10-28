@@ -42,6 +42,9 @@ ORDINARY_ANSWERS = [
     "We file separately",                      # an answer, not a question
     "I do not have foreign income",            # a denial is not a disclosure
     "I don't have any rental income",
+    "I rent an apartment downtown",            # a tenant, not a landlord
+    "I pay rent to my landlord",
+    "I don't rent out anything",
     "no crypto, no business income",
     "I'm answering for my mother, I have power of attorney",  # stated authority
     # Questions about the form, not tax decisions (some were flagged before rules v2):
@@ -80,6 +83,8 @@ LABELLED = {
     "out_of_scope": [
         "I have foreign income", "I have a foreign bank account", "I have some bitcoin",
         "I received a 1099-NEC", "I do freelance work on the side", "I have rental income",
+        "I also rent out the apartment over my garage", "We rented out the cottage last summer",
+        "She's renting out her basement",
         "I sold some stock last year", "I want itemized deductions", "I need an amended return",
         "I need a state return",
     ],

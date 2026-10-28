@@ -85,8 +85,8 @@ With the strategy on, item 8's last reply, "I also rent out the apartment over m
 `uncertain` instead of `out_of_scope`. With the strategy off, the same reply was classified correctly. The taxpayer
 would still reach a volunteer, so the result is safe, but the category is wrong. Rental income is out of scope
 (Schedule E, `data/policy.md`). In the real Intake flow the guardrail word list in `src/guardrails.py` runs before
-the model, but it doesn't catch this sentence either: it matches "rent out my apartment" but not "rent out the
-apartment". That gap is worth closing in the guardrail list.
+the model. It used to match "rent out my apartment" but not "rent out the apartment", so it missed this sentence
+too. It now matches "rent out" in any form, so this disclosure is caught before the model is asked.
 
 We report this run as measured. We did not re-run to get a cleaner result.
 
