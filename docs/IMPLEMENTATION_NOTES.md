@@ -123,7 +123,8 @@ at the same question once staff resolve the ticket. If the person repeats a repl
 escalated, Intake says so and asks again instead of raising a second ticket. The ticket's evidence holds
 the question, the reply, and what was said to the taxpayer (`said_to_taxpayer`).
 
-**Reply detection:** Intake's default `classify_reply()` uses keyword lists. The optional `make_intake(model,
+**Reply detection:** Intake's default `classify_reply()` uses Juee's named rules in `src/guardrails.py`.
+The optional `make_intake(model,
 use_context_strategy=True)` adds a model fallback for unparseable replies, accepting only the approved
 escalation reason or null. The escalation path stays the same. Data for eval case 2 is in
 `data/fixtures/conflict_case.json`.
@@ -236,20 +237,23 @@ EE, J, L, P, V, Y, and the `retirement_plan` and `third_party_sick_pay` checkbox
 The ground truth for the sample images (`data/fixtures/w2_N_expected.json`) has exactly the `W2Record`
 input fields, so an extraction test can compare its output directly.
 
-## Stubs still in place
+## Integration status (reviewed 2026-10-27)
 
-| Piece | Current behaviour | Replaced by |
+| Piece | Current behaviour | Remaining work |
 |---|---|---|
-| `tools.py` tax rules | `standard_deduction`, `senior_deduction`, `taxable_social_security`, `tax_from_schedule` return 0 and mark provenance `stub=True` | tax_math MCP server |
+| `tools.py` tax rules | Real functions from #10; results rounded to cents in #14 | Max's actual MCP server/client transport; current calls are local Python |
 | Intake model hookup | Checkpointed structured dialogue; optional model classifier via `make_intake` | Vidhatri/Max connect the factory to the default entry point |
-| Extraction | Typed-in values only; images escalate as `uncertain` | Claude vision W-2 extraction |
-| Rules citations | Placeholder `policy.md#...` ids | `data/policy.md` |
+| Extraction | Typed direct entries plus Claude W-2 vision (#7/#13); unreadable documents require staff fields or stop | Further live quality evidence belongs to the extraction owner; no API needed for offline Intake work |
+| Rules citations | Juee's `data/policy.md` and centralized guardrails are merged (#9) | Policy/wording follow-ups belong to Juee |
+| Staff dashboard | FastAPI/Jinja queue, return details, resolution and provenance draft are merged (#13) | Finished-return correction controls and final accessibility review |
 | `run_batch` | Team entry-point hook not implemented; Iris benchmark available in `src.memory` | Vidhatri/Max wire the hook; live usage needs an API key (`docs/metrics.md`) |
 
 ## Iris: memory and state
 
 Intake now commits every accepted interactive answer before the next question. Case-file imports may
-commit several validated fields together. `answers` uses `merge_answers`: `(field, answered_at,
+commit several validated fields together. They return a checkpoint update before interrupting for a
+missing interactive answer, so a partial case's imported values survive restart and appear in the
+resume recap. `answers` uses `merge_answers`: `(field, answered_at,
 entered_by)` identifies an event. Events are ordered by confirmation time before collapsing repeated
 effective values; replay of an old suppressed answer cannot undo a newer correction. Contradictory
 values at the same confirmation time fail explicitly. `current_answers()` uses the same ordering,
@@ -280,19 +284,20 @@ Pathological Intake and model re-ask cycles with no new answers still trip the g
 A finished return can be reopened through the existing graph API
 with `{"intake_complete": false, "intake_revisit": "estimated_payments"}`; dashboard hookup is Max's task.
 
-Review-to-Intake requests use the existing line bindings: `10` asks for `adjustments`, and `26` asks for
-`estimated_payments`; an explicit existing `intake_revisit` also supplies a target. The request remains
+Review-to-Intake requests first use the integrated `RevisionRequest.field` (#7), then the existing
+line bindings: `10` asks for `adjustments`, and `26` asks for `estimated_payments`; an explicit
+`intake_revisit` also supplies a target. The request remains
 pending until that field is confirmed. Go-back to another field does not consume a line-targeted
 request. A confirmation with no change marks Review pending without resetting its bounded pass count.
-Unknown targets are explicitly handed off as `uncertain`, with the missing
-`RevisionRequest.field / Intake targeting contract` recorded, and removed from the routing queue;
-other requests remain. Vidhatri/Anupama own extending the generic targeting contract.
+Unknown/unavailable targets are explicitly handed off as `uncertain` and removed from the routing
+queue; other requests remain. Named-field targeting itself is no longer a missing interface.
 
-A document-list change after extraction pauses on an `uncertain` ticket and keeps the prior inventory.
-The graph has no record-retraction API. A staff "continue" resumes the question, not acceptance of the
-unapplied change. Vidhatri/Anupama must coordinate record retraction and fresh review; use staff stop
-and a fresh workflow until then. Corrections that change a previously resolved issue also need an
-owner-approved issue/version key; conflicting identities now require explicit staff selection.
+The integrated `src/evidence.py` contract from #7 archives prior documents/lines/rules, retracts
+removed or replaced inventory records, increments an evidence epoch and clears stale results before
+fresh Rules/Computation/Review. Changed evidence gets fresh rule-ticket identities, preserving prior
+approvals as history without applying them to the new occurrence. Competing writes still require
+explicit staff selection. These interfaces are available; the old retraction/versioning blocker is
+resolved for the supported paths.
 
 Nonzero inputs awaiting downstream integration create one uncertainty ticket for their fingerprint.
 Staff `continue` lets Intake finish without re-asking the same field; `stop` ends the workflow.
@@ -345,7 +350,7 @@ from langchain_anthropic import ChatAnthropic
 from src.agents.intake import make_intake
 
 model = ChatAnthropic(model=settings.model, api_key=settings.anthropic_api_key,
-                      temperature=0, max_retries=0)
+                      max_retries=0)
 graph = build_graph(settings, checkpointer,
                     agents={"intake": make_intake(model, use_context_strategy)})
 ```
@@ -356,21 +361,20 @@ wire this factory and the existing `run.py --batch` hook. The Iris-owned measure
 API key. No production-wide token reduction or completed invoice evaluation is claimed.
 
 New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`). Nonzero Schedule
-2/3 totals, a positive dependent count or positive scope-exception inputs pause for a volunteer rather
-than producing a draft that ignores them. Staff continue returns to the affected input; it does not
-make an unsupported computation correct. Preserve truthful answers, stop that workflow, and complete
-the owner integration before running those cases. This gate checks missing software support; Intake
-does not determine tax eligibility or compute amounts. Remove each gate only with downstream tests.
+2/3 totals and a positive dependent count pause for a volunteer. Staff continue lets Intake finish
+without repeating the same field; it does not implement those downstream consumers. Positive
+standard-deduction exception inputs now reach Rules and escalate with policy citations (#9), rather
+than using this readiness gate. Preserve truthful answers and show the integration pause in demos.
+Remove each readiness gate only alongside owner integration and correct-output tests. Intake does
+not determine tax eligibility or compute amounts.
 
 ## Iris: per-turn disclosure and field-aware PII fixes
 
-A scope pre-check now notices explicit unsupported-topic disclosures in the whole turn before accepting
-an answer or applying a structured correction. It reuses the shared `out_of_scope` and
-`1099r_taxable_not_determined` reasons and `escalate()` helper. It covers the assignment's foreign-income/
-account, unsupported form/income, deduction, return-type and explicit 1099-R box-2b disclosures. A simple
-explicit denial of foreign income does not count as an affirmative disclosure. No dedicated Juee scope
-catalogue/policy module is present in this checkout; this narrow lexical notice list mirrors §3.3 and
-must be reconciled with Juee's authoritative vocabulary when provided. It does not interpret tax rules.
+A per-turn pre-check delegates to Juee's centralized `src/guardrails.py` (#9) before accepting an answer
+or applying a structured correction. It reuses the shared reasons and `escalate()` helper. The checks
+notice disclosures independently of the field being requested and record the named matching rule
+for staff. They do not interpret tax rules. Wording/false-alarm follow-ups reproduced during Iris's
+offline review are recorded in `docs/IRIS_HANDOFF.md`.
 
 Only a complete valid monetary literal in a requested monetary field bypasses generic SSN redaction
 for field validation. Thus `123456789` can be an amount; labelled identifiers and dashed SSNs cannot
@@ -387,6 +391,7 @@ all ten updated checklist statuses. Live context measurements remain unavailable
 
 [ANUPAMA_HANDOFF.md](ANUPAMA_HANDOFF.md) supersedes earlier descriptions of extraction as a typed-values-only
 stub, missing generic revision-field targeting, and blocked inventory retraction. It documents the
-Claude vision interface (live testing pending), audited manual records, graph message validation,
-evidence epochs/archives and the HTML provenance view. Existing tax_math stubs, policy placeholders,
-normal model/batch integration and full dashboard remain dependencies. This update changes no tax policy.
+Claude vision interface, audited manual records, graph message validation, evidence epochs/archives
+and the HTML provenance view. The later status table above supersedes historical dependency claims:
+live W-2 testing, real tax functions, policy and the dashboard landed in #9/#10/#13/#14. Normal Intake
+model/batch wiring and actual MCP transport remain open. This update changes no tax policy.

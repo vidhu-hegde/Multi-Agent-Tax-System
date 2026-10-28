@@ -1,8 +1,9 @@
 # Iris memory/accessibility segment for the team demo
 
 This is a **rehearsal script**, not a recorded demo. Integrate these shots into the team's required
-5–10 minute video. Use only synthetic data and a dedicated demo database. Do not treat the current
-stub tax output as a correct completed return.
+5–10 minute video. Use only synthetic data and a dedicated demo database. Real tax functions are
+merged, but dependent/Schedule 2/3 consumers, actual MCP transport and live context measurements
+remain incomplete. A successful demo of memory does not establish a complete tax system.
 
 ## Live dialogue without model credentials
 
@@ -11,12 +12,13 @@ uses its existing driver and the production graph, avoiding a duplicate UI or gr
 Run from the repository root. Reuse the same command to resume after Ctrl-C.
 
 ```bash
-SILVERFILE_DB_PATH=output/iris-demo.sqlite .venv/bin/python -c '
+ANTHROPIC_API_KEY='' SILVERFILE_DB_PATH=output/iris-demo.sqlite .venv/bin/python -c '
+from dataclasses import replace
 from src.config import load_settings
 from src.graph import build_graph
 from src.memory import open_checkpointer, thread_config
 from run import drive
-settings = load_settings()
+settings = replace(load_settings(), anthropic_api_key="")
 config = thread_config("iris-demo-return")
 with open_checkpointer(settings) as saver:
     graph = build_graph(settings, saver)
@@ -37,7 +39,7 @@ with open_checkpointer(settings) as saver:
 6. In a separately labelled **staff** terminal, resolve the pause through the existing staff API:
 
 ```bash
-SILVERFILE_DB_PATH=output/iris-demo.sqlite .venv/bin/python -c '
+ANTHROPIC_API_KEY='' SILVERFILE_DB_PATH=output/iris-demo.sqlite .venv/bin/python -c '
 from src.sessions import open_sessions
 with open_sessions() as sessions:
     summary = sessions.summary("iris-demo-return")
@@ -49,9 +51,10 @@ with open_sessions() as sessions:
 ```
 
 7. Restart the taxpayer command. Show that the pending blindness question and prior confirmed values
-   survived the human handoff. Continue with `no`, `no`, `no`, `none`, `1` to reach the later dependent
-   questions (Schedule 1 and both Schedule 3 totals, Schedule 2, and estimated payments each need an
-   explicit `0` as they appear). Dependent name, relationship and test SSN each have their own turn.
+   survived the human handoff. Answer blindness `no`, claimed-as-a-dependent `no`, dual-status `no`,
+   document inventory `none`, and dependent count `1`. Then answer adjustments, Schedule 2,
+   Schedule 3 nonrefundable credits, Schedule 3 other payments, and estimated payments with `0` each.
+   Dependent name, relationship and test SSN then each have their own turn.
    Use `Synthetic Child`, `child`, and only the test-range value `901-12-3456`. Never enter a real SSN. A positive dependent count currently pauses for downstream form integration after collection; show that honest limit rather than claiming a completed dependent return.
 
 The first pause plus correction/restart/handoff segment demonstrates at least four §4.3 choices:
@@ -64,11 +67,43 @@ The dependent shots also show deliberate PII minimization. No screen-reader/UI c
 .venv/bin/python -m pytest tests/test_merge_order.py -v
 .venv/bin/python -m pytest tests/test_memory.py -v
 .venv/bin/python -m pytest tests/test_intake.py -v
+.venv/bin/python -m pytest tests/test_iris_integration.py -v
+ANTHROPIC_API_KEY='' .venv/bin/python -m evals.run_evals
 ```
 
-Show `test_multiple_real_process_restarts_and_thread_isolation`, correction revalidation and
-`test_dependents_are_collected_as_separate_questions`. For the context segment, show `docs/metrics.md`;
-if live measurements remain blocked, say so. Synthetic test usage values are not benchmark results.
+Show `test_restart_correction_recomputes_and_preserves_audit_and_isolation`: it checks five separate
+Python processes, a partial-import checkpoint, one recap, corrections, archived old values and another
+return's isolation. The staff-recovery integration test checks the production session interface.
+Show the eight `iris-...` shared cases: 24/24 total cases passed in the offline follow-up.
+
+For the context segment, show `docs/metrics.md`. Say: “The offline harness is verified. A team member
+with model credits still needs to run the measured ON/OFF comparison after the team settles the item
+definition and full-path integration.” Synthetic test usage values are not benchmark results.
+
+## Integrated draft/provenance shot without API credits
+
+```bash
+ANTHROPIC_API_KEY='' .venv/bin/python -m src.render --case data/fixtures/skeleton_case.json --output output/iris-offline-draft.html
+```
+
+Open `output/iris-offline-draft.html`, Tab to an amount and press Enter/Space to inspect its sources.
+The fixture contains typed synthetic document values, so this shot makes no OCR call. It complements
+the taxpayer-dialogue segment; it is Anupama's renderer over the team's merged graph, not an Iris UI.
+The existing browser smoke check passed for keyboard/click disclosure, visible source metadata and a
+390px layout. It does not establish screen-reader compatibility.
+
+## Narration and final proofreading
+
+Suggested Iris narration: “Every return has its own opaque ID. We save answers before asking the next
+question, so stopping the process does not lose progress. A correction preserves the old answer for
+audit and sends the affected work through fresh calculation and review. The short recap appears once
+when we resume. When someone is unsure, we preserve their answers and ask a volunteer rather than
+guessing.” Show the matching actions while saying this.
+
+Proofread [Iris's report contribution](../docs/IRIS_REPORT.md) and
+[AI-use disclosure](../docs/AI_DISCLOSURE.md) before the team incorporates them. Known guardrail wording
+follow-ups are recorded in [the current handoff](../docs/IRIS_HANDOFF.md). Automated rehearsal evidence
+does not replace Iris's personal review or the team's final video.
 
 Suggested team-video allocation: scope/architecture 1 minute; restart/correction dialogue 2 minutes;
 volunteer handoff 1 minute; document/provenance/dashboard teammate segments 2–3 minutes; context

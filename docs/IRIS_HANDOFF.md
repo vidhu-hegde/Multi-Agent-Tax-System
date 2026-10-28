@@ -1,8 +1,84 @@
 # Iris Agent Memory / Intake completion and coordination report
 
+## Current offline completion review — 2026-10-27
+
+Reviewed against merged `main` at `5c44100` (PRs #6–10 and #12–14), the source and test
+inventory, shared evals, policy, dashboard, report/disclosure material, and the supplied ten-item
+checklist/professor brief. PR #11 was also inspected as **unmerged** work; its branch contains newer
+Security integration than its PR description suggests. Work is on `codex/iris-offline-verification`;
+the original `Iris-agent-memory` branch and local `main` are preserved.
+
+| # | Requirement | Current status and evidence | Remaining dependency |
+|---|---|---|---|
+| 1 | Shared state/reducers | **Done within Iris scope.** Disjoint writes survive both orders; conflicting documents/tickets preserve candidates; delayed answer retries cannot undo corrections. Existing strict-serialization and reducer tests pass. | Single-writer answer history is not a parallel CRDT. |
+| 2 | SQLite/identity | **Partial.** Actual process exits/restarts preserve confirmed answers, corrections, provenance and separate-return isolation. | **Max:** persistent container volume and real container restart verification. |
+| 3 | Plain, single-question Intake | **Partial.** Existing dialogue/dignity tests pass; recap appears once on resume and omits DOB values/SSNs. Guardrails from Juee are integrated. | **Juee:** follow-up wording/false-alarm decisions below; human screen-reader review remains unverified. |
+| 4 | Intake fields | **Partial.** Filing status, applicable DOB/blindness, inventory, dependents, adjustments/payments and schedule totals are collected/validated. New shared cases preserve nonzero unintegrated inputs and stop at staff. | **Anupama/Max:** dependent output and Schedule 2/3 consumers. **Anupama/Juee:** QCD, 25c/other direct-line contracts and the brief's limited adjustment set. No new tax semantics are invented here. |
+| 5 | Corrections/drift/go-back | **Done for supported fields.** Named revisions, evidence archives, retraction and fresh review from #7 are integrated. New evals verify reviewed corrected values. A real-process test checks old line 26 is archived and new payments/provenance persist. | A finished-return correction UI is not present in the staff dashboard; graph/API reopening is available. |
+| 6 | Resume/recap | **Done for CLI/API.** Fixed partial case-file imports losing the checkpoint/recap before the first unanswered question. New integration test uses five separate Python processes. | Final team recording remains separate from automated evidence. |
+| 7 | Honest uncertainty/handoff | **Done for tested paths.** Existing staff session API sees the ticket, records volunteer identity/note and returns to the same question after reopening SQLite. Scope disclosure at a payment question has a shared eval. | Guardrail language coverage is finite. Security/Box-2b corrections remain in unmerged #11. |
+| 8 | Context strategy | **Partial; live evaluation external.** Existing ON/OFF context/usage tests and new benchmark-CLI tests pass with explicit provider doubles. #13's removal of sampling parameters is covered. | **Vidhatri/Max:** default Intake/batch wiring and full-path usage accounting. **Team member with credits:** live ON/OFF measurements, agreed evaluation unit, table/curve. Iris is not expected to obtain more API tokens. |
+| 9 | Focused regressions/integration | **Done for this offline change.** Baseline **504 passed**; final **516 passed**, same seven PyMuPDF/SWIG warnings. Shared evals **24/24**, including eight Iris-owned cases. | Passing offline checks does not establish live model quality or complete tax correctness. |
+| 10 | Documentation/accessibility/disclosure | **Partial.** Current handoff, [report contribution](IRIS_REPORT.md), Iris disclosure draft, corrected implementation notes and [demo rehearsal](../demo/iris_memory_accessibility.md) are ready. Keyboard/visible-provenance/mobile browser smoke check passed. | **Iris:** personally proofread the disclosure/report and perform the demo segment. **Team:** assemble and record the 5–10 minute video; final human accessibility review. |
+
+### What changed, why, and how it was verified
+
+- **Checkpoint before asking.** Partial case-file imports accumulated validated answers locally, then
+  called `interrupt()` before returning them. A restart therefore had no saved answers to recap.
+  `src/agents/intake.py` now returns those imports before the interactive pause. The regression first
+  failed with a missing saved `adjustments` answer, then passed after the three-line guard/comment.
+- **Verify the result of a correction.** Eight additions to `evals/cases.json` use the existing real
+  graph/runner. The real-process test in `tests/test_iris_integration.py` checks correction history,
+  a single recap after resume, line-26 source identity/time, archived old calculations, recalculated
+  total payments and thread isolation. No production graph or tax module was replaced.
+- **Exercise the benchmark entry point offline.** Two tests in `tests/test_memory.py` run both CLI
+  modes using a provider double that rejects sampling parameters. Outputs go to temporary files.
+  Synthetic usage checks verify plumbing only; nothing is copied into `docs/metrics.md` as a result.
+- **Staff recovery uses the existing interface.** A second integration test opens a new SQLite
+  connection/graph, resolves uncertainty through `Sessions.resolve()` and verifies the unfinished
+  question and confirmed filing status. This is API integration evidence, not another process test.
+
+Verification commands:
+
+```bash
+.venv/bin/python -m pytest -q
+ANTHROPIC_API_KEY='' .venv/bin/python -m evals.run_evals
+ANTHROPIC_API_KEY='' .venv/bin/python -m evals.guardrail_eval
+ANTHROPIC_API_KEY='' .venv/bin/python -m src.render --case data/fixtures/skeleton_case.json --output output/iris-offline-draft.html
+SILVERFILE_BROWSER='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' .venv/bin/python tests/check_draft_browser.py output/iris-offline-draft.html
+```
+
+The guardrail development set remains **42/42**, a reused/tuned set rather than a new independent
+accuracy estimate. The browser check verifies Enter/Space/click disclosure, visible provenance and
+390px layout; it does not certify screen-reader accessibility. The first baseline attempt lacked
+FastAPI; installing the existing requirements with `uv pip install --python .venv/bin/python -r
+requirements.txt` resolved collection. No dependency specifications changed. No live API was called.
+
+### Proofreading and owner follow-ups
+
+Read-only probes against current `src/guardrails.py` reproduced these existing #9 review points:
+
+| Reply | Observed result | Decision needed |
+|---|---|---|
+| `No, I don't think my son is going to claim me` | `advice_request`, rule `decision_about_tax` | **Juee:** false-alarm handling. Intake's yes/no parser also currently requires a short `no`; removing the guardrail match alone would still re-ask. |
+| `Yes, she itemizes` | `out_of_scope`, rule `itemized` | **Juee:** coordinate field-aware handling so the answer can be recorded and Rules can make the policy escalation once. |
+| `He can't talk right now, I'm his wife` | `exploitation_concern`, rule `cant_come_to_phone` | **Juee:** decide/document how joint filers and stated authority should be handled. This probe does not adjudicate authority. |
+
+Iris can review #13's narrow `memory.py` change locally: both benchmark CLI modes are now covered
+against accidental reintroduction of sampling parameters. No GitHub review/comment or teammate
+message was posted. The #9 review request is still a human follow-up, even though #9 already merged.
+
+PR #11's latest inspected branch (`4a11024`) contains field-aware ingress, staff recovery and tax-error
+boundaries, but is unmerged and GitHub reports conflicts. **Qiyan** owns resolving/integrating those
+changes; Iris should not recreate them. **Max** explicitly reports work on the actual MCP server in
+#14's discussion. The current tools still call local Python functions. Docker runtime files are absent
+from merged `main`. These are concrete team follow-ups, not additional Iris feature work.
+
+## Historical implementation report — 2026-10-25
+
 > Historical report from before PR #6 review. Current review dispositions and verification are in
-> [PR6_REVIEW_FIXES.md](PR6_REVIEW_FIXES.md); those supersede the guard, recap, reducer and
-> downstream-resume descriptions below.
+> the current review above and [PR6_REVIEW_FIXES.md](PR6_REVIEW_FIXES.md). Statements below about
+> local-only commits, absent policy/vision/retraction, stubs and older test counts are historical.
 
 Date: **2026-10-25**. The user authorized following the supplied Iris handoff; its team checklist was
 kept separate from the professor's assignment text. The assignment defines acceptance, including its

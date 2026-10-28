@@ -1,5 +1,10 @@
 # Context-window evaluation — Iris contribution
 
+Offline review **2026-10-27**: no live measurement was requested or made. Iris has no API credits
+available; live execution requires a team member with access. The remaining Iris offline harness/CLI
+checks pass, including both strategy flags and PR #13's removal of sampling parameters. Synthetic
+usage remains confined to tests. The historical missing-key attempts below are not new attempts.
+
 Status on **2026-10-25: live measurements blocked**. `ANTHROPIC_API_KEY` is not configured.
 Both commands below were executed and exited with code 1 and:
 
@@ -63,9 +68,12 @@ with the instructor or record an explicit team assumption before calling §4.5 c
 
 `src/graph.py:run_batch` is still the team's stub. `build_graph(use_context_strategy=...)` currently
 does not configure models. Vidhatri/Max need to wire the existing `make_intake` factory and connect the
-batch hook; the integration example is in `IMPLEMENTATION_NOTES.md`. Other agents currently do not
-make model calls. Their owners must use the same boundary (or equivalent usage logging) as they add
-models, so measurements eventually sum **all** model calls for the agreed item.
+batch hook; the integration example is in `IMPLEMENTATION_NOTES.md`. Extraction now makes live W-2
+vision calls (#7/#13), so the historical statement that no other agent calls a model no longer applies.
+Its provider usage is not aggregated by this Intake-only harness. The owners must use the same
+boundary (or equivalent usage logging) so measurements eventually sum **all** model calls for the
+agreed item. Vidhatri's live W-2 results in `evals/README.md` are extraction evidence, not the required
+context ON/OFF experiment.
 
 The offline suite verifies selective exclusion of older context, PII minimization, provider usage
 propagation, missing-usage failure, validated outcomes and ten sequential items in two distinct
