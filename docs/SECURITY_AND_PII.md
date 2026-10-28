@@ -1,12 +1,12 @@
 # SilverFile Security and PII Handling
 
-Owner: **Qiyan Zhai** (focus area: Security).
+Owner: **Qiyan Zhai** (focus areas: Security and Review/Audit).
 
-Latest Update: 2026-10-27
+Latest Update: 2026-10-28
 
-Primary code: `src/security.py`, `src/resolution.py`, and security boundaries in `src/tools.py`, `src/communication.py`, `src/sessions.py`, `src/agents/human.py`, and `src/dashboard/`.
+Primary code: `src/security.py`, `src/resolution.py`, `src/agents/review.py`, and security boundaries in `src/tools.py`, `src/communication.py`, `src/sessions.py`, `src/agents/human.py`, and `src/dashboard/`.
 
-Primary tests: `tests/test_security.py`, `tests/test_review.py`, with integration coverage in `tests/test_sessions.py`, `tests/test_dashboard.py`, and `tests/test_communication.py`.
+Primary tests: `tests/test_security.py` and `tests/test_review.py`, with integration coverage in `tests/test_graph.py`, `tests/test_sessions.py`, `tests/test_dashboard.py`, and `tests/test_communication.py`.
 
 ## Security responsibility and completed work
 
@@ -40,7 +40,7 @@ I implemented these protections at shared ingress, persistence, tool, and resolu
 | Secrets | API keys remain in local configuration, are excluded from state and checkpoints, and are protected by `.gitignore` and `.dockerignore`. |
 | Tax tools | Invalid inputs become `ToolInputError` with only the tool and affected field names retained. |
 | HITL resolution | Reason-specific corrections are validated before the graph resumes. |
-| Review/Audit | Missing provenance, placeholder calculations, inconsistent totals, unresolved scope issues, and invalid computations prevent successful review. |
+| Review/Audit | Draft lines are independently checked against confirmed sources, tax-rule inputs, provenance records, deterministic tool calls, calculation dependencies, and unresolved scope issues. Equivalent repair actions are consolidated without collapsing cross-agent sequencing. |
 
 ## Design decisions and why
 
@@ -161,17 +161,35 @@ A forged dashboard Continue request is also rejected. Staff may only stop the af
 
 Review checks the completed draft without changing calculated values itself.
 
-The Review boundary detects:
+I expanded Review/Audit in four focused steps:
+
+1. **Source-to-line verification:** rebuilds direct-entry lines from current typed document records and confirmed Intake answers, independently of the draft's provenance.
+2. **Independent tax-rule verification:** reconstructs the inputs for Lines 6b, 12e, 13b, and 16 and calls the deterministic tax tools again. Critical age, filing-status, and MFS decisions are also checked against confirmed Intake facts.
+3. **Provenance-integrity verification:** checks document identity, form/box/field, recorded value, source snapshot, attribution, timestamp, rule citation, declared dependencies, tool identity, arguments, and recorded result.
+4. **Actionable feedback and recovery testing:** consolidates findings that require the same repair while preserving distinct and cross-agent requests, removes expected monetary amounts from Review reasons, and verifies real Review-to-repair-to-Review workflows through LangGraph.
+
+The completed Review boundary detects:
 
 - placeholder or stub-dependent calculations;
 - missing provenance;
+- stale or incorrect direct-entry lines compared with confirmed source records;
+- missing, malformed, or contradicted Rule Decisions;
+- forged, duplicated, stale, or mismatched provenance;
+- incorrect deterministic tool identities, arguments, results, or dependencies;
 - taxable components larger than their corresponding totals;
 - inconsistent refund and amount-owed values;
 - incorrect aggregate lines;
 - unresolved scope issues;
 - incomplete revision cycles.
 
-I added and maintained tests showing that Review fails closed when these conditions occur.
+Review remains read-only: it emits validated `RevisionRequest`s but does not modify documents, Intake answers, Rule Decisions, or calculated lines. Requests are consolidated by their repair identity (`target`, `line`, `field`, and `document_id`) in stable order. A Rules correction remains separate from the required Computation rerun.
+
+I added seeded-error tests showing that Review rejects internally consistent but source-incorrect lines, incorrect tax-rule results, and fabricated evidence. Actual graph tests also verify:
+
+- a one-time Computation error is rejected, recomputed, reviewed again, and reaches `draft_ready`;
+- an incorrect Rule Decision follows `Review -> Rules -> Computation -> Review` before reaching `draft_ready`;
+- persistent failures still stop at the existing review-pass bound;
+- pathological repeated handoffs still trigger the separate loop guard.
 
 A failed calculation does not receive a successful Review fingerprint, and an unresolved Review failure cannot become `draft_ready`.
 
@@ -201,10 +219,10 @@ Merge chronology, individual conflict resolutions, commit identifiers, intermedi
 With strict LangGraph checkpoint serialization enabled:
 
 ```text
-546 passed
+607 passed
 ```
 
-This includes security, Review, communication, sessions, dashboard, document recovery, guardrails, tax math, cents-rounding, provenance, and checkpoint tests.
+This includes security, Review/Audit, true LangGraph revision loops, communication, sessions, dashboard, document recovery, guardrails, tax math, cents-rounding, provenance, and checkpoint tests. The focused Review and graph run passed `88` tests, including both recoverable revision workflows.
 
 ### Offline end-to-end evaluations
 
@@ -281,7 +299,8 @@ I used Codex to assist with:
 - staff identifier and note protection;
 - secret-handling and Docker-context tests;
 - the sanitized `ToolInputError` and `tool_input_invalid` HITL boundary;
-- Review/Audit safety tests;
+- independent source-to-line, tax-rule, and provenance-integrity Review checks;
+- Review finding consolidation and real LangGraph revision-loop tests;
 - dashboard and 1099-R security integration;
 - merge-conflict analysis and regression-test planning;
 - documentation, handoff notes, and this Security report.
