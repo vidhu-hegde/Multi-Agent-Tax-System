@@ -2,88 +2,44 @@
 
 - **Owner:** Qiyan Zhai
 - **Focus area:** Security
-- **Last updated:** 2026-10-26
+- **Last updated:** 2026-10-27
 
-## 1. Purpose
+## 1. Scope
 
-SilverFile processes tax-return information that may contain personally identifiable information (PII), financial data, and credentials. This document defines the implemented security boundaries, test evidence, and known limitations.
+SilverFile handles tax information containing PII, financial data, and credentials. The security work focuses on:
 
-SilverFile is a draft-return preparation aid. It does not file returns, provide tax advice, or replace an authorized tax preparer.
+- preventing real SSNs and secrets from entering saved state;
+- validating synthetic test identities;
+- protecting taxpayer and staff resume inputs before checkpointing;
+- preserving safe audit provenance;
+- preventing unresolved, missing, or placeholder values from reaching `draft_ready`.
 
-## 2. Threat model
+SilverFile prepares draft returns only. It does not file returns or replace an authorized tax preparer.
 
-The current controls address the following risks:
+## 2. PII and SSN controls
 
-- A taxpayer voluntarily enters a real SSN in a free-text answer.
-- An SSN is written to a LangGraph SQLite checkpoint before Intake can redact it.
-- Memory, prompts, responses, escalation evidence, or dashboard-facing values expose PII.
-- A staff resolution note contains an SSN.
-- An SSN-like value is used as a thread ID or staff audit identity.
-- An API key appears in application state, debug output, committed files, or a Docker build context.
-- Different modules use inconsistent SSN validation or redaction rules.
-- A nine-digit monetary amount is incorrectly treated as an SSN.
+SilverFile accepts only synthetic SSNs in the `9XX-XX-XXXX` range. Validation errors do not repeat rejected values.
 
-Security controls are designed to fail closed when input cannot be safely classified or validated.
-
-## 3. PII inventory and minimization
-
-| Data | Purpose | Current handling |
-|---|---|---|
-| Filing status | Tax-return preparation | Stored as structured Intake data |
-| Date of birth | 1040-SR eligibility | Stored in workflow state |
-| Blindness status | Deduction rules | Stored as a boolean |
-| Financial amounts | Form preparation | Stored as typed monetary values with provenance |
-| W-2 employee SSN | Document identity validation | Only 900-series synthetic values accepted; structured W-2 records retain last four digits |
-| Dependent SSN | Dependent collection | Only 900-series synthetic values accepted |
-| Real or volunteered SSN | Not required | Rejected or redacted before production checkpoint entry |
-| API key | Optional model access | Loaded from environment only; excluded from state and debug representation |
-| Staff resolution note | HITL audit trail | Redacted before graph resume and persistence |
-| Staff identifier | HITL accountability | Must be non-empty and must not contain an SSN-like value |
-
-The demo and automated tests use synthetic identities. Real taxpayer SSNs must not be used.
-
-## 4. Central security boundary
-
-`src/security.py` is the authoritative implementation for:
-
-- 900–999 synthetic SSN validation;
-- recursive SSN redaction;
-- field-aware resume-input protection;
-- staff audit-identifier validation.
-
-Memory, Intake, CLI, and Sessions import these shared helpers rather than maintaining separate regular expressions or redaction implementations.
-
-This prevents security behavior from drifting between modules.
-
-## 5. SSN policy
-
-SilverFile accepts only synthetic SSNs matching:
-
-```text
-9XX-XX-XXXX
-```
-
-Examples:
-
-- Accepted synthetic value: `901-23-4567`
-- Rejected real-range value: `123-45-6789`
-- Rejected malformed value: `901234567`
-
-Validation errors do not echo the rejected value.
-
-Strings and nested payloads containing SSN-shaped values are masked in the following form:
+Real or volunteered SSNs are rejected or redacted as:
 
 ```text
 ***-**-6789
 ```
 
-W-2 extraction validates the complete synthetic SSN and retains only the last four digits in the structured W-2 record.
+`src/security.py` is the shared implementation for:
 
-## 6. Field-aware ingress protection
+- synthetic SSN validation;
+- recursive SSN redaction;
+- field-aware resume protection;
+- staff identifier validation.
 
-LangGraph may persist `Command(resume=...)` before the Intake node processes the reply. Redacting only inside Intake is therefore too late.
+W-2 records retain only the validated SSN’s last four digits. Real taxpayer SSNs must not be used in demos or tests.
 
-Intake questions expose a structured contract:
+## 3. Field-aware input protection
+
+LangGraph may checkpoint `Command(resume=...)` before an agent processes it, so protection must happen before graph resume.
+
+Structured Intake questions identify:
 
 ```text
 type
@@ -92,140 +48,126 @@ input_type
 prompt
 ```
 
-Supported input types are:
+Supported input handling includes:
 
-- `text`: recursively redact SSN-shaped values before resume;
-- `money`: preserve a complete valid monetary value, including a nine-digit amount;
-- `test_ssn`: validate the requested 900-series synthetic SSN before resume.
+- `text`: redact SSN-shaped content;
+- `money`: preserve a valid monetary value, including nine-digit amounts;
+- `test_ssn`: require a valid 900-series synthetic SSN.
 
-This prevents prompt-text guessing and distinguishes a legitimate value such as `123456789` in a money field from an SSN disclosed in free text.
+Production CLI and staff resolution paths apply these controls before invoking the graph.
 
-Production CLI input passes through this protection before creating `Command(resume=...)`.
+## 4. Memory, checkpoints, and secrets
 
-## 7. Memory and model boundary
+Model context and stored messages use recursive redaction. Selective context avoids sending unnecessary sensitive answers to the model.
 
-Memory and model calls use the shared recursive redaction helper.
+SSN-like thread IDs and staff identifiers are rejected. Staff notes are redacted before persistence.
 
-The selective-context strategy excludes unnecessary sensitive answers from model context. When previous dialogue is included, message content is redacted before model invocation. Model responses are also redacted before being added to workflow state.
+API keys are loaded from environment configuration and excluded from application state and debug representation. `.env`, databases, traces, output files, Git metadata, and virtual environments are excluded from the Docker build context.
 
-An API key is passed to the provider client through runtime configuration. It is not added to LangGraph state or checkpoints.
+SQLite provides persistence but not authentication or encryption at rest. Deployment access control and encryption remain future responsibilities.
 
-## 8. SQLite and session identity
+## 5. HITL resolution security
 
-Workflow sessions use opaque thread IDs. SSN-like thread IDs are rejected by both the thread configuration helper and the SQLite checkpointer boundary.
+`Sessions.resolve()` is the shared staff-resolution boundary. It:
 
-Automated tests inspect SQLite database bytes to verify that a real SSN volunteered through the production CLI resume path is not persisted.
+- validates the staff identifier;
+- redacts free-text notes;
+- validates reason-specific correction values;
+- leaves the ticket open when validation fails;
+- resumes the graph only with the protected decision.
 
-SQLite provides persistence, not authentication or encryption. File-system access and encryption-at-rest remain deployment responsibilities.
+### Unreadable documents
 
-## 9. HITL and dashboard-facing data
+An unreadable document cannot be silently skipped. Staff must enter the required values or stop the session.
 
-`Sessions.resolve()` is the shared staff/Dashboard resolution boundary.
+Each supported form has an explicit `STAFF_ENTRY_FIELDS` contract. An explicit `0`, `false`, `null`, or `[]` is accepted where valid, but an omitted required field is rejected rather than silently becoming zero.
 
-Before graph resume:
+Validated entries receive staff provenance and replace the failed document state.
 
-- free-text resolution notes are recursively redacted;
-- SSN-like staff identifiers are rejected;
-- unsafe identity rejection leaves the escalation ticket open;
-- only the protected decision is passed to `Command(resume=...)`.
+### 1099-R Box 2b
 
-Session summaries expose the taxpayer-facing prompt, not internal `field` or `input_type` metadata.
+A `1099r_taxable_not_determined` ticket cannot be resolved with plain `continue`.
 
-Dashboard authentication and role-based access control are not yet implemented and remain a cross-team dependency.
-
-## 10. Secrets handling
-
-Each developer must:
-
-1. Copy `.env.example` to `.env`.
-2. Add their own API key locally.
-3. Never commit or share `.env`.
-4. Avoid placing keys in screenshots, traces, fixtures, or issue comments.
-
-Ordinary unit tests do not require an API key. A real key is needed only for live provider calls, including the context-window benchmark.
-
-Implemented controls include:
-
-- `.env` and `.env.*` are ignored by Git;
-- `.env.example` contains no key;
-- `Settings.anthropic_api_key` is excluded from `repr(Settings)`;
-- tests verify that the key is absent from workflow state and SQLite;
-- repository text files are scanned for common credential formats;
-- `.dockerignore` excludes local secrets, databases, traces, output, Git metadata, virtual environments, and caches;
-- `.env.example` remains available as a safe configuration template.
-
-Secrets must be injected when a container starts, not copied into an image.
-
-## 11. Synthetic fixtures and committed artifacts
-
-Committed W-2 examples and SSN values must remain synthetic and use the allowed 900-series range.
-
-Generated databases, ordinary traces, filled intermediate PDFs, and output files are ignored. Any curated demo trace added later must be reviewed and scanned before commit.
-
-The repository secret scan reports only offending filenames and does not print the suspected credential.
-
-## 12. Automated evidence
-
-Relevant tests are located in:
+Staff must supply:
 
 ```text
-tests/test_security.py
-tests/test_schemas.py
-tests/test_memory.py
-tests/test_intake.py
-tests/test_sessions.py
-tests/test_graph.py
+corrections.taxable_amount
 ```
 
-The tests cover:
+The amount is validated, recorded with staff provenance, and sent through recomputation and review.
 
-- valid and invalid synthetic SSNs;
-- safe validation errors;
-- recursive string and integer redaction;
-- shared Memory/Security redaction ownership;
-- field-aware text, money, and test-SSN handling;
-- pre-checkpoint CLI protection;
-- structured Intake security metadata;
-- thread-ID rejection;
-- staff-note redaction;
-- staff-identity rejection;
-- API-key representation and persistence;
-- repository credential scanning;
-- Docker context exclusions;
-- restart and session compatibility.
+## 6. Review boundary
 
-Latest local regression evidence:
+Security Review rejects draft lines with missing provenance or stub/placeholder calculations.
+
+A stub-derived result must not reach `draft_ready`, even when the placeholder returns a syntactically valid zero.
+
+Tests may explicitly inject verified test tools. Production stubs must remain marked as stubs until the real tax-math implementation is integrated.
+
+## 7. Integration record
+
+Commit `e5803ac` merged current `main`, including PRs #7, #8, and #9, into `Qiyan-security`.
+
+The conflict resolution preserved both teammate functionality and the security boundaries:
+
+- `run.py` supports document-value recovery while protecting taxpayer and staff resume inputs.
+- `src/agents/human.py` supports unreadable-document values and validated 1099-R corrections.
+- Successful document recovery replaces the failed document state.
+- `src/agents/intake.py` combines structured security metadata with the shared guardrail flow.
+- `src/sessions.py` supports both `values` and `corrections` while retaining note redaction and staff-ID validation.
+- Communication and MFS tests now use the structured Intake interrupt contract.
+- The 1099-R eval now supplies `corrections.taxable_amount` rather than bypassing the ticket.
+
+## 8. Test evidence
+
+Security and integration coverage includes:
+
+- synthetic SSN validation and redaction;
+- field-aware resume protection;
+- checkpoint and restart safety;
+- staff-note and staff-identity protection;
+- API-key and repository secret scanning;
+- unreadable-document recovery;
+- missing-field rejection;
+- structured guardrail questions;
+- MFS Social Security handling;
+- mandatory 1099-R correction;
+- placeholder calculation rejection;
+- strict MsgPack serialization.
+
+Latest results:
 
 ```text
-Security + Smoke: 28 passed
-Full suite: 171 passed, 1 known upstream failure
+Focused integration suite: 193 passed
+Communication tests: 67 passed
+MFS Social Security tests: 7 passed
+Eval pytest cases: 15 passed
+Full suite with LANGGRAPH_STRICT_MSGPACK=true: 464 passed
 ```
 
-The remaining failure is the previously identified `merge_answers` same-microsecond event-identity conflict. It is unrelated to the security changes and is tracked separately for final integration.
+The earlier answer-event timestamp collision has been fixed. The integrated pytest suite currently has no failures.
 
-## 13. Known limitations and follow-up work
+## 9. Remaining work
 
-The following items are not yet complete:
+The following work remains:
 
-- Dashboard authentication and role-based authorization;
-- encryption at rest for SQLite;
-- production retention and deletion policy;
-- verification of future committed demo traces;
-- security review of the final Dockerfile and deployment configuration;
-- protection for any future production entry point that bypasses `run.drive()` or `Sessions.resolve()`;
-- final OCR pipeline review and assurance that raw document text is not persisted unnecessarily;
-- structured, reason-specific HITL resolution validation;
-- final resolution of the answer-event identity conflict in `merge_answers`.
+- integrate PR #10’s real tax-math implementation;
+- rerun the standalone end-to-end eval suite after #10;
+- review the final Docker and deployment configuration;
+- add Dashboard authentication and role-based authorization;
+- define production data retention, deletion, and encryption policies;
+- review any future entry point that bypasses `run.drive()` or `Sessions.resolve()`;
+- perform live provider testing when an API key is available.
 
-Any new caller that creates `Command(resume=...)` must apply the same field-aware protection before invoking the graph.
+Until PR #10 replaces the tax-math stubs, a standalone eval may resolve the 1099-R ticket and then reach `review_limit`. This is expected fail-closed behavior and must not be bypassed by weakening Review.
 
-## 14. Cross-team responsibilities
+## 10. Ownership
 
-- **Qiyan:** security policy, validation, redaction, security tests, and security review.
-- **Iris:** Intake, memory, checkpoint, and context-strategy integration.
-- **Vidhatri:** graph routing and resume integration.
-- **Max:** Dashboard, Docker, computation services, and runtime deployment.
-- **Anupama:** document extraction and provenance contracts.
-- **Juee:** policy catalogue, scope rules, and HITL wording.
+- **Qiyan:** security validation, redaction, HITL protection, tests, and security review.
+- **Iris:** Intake, memory, checkpoints, and context integration.
+- **Vidhatri:** orchestration and resume integration.
+- **Max:** tax math, Dashboard, Docker, and runtime deployment.
+- **Anupama:** extraction and provenance contracts.
+- **Juee:** policy, scope guardrails, and HITL wording.
 
 Security requirements apply across these components even when their primary implementation belongs to another team member.
