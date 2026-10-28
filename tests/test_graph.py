@@ -7,6 +7,7 @@ from langgraph.types import Command
 
 import run
 from src.agents.computation import computation
+from src.agents.rules import rules
 from src.memory import open_checkpointer
 from src.schemas import FORM_LINES
 from tests.conftest import SKELETON_CASE
@@ -70,6 +71,58 @@ def test_review_loop_is_bounded_then_escalates(make_graph, settings):
 
     result = graph.invoke(Command(resume="stop"), config())
     assert result["status"] == "stopped"
+
+
+def test_review_recovers_from_a_one_time_computation_error(make_graph):
+    calls = 0
+
+    def computation_wrong_once(state):
+        nonlocal calls
+        calls += 1
+        update = computation(state)
+        if calls == 1:
+            line = update["lines"]["6b"]
+            update["lines"]["6b"] = line.model_copy(update={"amount": line.amount + Decimal("1")})
+        return update
+
+    graph = make_graph(agents={"computation": computation_wrong_once})
+    result = graph.invoke({"case_path": SKELETON_CASE}, config("recover-computation"))
+
+    assert result["status"] == "draft_ready"
+    assert result["review_status"] == "passed"
+    assert result["review_passes"] == 2
+    assert calls == 2
+    assert [handoff.to_agent for handoff in result["handoffs"]][-4:] == [
+        "review", "computation", "review", "end",
+    ]
+
+
+def test_review_routes_a_wrong_rule_through_rules_then_computation(make_graph):
+    calls = 0
+
+    def rules_wrong_once(state):
+        nonlocal calls
+        calls += 1
+        update = rules(state)
+        if calls == 1:
+            decisions = dict(update["rule_decisions"])
+            decision = decisions["age_blind_boxes"]
+            outcome = dict(decision.outcome)
+            outcome["count"] += 1
+            decisions["age_blind_boxes"] = decision.model_copy(update={"outcome": outcome})
+            update["rule_decisions"] = decisions
+        return update
+
+    graph = make_graph(agents={"rules": rules_wrong_once})
+    result = graph.invoke({"case_path": SKELETON_CASE}, config("recover-rules"))
+
+    assert result["status"] == "draft_ready"
+    assert result["review_status"] == "passed"
+    assert result["review_passes"] == 2
+    assert calls == 2
+    hops = [handoff.to_agent for handoff in result["handoffs"]]
+    first_review = hops.index("review")
+    assert hops[first_review:first_review + 5] == ["review", "rules", "computation", "review", "end"]
 
 
 def test_loop_guard_breaks_a_pathological_cycle(make_graph, settings):

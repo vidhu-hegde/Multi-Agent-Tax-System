@@ -556,6 +556,36 @@ def check_provenance_integrity(state: SilverFileState) -> list[RevisionRequest]:
 
     return problems
 
+def consolidate_revision_requests(requests: list[RevisionRequest]) -> list[RevisionRequest]:
+    """Combine findings that require the same repair while preserving audit detail.
+
+    Review may detect one defect through several independent checks. Routing all
+    of those findings separately makes the queue noisy even though the owning
+    agent repairs them together. Keep the first-seen action order, retain every
+    distinct safe reason, and never combine different targets, fields, documents
+    or form lines.
+    """
+    grouped: dict[tuple, tuple[RevisionRequest, list[str]]] = {}
+    order: list[tuple] = []
+    for request in requests:
+        key = (request.target, request.field, request.document_id, request.line, request.raised_by)
+        if key not in grouped:
+            grouped[key] = (request, [request.reason])
+            order.append(key)
+        elif request.reason not in grouped[key][1]:
+            grouped[key][1].append(request.reason)
+
+    consolidated = []
+    for key in order:
+        request, reasons = grouped[key]
+        if len(reasons) == 1:
+            consolidated.append(request)
+        else:
+            consolidated.append(request.model_copy(
+                update={"reason": "Multiple audit findings: " + "; ".join(reasons)}
+            ))
+    return consolidated
+
 
 def find_problems(state: SilverFileState) -> list[RevisionRequest]:
     lines = state.get("lines", {})
@@ -568,7 +598,7 @@ def find_problems(state: SilverFileState) -> list[RevisionRequest]:
     for line in missing:
         problem(line, "line missing from the draft")
     if missing:
-        return problems
+        return consolidate_revision_requests(problems)
 
     for line, value in lines.items():
         if not value.provenance:
@@ -582,11 +612,11 @@ def find_problems(state: SilverFileState) -> list[RevisionRequest]:
     for line, parts in SUM_CHECKS.items():
         expected, _ = call_tool("sum", values=[lines[p].amount for p in parts])
         if lines[line].amount != expected:
-            problem(line, f"total does not recompute (expected {expected})")
+            problem(line, "total does not recompute from required component lines")
     for line, (tool, a, b) in SUBTRACT_CHECKS.items():
         expected, _ = call_tool(tool, a=lines[a].amount, b=lines[b].amount)
         if lines[line].amount != expected:
-            problem(line, f"total does not recompute (expected {expected})")
+            problem(line, "total does not recompute from required component lines")
 
     for taxable, total in NOT_MORE_THAN:
         if lines[taxable].amount > lines[total].amount:
@@ -614,7 +644,7 @@ def find_problems(state: SilverFileState) -> list[RevisionRequest]:
             ticket = escalations.get(ticket_id)
             if ticket is None or ticket.status != "resolved":
                 problem(None, f"out-of-scope item {ticket_id} not resolved by a human", target="rules")
-    return problems
+    return consolidate_revision_requests(problems)
 
 
 def review(state: SilverFileState) -> dict:

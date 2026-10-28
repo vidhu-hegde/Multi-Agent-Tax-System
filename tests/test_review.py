@@ -3,9 +3,15 @@
 import pytest
 from decimal import Decimal
 
-from src.agents.review import check_source_lines, check_tax_rules, find_problems, review
+from src.agents.review import (
+    check_source_lines,
+    check_tax_rules,
+    consolidate_revision_requests,
+    find_problems,
+    review,
+)
 from src.schemas import (
-    FORM_LINES, LineValue, Provenance, RuleDecision, IntakeAnswer,
+    FORM_LINES, LineValue, Provenance, RevisionRequest, RuleDecision, IntakeAnswer,
     W2Record, Interest1099, Dividend1099, Retirement1099R, SSA1099, DocumentRef,
 )
 from tests.conftest import SKELETON_CASE
@@ -181,7 +187,7 @@ def test_review_detects_missing_provenance():
 
     assert any(
         problem.line == "16"
-        and problem.reason == "no provenance record"
+        and "no provenance record" in problem.reason
         for problem in problems
     )
 
@@ -658,3 +664,81 @@ def test_provenance_audit_missing_rule_decision_schedules_rules_then_recompute()
     requests = [r for r in check_provenance_integrity(state) if r.line == "13b"]
     assert requests[0].target == "rules"
     assert any(r.target == "computation" for r in requests[1:])
+
+
+# --- Actionable Review output and recovery preparation (Security / Review step 4) ---
+
+
+def test_review_consolidates_one_source_defect_into_one_repair_action():
+    state = _source_state()
+    record = state["documents"]["w2-1"]
+    state["documents"]["w2-1"] = record.model_copy(
+        update={"wages": record.wages + Decimal("25")}
+    )
+
+    requests = [r for r in find_problems(state) if r.target == "computation" and r.line == "1z"]
+
+    assert len(requests) == 1
+    assert "source documents" in requests[0].reason
+    assert "document provenance" in requests[0].reason
+    assert "tool identity or arguments" in requests[0].reason
+
+
+def test_review_keeps_genuinely_different_repair_actions_separate():
+    state = _source_state()
+    w2 = state["documents"]["w2-1"]
+    interest = state["documents"]["int-1"]
+    state["documents"]["w2-1"] = w2.model_copy(update={"wages": w2.wages + Decimal("25")})
+    state["documents"]["int-1"] = interest.model_copy(
+        update={"interest": interest.interest + Decimal("25")}
+    )
+
+    requests = [r for r in find_problems(state) if r.target == "computation" and r.line in {"1z", "2b"}]
+
+    assert [(r.target, r.line) for r in requests] == [("computation", "1z"), ("computation", "2b")]
+
+
+def test_review_preserves_rules_before_recomputation_when_decision_is_missing():
+    state = _source_state()
+    del state["rule_decisions"]["senior_deduction_count"]
+
+    requests = [r for r in find_problems(state) if r.line == "13b"]
+
+    assert [(r.target, r.field) for r in requests] == [
+        ("rules", "senior_deduction_count"),
+        ("computation", None),
+    ]
+
+
+def test_revision_reasons_do_not_disclose_expected_amounts():
+    state = _source_state()
+    expected, _ = call_tool(
+        "sum",
+        values=[state["lines"][line].amount for line in ("1z", "2b", "3b", "4b", "5b", "6b")],
+    )
+    set_amount(state, "9", "987654.32")
+
+    requests = find_problems(state)
+
+    assert requests
+    assert all(str(expected) not in request.reason for request in requests)
+    assert all("987654.32" not in request.reason for request in requests)
+
+
+def test_consolidation_is_stable_and_does_not_mutate_requests():
+    original = [
+        RevisionRequest(target="computation", line="9", reason="first safe finding"),
+        RevisionRequest(target="computation", line="9", reason="second safe finding"),
+        RevisionRequest(target="rules", line="9", field="scope", reason="separate owner"),
+    ]
+    snapshot = [request.model_dump(mode="json") for request in original]
+
+    consolidated = consolidate_revision_requests(original)
+
+    assert [(r.target, r.line, r.field) for r in consolidated] == [
+        ("computation", "9", None),
+        ("rules", "9", "scope"),
+    ]
+    assert "first safe finding" in consolidated[0].reason
+    assert "second safe finding" in consolidated[0].reason
+    assert snapshot == [request.model_dump(mode="json") for request in original]
