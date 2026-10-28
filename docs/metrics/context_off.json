@@ -1,235 +1,365 @@
 {
-  "thread_id": "return-78c5-173f-e306-48fa-a3b7-de6b-904e-4d34",
+  "thread_id": "return-9028-3a35-2577-4789-93cf-30ad-ac07-e956",
   "strategy_enabled": false,
   "model": "claude-sonnet-5-5",
-  "measured_at": "2026-10-28T22:57:57.373162+00:00",
+  "measured_at": "2026-10-28T23:25:33.120669+00:00",
   "items": [
     {
       "item": 1,
-      "input_tokens": 672,
+      "id": "filing-status-muddle",
+      "input_tokens": 1150,
       "model_calls": 3,
-      "correct": true,
+      "correct": false,
       "turns": [
         {
-          "turn": 1,
-          "reason": null,
-          "correct": true
+          "reply": "Ugh, all those words blur together. The second one? Or third.",
+          "expected": null,
+          "reason": "uncertain",
+          "valid": true,
+          "input_tokens": 270,
+          "model_calls": 1,
+          "correct": false
         },
         {
-          "turn": 2,
+          "reply": "Wait, scratch that, I meant the other one, the one with my wife on it.",
+          "expected": null,
           "reason": "uncertain",
-          "correct": true
+          "valid": true,
+          "input_tokens": 381,
+          "model_calls": 1,
+          "correct": false
         },
         {
-          "turn": 3,
+          "reply": "We split up last spring but nothing is official, and I couldn\u2019t tell you what that makes me.",
+          "expected": "uncertain",
           "reason": "uncertain",
+          "valid": true,
+          "input_tokens": 499,
+          "model_calls": 1,
           "correct": true
         }
       ]
     },
     {
       "item": 2,
-      "input_tokens": 966,
+      "id": "birth-date-redo",
+      "input_tokens": 1933,
       "model_calls": 3,
       "correct": true,
       "turns": [
         {
-          "turn": 1,
-          "reason": "uncertain",
+          "reply": "Same as my late brother's, near enough, but a few years after him.",
+          "expected": null,
+          "reason": null,
+          "valid": true,
+          "input_tokens": 571,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 2,
-          "reason": "uncertain",
+          "reply": "Oh no, hang on, the last thing I told you was wrong, can we redo it?",
+          "expected": null,
+          "reason": null,
+          "valid": true,
+          "input_tokens": 646,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 3,
-          "reason": "advice_request",
+          "reply": "My papers are in a box somewhere and the year has gone right out of my head.",
+          "expected": "uncertain",
+          "reason": "uncertain",
+          "valid": true,
+          "input_tokens": 716,
+          "model_calls": 1,
           "correct": true
         }
       ]
     },
     {
       "item": 3,
-      "input_tokens": 1277,
+      "id": "wages-and-rent",
+      "input_tokens": 2613,
       "model_calls": 3,
       "correct": true,
       "turns": [
         {
-          "turn": 1,
-          "reason": "uncertain",
-          "correct": true
-        },
-        {
-          "turn": 2,
-          "reason": "uncertain",
-          "correct": true
-        },
-        {
-          "turn": 3,
+          "reply": "No job. I do get money every month from letting my late mother's flat.",
+          "expected": "out_of_scope",
           "reason": "out_of_scope",
+          "valid": true,
+          "input_tokens": 795,
+          "model_calls": 1,
+          "correct": true
+        },
+        {
+          "reply": "Actually no, ignore that, I mixed it up.",
+          "expected": null,
+          "reason": null,
+          "valid": true,
+          "input_tokens": 873,
+          "model_calls": 1,
+          "correct": true
+        },
+        {
+          "reply": "Sorry, could you ask me that again more slowly?",
+          "expected": null,
+          "reason": null,
+          "valid": true,
+          "input_tokens": 945,
+          "model_calls": 1,
           "correct": true
         }
       ]
     },
     {
       "item": 4,
-      "input_tokens": 1543,
+      "id": "eye-clinic-letter",
+      "input_tokens": 3216,
       "model_calls": 3,
       "correct": true,
       "turns": [
         {
-          "turn": 1,
-          "reason": null,
+          "reply": "I would need a volunteer to read the clinic letter and tell me what it says.",
+          "expected": "uncertain",
+          "reason": "uncertain",
+          "valid": true,
+          "input_tokens": 1008,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 2,
+          "reply": "Sorry, I was thinking of my husband. Ask me that one again?",
+          "expected": null,
           "reason": null,
+          "valid": true,
+          "input_tokens": 1076,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 3,
-          "reason": "exploitation_concern",
+          "reply": "I really can\u2019t say whether I count as blind.",
+          "expected": "uncertain",
+          "reason": "uncertain",
+          "valid": true,
+          "input_tokens": 1132,
+          "model_calls": 1,
           "correct": true
         }
       ]
     },
     {
       "item": 5,
-      "input_tokens": 1826,
+      "id": "pension-slip",
+      "input_tokens": 3901,
       "model_calls": 3,
       "correct": true,
       "turns": [
         {
-          "turn": 1,
+          "reply": "Schedule two? I\u2019ve never heard of it.",
+          "expected": "uncertain",
           "reason": "uncertain",
+          "valid": true,
+          "input_tokens": 1211,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 2,
-          "reason": "uncertain",
-          "correct": true
-        },
-        {
-          "turn": 3,
+          "reply": "On that pension slip the little square beside 2a, the not-worked-out one, is ticked.",
+          "expected": "1099r_taxable_not_determined",
           "reason": "1099r_taxable_not_determined",
+          "valid": true,
+          "input_tokens": 1300,
+          "model_calls": 1,
+          "correct": true
+        },
+        {
+          "reply": "Oops, earlier I said two pension letters, it's really just the one.",
+          "expected": null,
+          "reason": null,
+          "valid": true,
+          "input_tokens": 1390,
+          "model_calls": 1,
           "correct": true
         }
       ]
     },
     {
       "item": 6,
-      "input_tokens": 2133,
+      "id": "adjustments-advice",
+      "input_tokens": 4645,
       "model_calls": 3,
       "correct": true,
       "turns": [
         {
-          "turn": 1,
-          "reason": "uncertain",
+          "reply": "Put in whatever works out best for me there, you know these things.",
+          "expected": "advice_request",
+          "reason": "advice_request",
+          "valid": true,
+          "input_tokens": 1468,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 2,
-          "reason": "uncertain",
+          "reply": "Let's back up a step, I muddled the previous answer.",
+          "expected": null,
+          "reason": null,
+          "valid": true,
+          "input_tokens": 1551,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 3,
+          "reply": "Schedule what? That one is a new one on me.",
+          "expected": "uncertain",
           "reason": "uncertain",
+          "valid": true,
+          "input_tokens": 1626,
+          "model_calls": 1,
           "correct": true
         }
       ]
     },
     {
       "item": 7,
-      "input_tokens": 2389,
+      "id": "nephew-pays",
+      "input_tokens": 5405,
       "model_calls": 3,
-      "correct": true,
+      "correct": false,
       "turns": [
         {
-          "turn": 1,
-          "reason": null,
+          "reply": "My nephew does the paying now, he says to just put whatever he tells me.",
+          "expected": "exploitation_concern",
+          "reason": "uncertain",
+          "valid": true,
+          "input_tokens": 1715,
+          "model_calls": 1,
+          "correct": false
+        },
+        {
+          "reply": "My nephew mentioned the money coming back should land with him this time.",
+          "expected": "exploitation_concern",
+          "reason": "exploitation_concern",
+          "valid": true,
+          "input_tokens": 1801,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 2,
-          "reason": null,
-          "correct": true
-        },
-        {
-          "turn": 3,
-          "reason": "advice_request",
+          "reply": "What I paid? I really couldn\u2019t tell you.",
+          "expected": "uncertain",
+          "reason": "uncertain",
+          "valid": true,
+          "input_tokens": 1889,
+          "model_calls": 1,
           "correct": true
         }
       ]
     },
     {
       "item": 8,
-      "input_tokens": 2646,
+      "id": "grandchildren",
+      "input_tokens": 6084,
       "model_calls": 3,
       "correct": true,
       "turns": [
         {
-          "turn": 1,
-          "reason": "uncertain",
+          "reply": "My granddaughter was a sheep in the school nativity, she was wonderful.",
+          "expected": null,
+          "reason": null,
+          "valid": true,
+          "input_tokens": 1962,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 2,
-          "reason": "uncertain",
+          "reply": "Hold on, earlier I told you the wrong date, can I fix that first?",
+          "expected": null,
+          "reason": null,
+          "valid": true,
+          "input_tokens": 2030,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 3,
-          "reason": "out_of_scope",
+          "reply": "I'd need one of your volunteers to work out who counts here.",
+          "expected": "uncertain",
+          "reason": "uncertain",
+          "valid": true,
+          "input_tokens": 2092,
+          "model_calls": 1,
           "correct": true
         }
       ]
     },
     {
       "item": 9,
-      "input_tokens": 2917,
+      "id": "late-husband",
+      "input_tokens": 6706,
       "model_calls": 3,
       "correct": true,
       "turns": [
         {
-          "turn": 1,
-          "reason": "uncertain",
+          "reply": "He did love his roses; they still come up every June.",
+          "expected": null,
+          "reason": null,
+          "valid": true,
+          "input_tokens": 2161,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 2,
-          "reason": "uncertain",
+          "reply": "Hmm, I keep mixing that up with when Mum passed. Ask again?",
+          "expected": null,
+          "reason": null,
+          "valid": true,
+          "input_tokens": 2238,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 3,
-          "reason": "exploitation_concern",
+          "reply": "Could I file as if he were still here? It might be cheaper.",
+          "expected": "advice_request",
+          "reason": "advice_request",
+          "valid": true,
+          "input_tokens": 2307,
+          "model_calls": 1,
           "correct": true
         }
       ]
     },
     {
       "item": 10,
-      "input_tokens": 3170,
+      "id": "living-apart",
+      "input_tokens": 7384,
       "model_calls": 3,
       "correct": true,
       "turns": [
         {
-          "turn": 1,
+          "reply": "Before this one, could we return to the question about my birthday?",
+          "expected": null,
           "reason": null,
+          "valid": true,
+          "input_tokens": 2386,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 2,
-          "reason": "uncertain",
+          "reply": "Actually I need to undo what I said a minute ago about the dates.",
+          "expected": null,
+          "reason": null,
+          "valid": true,
+          "input_tokens": 2463,
+          "model_calls": 1,
           "correct": true
         },
         {
-          "turn": 3,
-          "reason": "uncertain",
+          "reply": "I also get a small pension from my years working in Canada.",
+          "expected": "out_of_scope",
+          "reason": "out_of_scope",
+          "valid": true,
+          "input_tokens": 2535,
+          "model_calls": 1,
           "correct": true
         }
       ]

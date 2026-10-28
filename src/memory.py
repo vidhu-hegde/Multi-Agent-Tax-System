@@ -10,6 +10,7 @@ import re
 import sqlite3
 import uuid
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Annotated, TypedDict
 
 from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage
@@ -17,7 +18,7 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph.message import add_messages
 
-from src.config import Settings
+from src.config import ROOT, Settings
 from src.schemas import Contract, EscalationReason, IntakeAnswer
 from src.state import current_answers, merge_answers, merge_dicts
 from src.security import redact_ssns
@@ -27,7 +28,6 @@ class ContextBenchmarkState(TypedDict, total=False):
     context_item: str
     context_reason: EscalationReason | None
     context_classification_valid: bool
-    context_window_start: int  # index in messages where the exchange in progress began
     messages: Annotated[list[AnyMessage], add_messages]
     answers: Annotated[list[IntakeAnswer], merge_answers]
     input_token_usage: Annotated[dict[str, int], merge_dicts]
@@ -46,10 +46,8 @@ CLASSIFIER_PROMPT = (
 def model_context(state, current_item: str, use_context_strategy: bool = True):
     """Selective recall: current item plus confirmed non-identifying session decisions.
 
-    ON also keeps the exchange in progress when the caller marks where it began (context_window_start, set
-    by the benchmark's multi-turn items; Intake sets none, so it sends only the current reply). OFF includes
-    the same summary and the accumulated classifier dialogue. Typed dependent records, DOBs and document
-    contents are never part of that dialogue.
+    OFF includes the same summary and the accumulated classifier dialogue. Typed
+    dependent records, DOBs and document contents are never part of that dialogue.
     """
     known = current_answers(state)
     summary = {
@@ -58,11 +56,8 @@ def model_context(state, current_item: str, use_context_strategy: bool = True):
         if field in known
     }
     messages = [SystemMessage(content=CLASSIFIER_PROMPT + "\nConfirmed session inputs: " + json.dumps(summary))]
-    earlier = state.get("messages", [])
-    if use_context_strategy:
-        start = state.get("context_window_start")
-        earlier = earlier[start:] if start is not None else []
-    messages.extend(m.model_copy(update={"content": redact_ssns(m.content)}) for m in earlier)
+    if not use_context_strategy:
+        messages.extend(m.model_copy(update={"content": redact_ssns(m.content)}) for m in state.get("messages", []))
     messages.append(HumanMessage(content=redact_ssns(current_item), id=str(uuid.uuid4())))
     return messages
 
@@ -127,55 +122,38 @@ def open_checkpointer(settings: Settings):
         conn.close()
 
 
-# Ten short Intake exchanges, one per sequential item: unclear replies, corrections and going back, each
-# ending in a reply with one right outcome. Each turn lists the classifications that count as correct: an
-# unclear reply may simply be asked again (null) or sent to a volunteer (uncertain).
-REPEAT_OR_VOLUNTEER = (None, "uncertain")
-BENCHMARK_ITEMS = [
-    [("I'm not sure what this question is asking.", REPEAT_OR_VOLUNTEER),
-     ("Is that the same thing as whether I'm married? I'm confused.", REPEAT_OR_VOLUNTEER),
-     ("I think I need a person to explain this to me.", ("uncertain",))],
-    [("Wait, I typed my birth year wrong.", REPEAT_OR_VOLUNTEER),
-     ("It should be 1957, not 1975. Sorry about that.", REPEAT_OR_VOLUNTEER),
-     ("While I have you: should I take my IRA money out this year or next to pay less tax?", ("advice_request",))],
-    [("Can we go back to the previous question? I answered it too fast.", REPEAT_OR_VOLUNTEER),
-     ("The one about my documents, I mean.", REPEAT_OR_VOLUNTEER),
-     ("I forgot to mention I sold some bitcoin last year.", ("out_of_scope",))],
-    [("Hmm, what do you mean by that?", REPEAT_OR_VOLUNTEER),
-     ("Could you say it a different way?", REPEAT_OR_VOLUNTEER),
-     ("My son says the refund has to go into his account and that I shouldn't ask about it.",
-      ("exploitation_concern",))],
-    [("Sorry, my last answer was wrong.", REPEAT_OR_VOLUNTEER),
-     ("I mixed up my two pension forms.", REPEAT_OR_VOLUNTEER),
-     ("One of them has the box 'taxable amount not determined' checked.", ("1099r_taxable_not_determined",))],
-    [("Go back, please. I want to change something.", REPEAT_OR_VOLUNTEER),
-     ("I'm not sure anymore whether I count as blind.", REPEAT_OR_VOLUNTEER),
-     ("I'd rather a volunteer looked at this with me.", ("uncertain",))],
-    [("I don't follow the wording here.", REPEAT_OR_VOLUNTEER),
-     ("Do you mean my pension or my Social Security?", REPEAT_OR_VOLUNTEER),
-     ("Is it better for me to file married jointly or separately?", ("advice_request",))],
-    [("Actually, let me correct what I said about my income.", REPEAT_OR_VOLUNTEER),
-     ("There was a bit more than I told you.", REPEAT_OR_VOLUNTEER),
-     ("I also rent out the apartment over my garage.", ("out_of_scope",))],
-    [("Can we go back two questions?", REPEAT_OR_VOLUNTEER),
-     ("I think I answered the blindness one wrong.", REPEAT_OR_VOLUNTEER),
-     ("My caregiver says I have to sign my refund over to her or she'll stop helping me.",
-      ("exploitation_concern",))],
-    [("What?", REPEAT_OR_VOLUNTEER),
-     ("These questions are a lot for me.", REPEAT_OR_VOLUNTEER),
-     ("Could someone from Kushim call me to finish this?", ("uncertain",))],
-]
+CONTEXT_ITEMS = ROOT / "evals" / "context_items.json"
+CONTEXT_TURNS_PER_ITEM = 3
 
 
-def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=True):
-    """Ten sequential multi-turn Intake exchanges (BENCHMARK_ITEMS) in one fresh, persisted thread.
+def load_context_items(path=CONTEXT_ITEMS) -> dict:
+    """The benchmark's ten items of three unclear Intake replies, each with its one expected label."""
+    from src.agents.intake import ESCALATION_DETAIL
 
-    Each turn is one classifier call; an item's input tokens are the sum over its turns, and it is correct
-    only if every turn is. This evaluation graph calls the same classifier as make_intake(). It does not
-    replace the team's return graph or simulate completed tax returns/invoices.
+    data = json.loads(Path(path).read_text())
+    items = data["items"]
+    if len(items) != 10 or any(len(item["turns"]) != CONTEXT_TURNS_PER_ITEM for item in items):
+        raise ValueError(f"{path} must hold 10 items of {CONTEXT_TURNS_PER_ITEM} turns")
+    for item in items:
+        for turn in item["turns"]:
+            if turn["expected"] not in (*ESCALATION_DETAIL, None):
+                raise ValueError(f"{item['id']}: unknown expected label {turn['expected']!r}")
+    return data
+
+
+def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=True, items_path=CONTEXT_ITEMS):
+    """The ten items of evals/context_items.json, three turns each, in order in one fresh, persisted thread.
+
+    Each turn is one classifier call with the input production Intake sends, {"question", "reply"}. ON and
+    OFF read the same file and the same fixed seed answers. A turn is correct when the model's output is
+    valid and matches its expected label; an item is correct when all three turns are. This evaluation
+    graph calls the same classifier as make_intake(). It does not replace the team's return graph or
+    simulate completed tax returns/invoices.
     """
     from langgraph.graph import END, START, StateGraph
     from src.agents.intake import classify_with_model
+
+    data = load_context_items(items_path)
 
     config = thread_config(thread_id)
     if checkpointer.get_tuple(config) is not None:
@@ -193,34 +171,40 @@ def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=T
     graph = builder.compile(checkpointer=checkpointer)
     rows = []
     previous_usage = {}
-    for item, exchange in enumerate(BENCHMARK_ITEMS, 1):
-        start = len(graph.get_state(config).values.get("messages", []))
+    seeds = [IntakeAnswer(field=field, value=value, entered_by="synthetic benchmark")
+             for field, value in data["seed_answers"].items()]
+    for number, item in enumerate(data["items"], start=1):
         turns = []
-        for turn, (text, acceptable) in enumerate(exchange, 1):
-            payload = {"context_item": text, "context_window_start": start}
-            if item == 1 and turn == 1:
-                payload["answers"] = [IntakeAnswer(field="filing_status", value="single", entered_by="synthetic benchmark")]
+        for turn in item["turns"]:
+            payload = {"context_item": json.dumps({"question": turn["question"], "reply": turn["reply"]})}
+            if seeds:
+                payload["answers"], seeds = seeds, []  # once, before the first turn; never changed after
             result = graph.invoke(payload, config)
-            reason = result["context_reason"]
-            turns.append({"turn": turn, "reason": reason,
-                          "correct": result["context_classification_valid"] and reason in acceptable})
-        usage = result["input_token_usage"]
-        new_calls = {key: value for key, value in usage.items() if key not in previous_usage}
-        rows.append(
-            {
-                "item": item,
+            usage = result["input_token_usage"]
+            new_calls = {key: value for key, value in usage.items() if key not in previous_usage}
+            previous_usage = usage
+            turns.append({
+                "reply": turn["reply"],
+                "expected": turn["expected"],
+                "reason": result["context_reason"],
+                "valid": result["context_classification_valid"],
                 "input_tokens": sum(new_calls.values()),
                 "model_calls": len(new_calls),
-                "correct": all(t["correct"] for t in turns),
-                "turns": turns,
-            }
-        )
-        previous_usage = usage
+                "correct": result["context_classification_valid"] and result["context_reason"] == turn["expected"],
+            })
+        rows.append({
+            "item": number,
+            "id": item["id"],
+            "input_tokens": sum(t["input_tokens"] for t in turns),
+            "model_calls": sum(t["model_calls"] for t in turns),
+            "correct": all(t["correct"] for t in turns),
+            "turns": turns,
+        })
     return rows
 
 
 def main(argv=None):
-    """Iris-owned benchmark entry point until the run.py owner connects its --batch hook."""
+    """Iris-owned benchmark entry point."""
     import argparse
     from datetime import datetime, timezone
     from pathlib import Path

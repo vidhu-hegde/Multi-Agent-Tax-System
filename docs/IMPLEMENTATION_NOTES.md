@@ -430,7 +430,8 @@ graph = build_graph(settings, checkpointer,
 `build_graph(use_context_strategy=...)` alone currently does not configure any model. `run.py --batch`
 runs the Iris-owned measurement entry point, `python -m src.memory --batch [--no-context-strategy]`.
 The live ON/OFF run was made on 2026-10-28 with ten multi-turn Intake exchanges: strategy ON stayed at
-620–691 input tokens per item, while OFF grew from 672 to 3,170 (`docs/metrics.md`). That measures the
+689–827 input tokens per item, while OFF grew from 1,150 to 7,384; ON classified 20 of 30 replies correctly and
+OFF 27 of 30 (`docs/metrics.md`). That measures the
 Intake classifier only; production-wide token reduction is not claimed.
 
 New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`), now limited to

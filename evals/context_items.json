@@ -1,0 +1,238 @@
+{
+  "description": "Context-window benchmark (docs/metrics.md): ten items of three unclear Intake replies each, run in order in one thread for strategy ON and again for OFF. Each turn is sent to the classifier as production Intake sends it, {\"question\", \"reply\"}. expected is the one label decidable from that turn alone; null means re-ask the question.",
+  "seed_answers": {
+    "filing_status": "single"
+  },
+  "items": [
+    {
+      "id": "filing-status-muddle",
+      "turns": [
+        {
+          "field": "filing_status",
+          "question": "Which filing status are you using? Choose single, married filing jointly (mfj), married filing separately (mfs), head of household (hoh), or qualifying surviving spouse (qss).",
+          "reply": "Ugh, all those words blur together. The second one? Or third.",
+          "expected": null
+        },
+        {
+          "field": "filing_status",
+          "question": "Which filing status are you using? Choose single, married filing jointly (mfj), married filing separately (mfs), head of household (hoh), or qualifying surviving spouse (qss).",
+          "reply": "Wait, scratch that, I meant the other one, the one with my wife on it.",
+          "expected": null
+        },
+        {
+          "field": "filing_status",
+          "question": "Which filing status are you using? Choose single, married filing jointly (mfj), married filing separately (mfs), head of household (hoh), or qualifying surviving spouse (qss).",
+          "reply": "We split up last spring but nothing is official, and I couldn’t tell you what that makes me.",
+          "expected": "uncertain"
+        }
+      ]
+    },
+    {
+      "id": "birth-date-redo",
+      "turns": [
+        {
+          "field": "taxpayer_dob",
+          "question": "What is your date of birth? Please type it as YYYY-MM-DD.",
+          "reply": "Same as my late brother's, near enough, but a few years after him.",
+          "expected": null
+        },
+        {
+          "field": "taxpayer_dob",
+          "question": "What is your date of birth? Please type it as YYYY-MM-DD.",
+          "reply": "Oh no, hang on, the last thing I told you was wrong, can we redo it?",
+          "expected": null
+        },
+        {
+          "field": "taxpayer_dob",
+          "question": "What is your date of birth? Please type it as YYYY-MM-DD.",
+          "reply": "My papers are in a box somewhere and the year has gone right out of my head.",
+          "expected": "uncertain"
+        }
+      ]
+    },
+    {
+      "id": "wages-and-rent",
+      "turns": [
+        {
+          "field": "stated_wages",
+          "question": "About how much did you earn from jobs in 2025, before tax? Type not sure if you don't know.",
+          "reply": "No job. I do get money every month from letting my late mother's flat.",
+          "expected": "out_of_scope"
+        },
+        {
+          "field": "stated_wages",
+          "question": "About how much did you earn from jobs in 2025, before tax? Type not sure if you don't know.",
+          "reply": "Actually no, ignore that, I mixed it up.",
+          "expected": null
+        },
+        {
+          "field": "stated_wages",
+          "question": "About how much did you earn from jobs in 2025, before tax? Type not sure if you don't know.",
+          "reply": "Sorry, could you ask me that again more slowly?",
+          "expected": null
+        }
+      ]
+    },
+    {
+      "id": "eye-clinic-letter",
+      "turns": [
+        {
+          "field": "taxpayer_blind",
+          "question": "Are you legally blind? Please type yes or no.",
+          "reply": "I would need a volunteer to read the clinic letter and tell me what it says.",
+          "expected": "uncertain"
+        },
+        {
+          "field": "taxpayer_blind",
+          "question": "Are you legally blind? Please type yes or no.",
+          "reply": "Sorry, I was thinking of my husband. Ask me that one again?",
+          "expected": null
+        },
+        {
+          "field": "taxpayer_blind",
+          "question": "Are you legally blind? Please type yes or no.",
+          "reply": "I really can’t say whether I count as blind.",
+          "expected": "uncertain"
+        }
+      ]
+    },
+    {
+      "id": "pension-slip",
+      "turns": [
+        {
+          "field": "schedule2_total_tax",
+          "question": "What is the total additional tax on Schedule 2, line 21? Type 0 if you don't have one.",
+          "reply": "Schedule two? I’ve never heard of it.",
+          "expected": "uncertain"
+        },
+        {
+          "field": "schedule2_total_tax",
+          "question": "What is the total additional tax on Schedule 2, line 21? Type 0 if you don't have one.",
+          "reply": "On that pension slip the little square beside 2a, the not-worked-out one, is ticked.",
+          "expected": "1099r_taxable_not_determined"
+        },
+        {
+          "field": "schedule2_total_tax",
+          "question": "What is the total additional tax on Schedule 2, line 21? Type 0 if you don't have one.",
+          "reply": "Oops, earlier I said two pension letters, it's really just the one.",
+          "expected": null
+        }
+      ]
+    },
+    {
+      "id": "adjustments-advice",
+      "turns": [
+        {
+          "field": "adjustments",
+          "question": "What is the total on Schedule 1, line 26 (adjustments to income)? Type 0 if you don't have one.",
+          "reply": "Put in whatever works out best for me there, you know these things.",
+          "expected": "advice_request"
+        },
+        {
+          "field": "adjustments",
+          "question": "What is the total on Schedule 1, line 26 (adjustments to income)? Type 0 if you don't have one.",
+          "reply": "Let's back up a step, I muddled the previous answer.",
+          "expected": null
+        },
+        {
+          "field": "adjustments",
+          "question": "What is the total on Schedule 1, line 26 (adjustments to income)? Type 0 if you don't have one.",
+          "reply": "Schedule what? That one is a new one on me.",
+          "expected": "uncertain"
+        }
+      ]
+    },
+    {
+      "id": "nephew-pays",
+      "turns": [
+        {
+          "field": "estimated_payments",
+          "question": "How much did you pay in estimated tax for 2025 (tax payments you sent during the year)? Type 0 if none.",
+          "reply": "My nephew does the paying now, he says to just put whatever he tells me.",
+          "expected": "exploitation_concern"
+        },
+        {
+          "field": "estimated_payments",
+          "question": "How much did you pay in estimated tax for 2025 (tax payments you sent during the year)? Type 0 if none.",
+          "reply": "My nephew mentioned the money coming back should land with him this time.",
+          "expected": "exploitation_concern"
+        },
+        {
+          "field": "estimated_payments",
+          "question": "How much did you pay in estimated tax for 2025 (tax payments you sent during the year)? Type 0 if none.",
+          "reply": "What I paid? I really couldn’t tell you.",
+          "expected": "uncertain"
+        }
+      ]
+    },
+    {
+      "id": "grandchildren",
+      "turns": [
+        {
+          "field": "dependent_count",
+          "question": "How many dependents will you list on this return? Type 0 if none.",
+          "reply": "My granddaughter was a sheep in the school nativity, she was wonderful.",
+          "expected": null
+        },
+        {
+          "field": "dependent_count",
+          "question": "How many dependents will you list on this return? Type 0 if none.",
+          "reply": "Hold on, earlier I told you the wrong date, can I fix that first?",
+          "expected": null
+        },
+        {
+          "field": "dependent_count",
+          "question": "How many dependents will you list on this return? Type 0 if none.",
+          "reply": "I'd need one of your volunteers to work out who counts here.",
+          "expected": "uncertain"
+        }
+      ]
+    },
+    {
+      "id": "late-husband",
+      "turns": [
+        {
+          "field": "spouse_died_year",
+          "question": "If you had a spouse who died, what year was it? Type none if this does not apply to you.",
+          "reply": "He did love his roses; they still come up every June.",
+          "expected": null
+        },
+        {
+          "field": "spouse_died_year",
+          "question": "If you had a spouse who died, what year was it? Type none if this does not apply to you.",
+          "reply": "Hmm, I keep mixing that up with when Mum passed. Ask again?",
+          "expected": null
+        },
+        {
+          "field": "spouse_died_year",
+          "question": "If you had a spouse who died, what year was it? Type none if this does not apply to you.",
+          "reply": "Could I file as if he were still here? It might be cheaper.",
+          "expected": "advice_request"
+        }
+      ]
+    },
+    {
+      "id": "living-apart",
+      "turns": [
+        {
+          "field": "mfs_lived_with_spouse",
+          "question": "Did you live with your spouse at any time during 2025? Please type yes or no, or say you're not sure.",
+          "reply": "Before this one, could we return to the question about my birthday?",
+          "expected": null
+        },
+        {
+          "field": "mfs_lived_with_spouse",
+          "question": "Did you live with your spouse at any time during 2025? Please type yes or no, or say you're not sure.",
+          "reply": "Actually I need to undo what I said a minute ago about the dates.",
+          "expected": null
+        },
+        {
+          "field": "mfs_lived_with_spouse",
+          "question": "Did you live with your spouse at any time during 2025? Please type yes or no, or say you're not sure.",
+          "reply": "I also get a small pension from my years working in Canada.",
+          "expected": "out_of_scope"
+        }
+      ]
+    }
+  ]
+}
