@@ -3,13 +3,13 @@
 import pytest
 from decimal import Decimal
 
-from src.agents.review import check_source_lines, find_problems, review
+from src.agents.review import check_source_lines, check_tax_rules, find_problems, review
 from src.schemas import (
     FORM_LINES, LineValue, Provenance, RuleDecision, IntakeAnswer,
     W2Record, Interest1099, Dividend1099, Retirement1099R, SSA1099, DocumentRef,
 )
 from tests.conftest import SKELETON_CASE
-from src.tools import TOOLS
+from src.tools import TOOLS, call_tool
 from src.agents.computation import computation
 
 
@@ -233,7 +233,7 @@ def test_corrected_return_is_reviewed_again_and_can_pass():
     assert first_review["review_status"] == "failed"
     assert first_review["review_passes"] == 1
 
-    corrected_state = complete_zero_state()
+    corrected_state = _source_state()
     corrected_state["review_passes"] = first_review["review_passes"]
 
     second_review = review(corrected_state)
@@ -270,6 +270,7 @@ def _source_state() -> dict:
         "documents": documents,
         "answers": [
             IntakeAnswer(field="filing_status", value="single"),
+            IntakeAnswer(field="taxpayer_dob", value="1957-05-01"),
             IntakeAnswer(field="adjustments", value="0"),
             IntakeAnswer(field="estimated_payments", value="1000"),
         ],
@@ -369,3 +370,151 @@ def test_review_rejects_document_listed_but_not_extracted():
     state["document_inventory"] = [DocumentRef(document_id="w2-missing", form_type="W-2")]
     problems = check_source_lines(state)
     assert any(p.target == "extraction" and p.document_id == "w2-missing" for p in problems)
+
+
+# --- Deterministic independent tax-rule checks (Security / Review step 2) ---
+
+
+def _retotal_after_tax_line_change(state):
+    """Keep the draft internally arithmetically consistent despite a seeded error.
+
+    The old Review used only these total relationships, so it would pass the
+    manipulated drafts below. Recalculate downstream lines using real tools.
+    """
+    amounts = {line: value.amount for line, value in state["lines"].items()}
+
+    def set_derived(line, tool, **kwargs):
+        result, _ = call_tool(tool, **kwargs)
+        set_amount(state, line, str(result))
+        amounts[line] = result
+
+    set_derived("9", "sum", values=[amounts[x] for x in ("1z", "2b", "3b", "4b", "5b", "6b")])
+    set_derived("11a", "subtract", a=amounts["9"], b=amounts["10"])
+    # If the target is the Senior Deduction, do not 'correct' the seeded error.
+    set_derived("14", "sum", values=[amounts["12e"], amounts["13b"]])
+    set_derived("15", "subtract_floor_zero", a=amounts["11a"], b=amounts["14"])
+    set_derived("24", "sum", values=[amounts["16"]])
+    set_derived("34", "subtract_floor_zero", a=amounts["33"], b=amounts["24"])
+    set_derived("37", "subtract_floor_zero", a=amounts["24"], b=amounts["33"])
+
+
+@pytest.mark.parametrize("line", ["6b", "12e", "13b", "16"])
+def test_rule_recalculation_detects_internally_consistent_wrong_tax_line(line):
+    state = _source_state()
+    original = state["lines"][line].amount
+    # Keep Social Security taxable <= total benefit when tampering.
+    changed = original + Decimal("10")
+    if line == "6b" and changed > state["lines"]["6a"].amount:
+        changed = original - Decimal("10")
+    set_amount(state, line, str(changed))
+    _retotal_after_tax_line_change(state)
+
+    assert check_source_lines(state) == []  # no source transcription problem
+    rule_errors = check_tax_rules(state)
+    assert any(r.target == "computation" and r.line == line
+               and "tax_math." in r.reason for r in rule_errors)
+    assert any(r.line == line for r in find_problems(state))
+    assert review(state)["review_status"] == "failed"
+
+
+def test_tax_rule_check_accepts_valid_derived_values():
+    state = _source_state()
+    assert check_tax_rules(state) == []
+    assert review(state)["review_status"] == "passed"
+
+
+def test_age_blind_decision_cannot_hide_wrong_count_from_review():
+    state = _source_state()
+    original = state["rule_decisions"]["age_blind_boxes"]
+    forged = {**original.outcome, "count": 2}
+    state["rule_decisions"]["age_blind_boxes"] = original.model_copy(update={"outcome": forged})
+    # A fraudulent decision also makes the existing amount look plausible.
+    set_amount(state, "12e", "19750")
+    _retotal_after_tax_line_change(state)
+    requests = check_tax_rules(state)
+    assert any(r.target == "rules" and r.field == "age_blind_boxes" for r in requests)
+    assert any(r.target == "computation" and r.line == "12e" for r in requests)
+    assert requests.index(next(r for r in requests if r.target == "rules" and r.field == "age_blind_boxes")) < requests.index(next(r for r in requests if r.target == "computation" and r.line == "12e"))
+
+
+def test_senior_count_decision_cannot_hide_wrong_count_from_review():
+    state = _source_state()
+    original = state["rule_decisions"]["senior_deduction_count"]
+    state["rule_decisions"]["senior_deduction_count"] = original.model_copy(update={"outcome": 0})
+    set_amount(state, "13b", "0")
+    _retotal_after_tax_line_change(state)
+    requests = check_tax_rules(state)
+    assert any(r.target == "rules" and r.field == "senior_deduction_count" for r in requests)
+    assert any(r.target == "computation" and r.line == "13b" for r in requests)
+
+
+@pytest.mark.parametrize("rule_name,line", [
+    ("social_security_base", "6b"),
+    ("age_blind_boxes", "12e"),
+    ("senior_deduction_count", "13b"),
+])
+def test_review_rejects_missing_tax_rule_decision(rule_name, line):
+    state = _source_state()
+    del state["rule_decisions"][rule_name]
+    requests = check_tax_rules(state)
+    assert any(r.target == "rules" and r.line == line for r in requests)
+    assert any(r.target == "computation" and r.line == line for r in requests)
+
+
+def test_missing_filing_status_requests_intake_not_tool_arithmetic():
+    state = _source_state()
+    state["answers"] = [a for a in state["answers"] if a.field != "filing_status"]
+    requests = check_tax_rules(state)
+    assert any(r.target == "intake" and r.field == "filing_status" for r in requests)
+
+
+def test_review_tax_rule_check_does_not_mutate_amounts_or_decisions():
+    state = _source_state()
+    set_amount(state, "16", "1234")
+    before_lines = {k: v.model_dump(mode="json") for k, v in state["lines"].items()}
+    before_rules = {k: v.model_dump(mode="json") for k, v in state["rule_decisions"].items()}
+    check_tax_rules(state)
+    assert before_lines == {k: v.model_dump(mode="json") for k, v in state["lines"].items()}
+    assert before_rules == {k: v.model_dump(mode="json") for k, v in state["rule_decisions"].items()}
+
+
+def test_joint_filers_both_seniors_are_recalculated_with_two_eligible_people():
+    state = _source_state()
+    state["answers"] = [
+        a for a in state["answers"] if a.field != "filing_status"
+    ] + [
+        IntakeAnswer(field="filing_status", value="mfj"),
+        IntakeAnswer(field="spouse_dob", value="1959-04-20"),
+    ]
+    first = state["rule_decisions"]["age_blind_boxes"]
+    state["rule_decisions"]["age_blind_boxes"] = first.model_copy(
+        update={"outcome": {"count": 2, "taxpayer_65": True, "spouse_65": True}}
+    )
+    second = state["rule_decisions"]["senior_deduction_count"]
+    state["rule_decisions"]["senior_deduction_count"] = second.model_copy(update={"outcome": 2})
+    state["lines"] = computation(state)["lines"]
+    assert state["lines"]["12e"].amount == Decimal("34700.00")
+    assert state["lines"]["13b"].amount == Decimal("12000.00")
+    assert check_tax_rules(state) == []
+
+
+def test_mfs_social_security_uses_correct_residence_case():
+    state = _source_state()
+    state["answers"] = [a for a in state["answers"] if a.field != "filing_status"] + [
+        IntakeAnswer(field="filing_status", value="mfs"),
+        IntakeAnswer(field="mfs_lived_with_spouse", value=True),
+    ]
+    seniors = state["rule_decisions"]["senior_deduction_count"]
+    state["rule_decisions"]["senior_deduction_count"] = seniors.model_copy(update={"outcome": 0})
+    base = state["rule_decisions"]["social_security_base"]
+    state["rule_decisions"]["social_security_base"] = base.model_copy(
+        update={"outcome": {"case": "mfs_lived_with_spouse", "mfs_lived_with_spouse": True}}
+    )
+    state["lines"] = computation(state)["lines"]
+    assert check_tax_rules(state) == []
+    state["rule_decisions"]["social_security_base"] = base.model_copy(
+        update={"outcome": {"case": "standard", "mfs_lived_with_spouse": False}}
+    )
+    requests = check_tax_rules(state)
+    assert any(r.line == "6b" and r.target == "rules" and r.field == "social_security_base" for r in requests)
+    assert any(r.line == "6b" and r.target == "computation" for r in requests)
