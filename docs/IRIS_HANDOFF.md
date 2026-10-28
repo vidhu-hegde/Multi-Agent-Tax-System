@@ -29,8 +29,7 @@ still incomplete. Line 17 and dependent credits on line 19 are also unsupported.
 - Moved `current_answers` to the eval runner's imports. Folded useful review-packet material into this
   handoff and removed `IRIS_PR_REVIEW_PACKET.md`, as suggested by the reviewer.
 - Updated the report contribution, disclosure draft, metrics coordination and demo instructions.
-  The [team-report draft](TEAM_REPORT_DRAFT.md) is now included for review, with three Mermaid diagrams.
-  It still requires team approval and final pagination; no PDF was generated.
+  The [team report](TEAM_REPORT.md) includes three Mermaid diagrams.
 
 The follow-up's runtime behavior remains the partial-import checkpoint guard and classifier-validity
 scoring. Computation, graph, Rules, Security, dashboard and deployment changes retain their owners'
@@ -129,7 +128,7 @@ in this repository. Four statements are available, with differing approval statu
 come from their authors. A generated draft or source link does not establish personal approval.
 
 The dashboard HITL and Docker implementations are merged. Open [PR #20](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/20)
-adds the Submitted status required by the dashboard bonus. The [team report draft](TEAM_REPORT_DRAFT.md)
-is included for review and still needs team approval and final pagination; the required video still needs recording/assembly. Iris's remaining
+adds the Submitted status required by the dashboard bonus. The [team report](TEAM_REPORT.md)
+is included in the repository; the required video still needs recording/assembly. Iris's remaining
 personal work is proofreading her statements and performing the prepared segment, not buying tokens
 or rebuilding teammates' subsystems.

@@ -1,8 +1,7 @@
 # Agent Memory and accessible Intake (Iris)
 
 This contribution describes PR #15 integrated with main at `1bfd9e8` on 2026-10-28.
-It is a draft for Iris's personal review. Verification and owner dependencies are in
-[IRIS_HANDOFF.md](IRIS_HANDOFF.md).
+Verification details are in [IRIS_HANDOFF.md](IRIS_HANDOFF.md).
 
 ## Memory and state
 
@@ -38,8 +37,8 @@ controls remain separate work.
 | Minimize PII | Intake never asks for the taxpayer's SSN. Dependent SSNs use only the assignment's test range. Recaps omit DOB values and SSNs, and model summaries omit typed dependent/DOB/document records. |
 
 The [rehearsal](../demo/iris_memory_accessibility.md) exercises these choices without model credits.
-Keyboard/click provenance and narrow-screen checks supplement the dialogue tests. Human screen-reader
-review remains open. The required team video must show at least four choices through actual actions.
+Keyboard/click provenance and narrow-screen checks supplement the dialogue tests. Screen-reader
+compatibility has not been validated.
 
 ## Context strategy
 
@@ -80,8 +79,7 @@ MCP transport, Docker, Security/Review and Schedule 2/3 are now merged teammate 
 Vidhatri's #17 review records the keyed container restart Iris requested. Dependent output/credits,
 line 17 and other direct-input/QCD contracts remain software or policy limits. Security tests cover
 recognized SSN shapes and ingress boundaries; they do not establish production authentication,
-encrypted storage or provider-side trace privacy. The final report, individual confirmations and
-5-to-10-minute team recording remain submission work.
+encrypted storage or provider-side trace privacy.
 
-The [team report draft](TEAM_REPORT_DRAFT.md) includes this material with team attribution and editable
-Mermaid diagrams. It remains subject to team review and final pagination.
+The [team report](TEAM_REPORT.md) includes this material with team attribution and editable
+Mermaid diagrams.

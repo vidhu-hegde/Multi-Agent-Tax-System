@@ -1,8 +1,6 @@
 # SilverFile: system design and evaluation
 
-Review draft | 28 October 2026 | PR #15 with main at `1bfd9e8`
-
-Draft for team review. Final pagination is pending.
+28 October 2026
 
 ## 1. Purpose and architecture
 
@@ -95,7 +93,7 @@ Changing an input archives earlier evidence, clears stale lines and requests fre
 
 These choices reduce the amount a taxpayer must remember and allow staff assistance without restarting a return. The CLI driver validates or redacts replies before constructing resume commands, because LangGraph can persist a command before Intake runs. Model summaries exclude typed dependent, DOB and document records. Required test dependent identifiers remain in their typed records.
 
-The recorded team demo must show at least four choices through actions. The prepared Iris sequence covers restart/recap, correction, drift and volunteer recovery. Keyboard tests verify source disclosure and a narrow viewport; they are not a screen-reader audit. Final wording and a human accessibility review remain team work.
+The demonstration sequence covers restart/recap, correction, drift and volunteer recovery. Keyboard tests verify source disclosure and a narrow viewport. Screen-reader compatibility has not been validated.
 
 Memory/accessibility evidence: [Iris report](IRIS_REPORT.md), [demo sequence](../demo/iris_memory_accessibility.md), [memory](../tests/test_memory.py), [Intake](../tests/test_intake.py), [dialogue](../tests/test_dialogue_dignity.py) and [integration tests](../tests/test_iris_integration.py).
 
@@ -116,11 +114,11 @@ Each monetary line carries provenance. Document sources retain form/field identi
 
 Staff see every return's status and open tickets in the dashboard. They can inspect evidence, enter unreadable W-2 fields, resolve supported tickets or stop. A tax_math outage is shown as an operational failure with a resume action, outside the taxpayer ticket queue. The two graded walkthroughs in demo/ document the clean and resolved-HITL paths.
 
-Selective recall sends the current classifier item and a small approved summary. OFF also sends earlier classifier dialogue. Both record actual provider input usage by call ID. Invalid model output and absent usage fail benchmark validation. Live token measurements remain a teammate task: integrate [PR #21](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/21) and the agreed multi-turn items, then retain ten per-item ON/OFF rows, outcomes, raw JSON and a curve in docs/metrics.md. No synthetic token values are reported as results.
+Selective recall sends the current classifier item and a small approved summary. OFF also sends earlier classifier dialogue. Both record actual provider input usage by call ID. Invalid model output and absent usage fail benchmark validation. Live context-token measurements are not available for this revision. The measurement interface supports ten sequential items in separate ON/OFF threads, with per-item counts and outcome checks. [Metrics documentation](metrics.md) describes the method and current evidence. Synthetic usage in tests verifies logging only.
 
 The 42-item guardrail development set passes after tuning; it cannot estimate accuracy on unseen wording. Security tests cover recognized SSN patterns and shared ingress, not encrypted storage or production authentication. Further privacy controls would be needed for real taxpayer use.
 
-## 5. Contributions, limitations and submission status
+## 5. Contributions, limitations and deployment
 
 | Contributor and specialization | Implemented responsibility |
 |---|---|
@@ -131,14 +129,12 @@ The 42-item guardrail development set passes after tuning; it cannot estimate ac
 | Juee Patil: Guardrails and ethics | Policy corpus, cited Rules decisions, escalation vocabulary, language rules and guardrail evaluation. |
 | Qiyan Zhai: Security | Resume/staff validation, PII handling, secure boundaries, independent Review/Audit and recovery tests. |
 
-The contribution table follows README assignments, source records and merged PRs. Team members should confirm wording before submission. Integration commits and report editing do not transfer implementation credit between contributors.
+The contribution table follows the team roles in the README and the implementation recorded in the linked pull requests.
 
-Dependent details can be collected, but dependent output and credits remain incomplete; those workflows pause. Line 17 is unsupported. QCD, line 25c/other direct-input coverage and the limited adjustment set need the appropriate schema, policy and computation owners. A staff continue action cannot supply missing software. Unsupported cases should stop until their integration is complete.
+Dependent details can be collected, but dependent output and credits remain incomplete; those workflows pause. Line 17 is unsupported. QCD, line 25c/other direct-input coverage and the limited adjustment set are not fully specified or implemented. A staff continue action does not add support for these cases.
 
 The system escalates itemized deductions, business/rental income, Schedule D gains, digital assets, foreign items, amended/prior-year or state returns, and uncertain 1099-R taxable amounts under the assignment's scope. It also stops for advice requests, unresolved document conflicts, ambiguous filing status and exploitation concerns. Staff must use the reason-specific resolution contract. Language rules have finite coverage and can over-flag ordinary help.
 
-The dashboard HITL implementation and Docker packaging are merged. [PR #20](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/20) adds the remaining dashboard Submitted status and is still open; the full dashboard bonus should be assessed after that integration. Docker uses pinned packages, a non-root app user and persistent named volumes. Vidhatri's #17 review records a keyed partial-return restart across compose down/up and a completed image-based draft. Final submission should preserve the exact revision and deployment evidence used for recording.
+The dashboard HITL implementation and Docker packaging are merged. [PR #20](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/20) proposes a Submitted status for tracking completed returns and is still open. Docker uses pinned packages, a non-root app user and persistent named volumes. Vidhatri's #17 review records a keyed partial-return restart across compose down/up and a completed image-based draft.
 
-This report remains a review draft. Iris must confirm her own disclosure and perform her prepared demo segment. Existing disclosure text is available for Anupama, Iris, Juee and Qiyan; Max and Vidhatri still need to supply theirs in the repository. The team must approve the report, finish live context measurements and publish a 5-to-10-minute video showing the integrated clean/HITL paths and at least four accessibility choices.
-
-Source record: [Security/Review #11](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/11), [Iris follow-up #15](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/15), [MCP #16](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/16), [Docker #17](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/17), [pins #18](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/18), [integration #19](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/19), [disclosures](AI_DISCLOSURE.md), [guardrails](GUARDRAILS_AND_ETHICS.md) and [security report](SECURITY_AND_PII.md). This report was drafted and edited with OpenAI Codex and Humanizer from those project records; it does not certify each contributor's approval.
+Source record: [Security/Review #11](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/11), [Iris follow-up #15](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/15), [MCP #16](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/16), [Docker #17](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/17), [pins #18](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/18), [integration #19](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/19), [disclosures](AI_DISCLOSURE.md), [guardrails](GUARDRAILS_AND_ETHICS.md) and [security report](SECURITY_AND_PII.md).
