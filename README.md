@@ -167,7 +167,9 @@ python -m src.dashboard --demo    # a separate demo database with returns in eve
 The dashboard shows the queue of escalations waiting on staff and every return's status. For each
 escalation it shows the evidence, and for an unreadable W-2 it also shows the uploaded image. Staff
 continue (with a note, a chosen record, or the values typed from the document) or stop the session,
-and can open each draft with the source of every amount. `--demo` seeds `output/demo.sqlite` from the
+and can open each draft with the source of every amount. Once a return with a reviewed draft has been
+filed, staff mark it **Submitted**; the returns list filters by every status, Submitted included, and
+shows who submitted each return and when. `--demo` seeds `output/demo.sqlite` from the
 eval cases, offline, and never touches the real database.
 
 ### Staff commands
@@ -178,6 +180,7 @@ The same actions the dashboard offers, from the terminal:
 python run.py --sessions                                   # list sessions and open escalations
 python run.py --resolve <session id> <ticket id> --note "Checked with client"
 python run.py --resolve <session id> <ticket id> --stop    # end the session instead
+python run.py --submit <session id> --staff-id staff-7     # record that a finished return was filed
 python run.py --resolve <session id> <ticket id> --values '{"employer_name": "...", "wages": "..."}'  # a document that couldn't be read
 ```
 
@@ -239,7 +242,7 @@ in `/app/output` on the `output` volume. Both survive `docker compose down` and 
 
 **Restart check, no key needed:**
 
-1. Start the demo dashboard (above). It prints `Demo database: /app/output/demo.sqlite (8 new returns)`.
+1. Start the demo dashboard (above). It prints `Demo database: /app/output/demo.sqlite (9 new returns)`.
 2. Open http://127.0.0.1:8000, open *demo-wage-conflict*, enter a staff ID and choose Continue.
 3. Ctrl-C, then `docker compose down` (no `-v`) and `docker compose up -d`.
 4. Start the demo again: it prints `(0 new returns)`, and *demo-wage-conflict* shows your decision under

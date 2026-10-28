@@ -157,6 +157,56 @@ def test_resume_is_refused_for_a_return_that_did_not_stop_partway(dashboard, cas
     assert client.post("/sessions/box-2b/resume", headers={"origin": "http://evil.example"}).status_code == 403
 
 
+def test_a_finished_return_can_be_marked_submitted_once(dashboard, case_file):
+    sessions, client = dashboard
+    start(sessions, "clean", case_file())
+    page = client.get("/sessions/clean").text
+    assert "Ready to submit" in page and 'action="/sessions/clean/submit"' in page
+
+    missing = client.post("/sessions/clean/submit", data={"staff_id": ""}, follow_redirects=False)
+    assert missing.status_code == 400 and "staff ID" in missing.text
+    ssn = client.post("/sessions/clean/submit", data={"staff_id": "901-12-3456"}, follow_redirects=False)
+    assert ssn.status_code == 400 and "901-12-3456" not in ssn.text
+    assert sessions.summary("clean").status == "draft_ready"
+
+    lines = {key: line.amount for key, line in sessions.state("clean")["lines"].items()}
+    response = client.post("/sessions/clean/submit", data={"staff_id": "staff-7"}, follow_redirects=False)
+    assert response.status_code == 303 and response.headers["location"] == "/sessions/clean?submitted=1"
+    summary = sessions.summary("clean")
+    assert summary.status == "submitted" and summary.submission["submitted_by"] == "staff-7"
+    assert summary.stalled_at == ()
+    assert {key: line.amount for key, line in sessions.state("clean")["lines"].items()} == lines  # draft unchanged
+
+    page = client.get("/sessions/clean?submitted=1").text
+    assert "Marked as submitted" in page and "Submitted by" in page and "staff-7" in page
+    assert "Ready to submit" not in page
+    listing = client.get("/?status=submitted").text
+    assert 'href="/sessions/clean"' in listing and "Submitted (1)" in listing and "by staff-7" in listing
+
+    again = client.post("/sessions/clean/submit", data={"staff_id": "staff-8"}, follow_redirects=False)
+    assert again.status_code == 409 and "already submitted by staff-7" in again.text
+    assert sessions.summary("clean").submission["submitted_by"] == "staff-7"
+
+
+def test_only_a_finished_reviewed_return_can_be_submitted(dashboard, case_file):
+    sessions, client = dashboard
+    start(sessions, "box-2b", case_file(r1_2b=True))
+    assert "Ready to submit" not in client.get("/sessions/box-2b").text
+    refused = client.post("/sessions/box-2b/submit", data={"staff_id": "staff-7"}, follow_redirects=False)
+    assert refused.status_code == 409 and "no finished, reviewed draft" in refused.text
+    assert sessions.summary("box-2b").status == "waiting_on_human"
+
+    post(client, "box-2b", "1099r_taxable_not_determined:r-1", action="stop")
+    assert sessions.summary("box-2b").status == "stopped"
+    refused = client.post("/sessions/box-2b/submit", data={"staff_id": "staff-7"}, follow_redirects=False)
+    assert refused.status_code == 409
+
+    start(sessions, "clean", case_file("b"))
+    cross_site = client.post("/sessions/clean/submit", data={"staff_id": "staff-7"},
+                             headers={"origin": "http://evil.example"}, follow_redirects=False)
+    assert cross_site.status_code == 403 and sessions.summary("clean").status == "draft_ready"
+
+
 def test_1099r_correction_errors_do_not_echo_typed_values(dashboard, case_file):
     sessions, client = dashboard
     start(sessions, "box-2b-invalid", case_file(r1_2b=True))
@@ -428,7 +478,7 @@ def test_demo_seed_covers_every_state_once(offline, tmp_path):
         started = seed(sessions, tmp_path / "cases")
         assert started == [thread_id for thread_id, _, _ in DEMO_RETURNS]
         statuses = {s.status for s in sessions.list_sessions()}
-        assert statuses == {"draft_ready", "waiting_on_human", "waiting_on_taxpayer"}
+        assert statuses == {"draft_ready", "submitted", "waiting_on_human", "waiting_on_taxpayer"}
         assert seed(sessions, tmp_path / "cases") == []  # already there
 
 
@@ -452,3 +502,10 @@ def test_conflicting_records_are_chosen_by_number(dashboard):
     keep = next(i for i, c in enumerate(candidates, 1) if c["resolution"]["action"] == "continue")
     assert post(client, "conflict", pending.awaiting_ticket_id, action="continue", choice=str(keep)).status_code == 303
     assert sessions.state("conflict")["escalations"]["conflicted"].resolution["action"] == "continue"
+
+
+def test_a_refused_ssn_shaped_staff_id_is_not_put_back_in_the_form(dashboard, case_file):
+    sessions, client = dashboard
+    start(sessions, "box-2b", case_file(r1_2b=True))
+    response = post(client, "box-2b", "1099r_taxable_not_determined:r-1", action="stop", staff_id="901-12-3456")
+    assert response.status_code == 400 and "901-12-3456" not in response.text

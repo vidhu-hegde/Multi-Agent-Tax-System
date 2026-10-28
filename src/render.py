@@ -7,6 +7,13 @@ from pathlib import Path
 from src.schemas import FORM_LINES, LineValue
 
 
+def draft_is_final(state: dict) -> bool:
+    """Review passed and nothing is left open: the draft can be shown as current, and submitted."""
+    return (state.get("status") == "draft_ready" and state.get("review_status") == "passed"
+            and not state.get("revision_requests")
+            and not any(getattr(t, "status", "open") == "open" for t in state.get("escalations", {}).values()))
+
+
 def render_draft(state: dict) -> str:
     lines = {key: LineValue.model_validate(value) for key, value in state.get("lines", {}).items()}
     if any(key != value.line for key, value in lines.items()):
@@ -16,9 +23,7 @@ def render_draft(state: dict) -> str:
                                      or state.get("document_readiness", {}).get(ref.document_id) is False)
         for ref in state.get("document_inventory", [])
     )
-    current = (not incomplete_documents and state.get("status") == "draft_ready" and state.get("review_status") == "passed"
-               and not state.get("revision_requests")
-               and not any(getattr(t, "status", "open") == "open" for t in state.get("escalations", {}).values()))
+    current = not incomplete_documents and draft_is_final(state)
 
     availability = {}
 
