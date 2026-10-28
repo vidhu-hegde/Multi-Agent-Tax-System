@@ -110,7 +110,7 @@ def taxable_social_security(filing_status, benefits, other_income, tax_exempt_in
     """Publication 915 Worksheet 1 -> Form 1040-SR line 6b.
 
     `other_income` holds lines 1z, 2b, 3b, 4b and 5b. `lived_with_spouse` matters only for `mfs`: True
-    means no base amount; None or False uses the $25,000 base, as data/policy.md section 6 does.
+    means no base amount, False uses the $25,000 base, and None raises ValueError when there are benefits.
     """
     _status(filing_status)
     benefits = _money("benefits", benefits)
@@ -119,6 +119,8 @@ def taxable_social_security(filing_status, benefits, other_income, tax_exempt_in
     adjustments = _money("adjustments", adjustments)
     if benefits == 0:
         return ZERO
+    if filing_status == "mfs" and lived_with_spouse is None:
+        raise ValueError("mfs needs lived_with_spouse to choose the base amount")
 
     half = benefits / 2  # line 2
     cap = Decimal("0.85") * benefits  # line 18
@@ -126,9 +128,7 @@ def taxable_social_security(filing_status, benefits, other_income, tax_exempt_in
     if adjustments >= line6:  # lines 7-8
         return ZERO
     line8 = line6 - adjustments
-    # TODO: policy.md treats MFS like single ($25,000 base). MFS filers who lived with their spouse at any
-    # time in 2025 have no base amount (Pub. 915). Nothing collects lived_with_spouse yet; when Intake or
-    # Rules adds it, pass it from computation.py.
+    # MFS filers who lived with their spouse at any time in 2025 have no base amount (Pub. 915).
     if filing_status == "mfs" and lived_with_spouse is True:
         return min(Decimal("0.85") * line8, cap)
 

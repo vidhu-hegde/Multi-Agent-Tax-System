@@ -17,6 +17,7 @@ from src.memory import serializer
 from src.render import render_draft
 from src.schemas import (DocumentRef, EscalationTicket, Handoff, IntakeAnswer, LineValue,
                          Provenance, RevisionRequest, RuleDecision, W2Record)
+from src.tools import TOOLS
 from tests.conftest import SKELETON_CASE
 
 
@@ -180,7 +181,8 @@ def test_contracts_survive_checkpoint_and_json_roundtrips():
         assert type(record).model_validate_json(record.model_dump_json()).model_dump_json() == record.model_dump_json()
 
 
-def test_manual_provenance_and_tool_inputs_reach_derived_line_and_html(make_graph):
+def test_manual_provenance_and_tool_inputs_reach_derived_line_and_html(make_graph, monkeypatch):
+    monkeypatch.setitem(TOOLS, "taxable_social_security", (lambda **_: Decimal("0"), True))
     graph = make_graph()
     state = graph.invoke({"case_path": SKELETON_CASE}, {"configurable": {"thread_id": "audit"}})
     source = state["documents"]["w2-1"].source
@@ -445,11 +447,12 @@ def test_layered_diamond_audit_size_grows_with_nodes_not_paths():
 
 @pytest.mark.parametrize("mark_stubs_nonstub", [False, True])
 def test_skeleton_uses_local_provenance_and_deduplicated_dependency_traces(make_graph, monkeypatch, mark_stubs_nonstub):
-    from src.tools import TOOLS
     if mark_stubs_nonstub:
         # Exercise every rendered line without claiming real tax math; flags change only in this test.
         for name, (fn, _) in list(TOOLS.items()):
             monkeypatch.setitem(TOOLS, name, (fn, False))
+    else:
+        monkeypatch.setitem(TOOLS, "taxable_social_security", (lambda **_: Decimal("0"), True))
     state = make_graph().invoke({"case_path": SKELETON_CASE}, {"configurable": {"thread_id": "compact-skeleton"}})
     for line in state["lines"].values():
         if line.depends_on:

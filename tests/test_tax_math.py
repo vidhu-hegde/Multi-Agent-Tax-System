@@ -83,13 +83,18 @@ def test_taxable_social_security(benefits, other_income, expected):
     assert result == D(expected)
 
 
-@pytest.mark.parametrize("lived_with_spouse", [None, False])
-def test_taxable_social_security_mfs_without_lived_with_spouse_uses_the_25000_base(lived_with_spouse):
+@pytest.mark.parametrize("lived_with_spouse", [False])
+def test_taxable_social_security_mfs_not_lived_with_spouse_uses_the_25000_base(lived_with_spouse):
     # l8 = 10,000 + 20,000 = 30,000; l10 = 5,000; l13 = 5,000; l15 = min(10,000, 2,500) = 2,500
     result = taxable_social_security("mfs", D("20000"), [D("20000")], D("0"), D("0"),
                                      lived_with_spouse=lived_with_spouse)
     assert result == D("2500")
     assert result == taxable_social_security("single", D("20000"), [D("20000")], D("0"), D("0"))
+
+
+def test_taxable_social_security_mfs_without_lived_with_spouse_raises():
+    with pytest.raises(ValueError, match="lived_with_spouse"):
+        taxable_social_security("mfs", D("20000"), [D("20000")], D("0"), D("0"), lived_with_spouse=None)
 
 
 def test_taxable_social_security_mfs_lived_with_spouse_has_no_base_amount():
