@@ -72,6 +72,38 @@ tool result is rounded to cents, half up, once in `call_tool()` (`src/tools.py`)
 `src/tax_math/rules.py` stay exact. This supersedes the whole-dollar recommendation in
 `docs/tax_math_rules_spec.md` section 4.
 
+## tax_math MCP server
+
+`call_tool()` (`src/tools.py`) runs the seven tools of `src/tax_math/registry.py` (`sum`, `subtract`,
+`subtract_floor_zero` and the four rules) in-process when `TAX_MATH_MCP_URL` is empty, and on the MCP server
+(`python -m src.tax_math.server`, streamable HTTP at `/mcp`, port 8001) when it is set. The URL is read once
+per process from `.env`; `run.py`, the dashboard and `python -m evals.run_evals` all go through `call_tool()`,
+so they all follow it. Both paths share one implementation and return the same `(Decimal, Provenance)`:
+
+- Amounts travel as strings (`src/tax_math/wire.py`); the server turns money arguments back into `Decimal`.
+  Its tool arguments are typed `Any`, so it never coerces a value (`True` into `1`) that the rules refuse.
+- The server returns the exact result; `call_tool()` rounds it to cents, half up, as in-process.
+- A tool step's `Provenance.via` is the server URL, or `None` in-process. `inputs` are the caller's own
+  values on both paths, so the draft view is the same.
+- A rule error crosses as `ToolError("ValueError: ...")` (also `TypeError`, `InvalidOperation`) and is raised
+  again as that class, so callers that catch `ValueError` behave the same on both paths.
+- If the server cannot answer, `call_tool()` raises `TaxMathUnavailable`, a `RuntimeError` and deliberately
+  not a `ValueError` (the dashboard shows a `ValueError` as bad form input). There is one reconnect, since
+  the tools are pure, and never a fallback to in-process math. `run.py` and the dashboard lifespan call
+  `check_server()` at startup, so a missing server stops them before a return is half computed.
+- `call_tool()` stays synchronous. Each MCP call runs on one event loop in a daemon thread, so it works from
+  `run.py`, the dashboard's threadpool, and inside a running loop (the dashboard's `async def resolve`). The
+  server is stateless, so each call opens a short MCP session; about 5 ms per call on localhost.
+- A missing or unexpected argument is a `TypeError` on both paths: `call_tool()` binds the arguments to the
+  tool's signature before sending, because the server would otherwise ignore an extra (misspelled) one.
+- On `127.0.0.1` the SDK checks the Host header (DNS rebinding protection). `TAX_MATH_MCP_HOST=0.0.0.0`, for
+  Docker, turns that check off.
+
+Tests force `TAX_MATH_MCP_URL` empty (`tests/conftest.py`). `tests/test_tax_math_mcp.py` starts the server in
+a thread on a free port and checks every tool and every rule error against the in-process path, a call from
+inside a running loop, concurrent calls, the unreachable case (run.py and the dashboard refuse to start) and
+a whole graph run.
+
 ## Review → revise bound
 
 Review increments `review_passes` on every run and returns `RevisionRequest`s; it never edits lines.
@@ -240,7 +272,6 @@ input fields, so an extraction test can compare its output directly.
 
 | Piece | Current behaviour | Replaced by |
 |---|---|---|
-| `tools.py` tax rules | `standard_deduction`, `senior_deduction`, `taxable_social_security`, `tax_from_schedule` return 0 and mark provenance `stub=True` | tax_math MCP server |
 | Intake model hookup | Checkpointed structured dialogue; optional model classifier via `make_intake` | Vidhatri/Max connect the factory to the default entry point |
 | Extraction | Typed-in values only; images escalate as `uncertain` | Claude vision W-2 extraction |
 | Rules citations | Placeholder `policy.md#...` ids | `data/policy.md` |
