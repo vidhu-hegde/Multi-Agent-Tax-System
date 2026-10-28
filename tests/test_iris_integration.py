@@ -22,7 +22,7 @@ def test_restart_correction_recomputes_and_preserves_audit_and_isolation(setting
     case_path.write_text(json.dumps(case))
     script = """
 import json, sys
-from run import drive
+from run import drive, format_interrupt
 from src.config import load_settings
 from src.graph import build_graph
 from src.memory import open_checkpointer, thread_config
@@ -41,7 +41,7 @@ with open_checkpointer(load_settings()) as saver:
     state = snapshot.values
     print(json.dumps({
         'shown': shown,
-        'pending': [i.value for i in snapshot.interrupts],
+        'pending': [format_interrupt(i.value) for i in snapshot.interrupts],
         'status': state.get('status'),
         'review': state.get('review_status'),
         'answers': {k: str(v.value) for k, v in current_answers(state).items()},
