@@ -288,15 +288,21 @@ def classify_with_model(model, state, text, use_context_strategy=True):
     content = response.content
     if isinstance(content, list):
         content = "".join(block.get("text", "") for block in content if isinstance(block, dict))
+    valid = False
     try:
         payload = json.loads(content)
         reason = payload["reason"]
-        if reason not in (*ESCALATION_DETAIL, None):
+        valid = reason in (*ESCALATION_DETAIL, None)
+        if not valid:
             reason = "uncertain"
     except (ValueError, TypeError, KeyError):
         reason = "uncertain"
     # Keep only the validated classification, never model-generated advice or extra text.
-    update["messages"][-1] = response.model_copy(update={"content": json.dumps({"reason": reason})})
+    update["messages"][-1] = response.model_copy(update={
+        "content": json.dumps({"reason": reason}),
+        # A safe fallback is not evidence that the model classified the item correctly.
+        "response_metadata": {**response.response_metadata, "silverfile_classification_valid": valid},
+    })
     return reason, update
 
 
@@ -460,6 +466,9 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
             except (ValueError, TypeError):
                 from_case = False
         if not from_case:
+            if update["answers"]:
+                # Save imported answers before an interrupt can discard this local update.
+                return update
             prompt = question
             while True:
                 reply = interrupt(question_payload(field, prompt, parse))

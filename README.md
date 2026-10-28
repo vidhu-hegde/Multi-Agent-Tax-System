@@ -43,7 +43,7 @@ No Docker? See [Running without Docker](#running-without-docker).
 | A clean run with your own data | [Make up your own return](#make-up-your-own-return) |
 | Dashboard: returns in progress and submitted, HITL resolved by clicking | [Staff dashboard](#staff-dashboard) and the [demo dashboard](#demo-dashboard) |
 | Docker | [Quick start](#quick-start-docker) and the [Docker reference](#docker-reference) |
-| Tests and offline evals | [Tests and evals](#tests-and-evals): 653 tests, 17 of 17 eval cases |
+| Tests and offline evals | [Tests and evals](#tests-and-evals): 678 tests, 25 of 25 eval cases |
 
 ---
 
@@ -354,6 +354,7 @@ press Ctrl-D (the session is saved), `down`, `up -d`, then `run.py --thread-id <
 
 ## Documentation
 
+- [`docs/TEAM_REPORT.md`](docs/TEAM_REPORT.md): the team report, with Mermaid diagrams
 - [`docs/IMPLEMENTATION_NOTES.md`](docs/IMPLEMENTATION_NOTES.md): design decisions, routing, and how each part was built and checked
 - [`data/policy.md`](data/policy.md): the tax rules, scope and escalation reasons
 - [`docs/GUARDRAILS_AND_ETHICS.md`](docs/GUARDRAILS_AND_ETHICS.md) and [`docs/guardrail_eval.md`](docs/guardrail_eval.md): guardrails and how they were measured
@@ -361,7 +362,7 @@ press Ctrl-D (the session is saved), `down`, `up -d`, then `run.py --thread-id <
 - [`docs/tax_math_rules_spec.md`](docs/tax_math_rules_spec.md): the tax_math tools
 - [`docs/metrics.md`](docs/metrics.md): the context-window strategy measurement
 - [`docs/AI_DISCLOSURE.md`](docs/AI_DISCLOSURE.md): how we used AI tools
-- Handoffs and report sections: [`docs/ANUPAMA_HANDOFF.md`](docs/ANUPAMA_HANDOFF.md), [`docs/ANUPAMA_REPORT.md`](docs/ANUPAMA_REPORT.md), [`docs/IRIS_HANDOFF.md`](docs/IRIS_HANDOFF.md)
+- Handoffs and report sections: [`docs/ANUPAMA_HANDOFF.md`](docs/ANUPAMA_HANDOFF.md), [`docs/ANUPAMA_REPORT.md`](docs/ANUPAMA_REPORT.md), [`docs/IRIS_HANDOFF.md`](docs/IRIS_HANDOFF.md), [`docs/IRIS_REPORT.md`](docs/IRIS_REPORT.md)
 
 ---
 
