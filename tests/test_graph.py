@@ -274,8 +274,9 @@ def test_conflicting_ticket_resolutions_pause_and_allow_stop(make_graph):
     assert result["status"] == "stopped"
 
 
-@pytest.mark.parametrize("count,schedule2", [("1", "0"), ("0", "120")])
-def test_nonzero_interactive_intake_finishes_after_one_staff_approval(make_graph, count, schedule2):
+# A dependent still pauses for staff; a Schedule 2 total now flows straight into line 23.
+@pytest.mark.parametrize("count,schedule2,escalations", [("1", "0", 1), ("0", "120", 0)])
+def test_nonzero_interactive_intake_finishes_after_one_staff_approval(make_graph, count, schedule2, escalations):
     replies = ["single", "none", "1950-02-03", "no", "no", "no", "none", count, "0", schedule2, "0", "0", "0"]
     if count == "1":
         replies.extend(["Synthetic Child", "child", "901-12-3456"])
@@ -285,4 +286,5 @@ def test_nonzero_interactive_intake_finishes_after_one_staff_approval(make_graph
     result = run.drive(make_graph(), "interactive-nonzero", {}, ask=lambda _: next(replies), say=shown.append)
     assert result["intake_complete"]
     assert result["status"] == "draft_ready"
-    assert sum("[Escalation:" in prompt for prompt in shown) == 1
+    assert sum("[Escalation:" in prompt for prompt in shown) == escalations
+    assert result["lines"]["23"].amount == Decimal(schedule2)

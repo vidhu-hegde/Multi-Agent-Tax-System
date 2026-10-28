@@ -266,15 +266,17 @@ QUESTIONS = [
 # Remove each gate only alongside its downstream integration and end-to-end tests.
 # taxpayer_claimed_dependent, spouse_itemizes and dual_status_alien are consumed by Rules
 # (policy.md#standard-deduction-exceptions) and escalate as out_of_scope there.
-PENDING_DOWNSTREAM_FIELDS = (
-    "dependent_count",
-    "schedule2_total_tax",
-    "schedule3_nonrefundable_credits",
-    "schedule3_other_payments",
-)
+# The Schedule 2/3 totals are consumed by Computation (lines 20, 23 and 31).
+PENDING_DOWNSTREAM_FIELDS = ("dependent_count",)
 
 # Existing Computation from_answer() bindings, not new message-schema fields.
-INTAKE_LINE_FIELDS = {"10": "adjustments", "26": "estimated_payments"}
+INTAKE_LINE_FIELDS = {
+    "10": "adjustments",
+    "20": "schedule3_nonrefundable_credits",
+    "23": "schedule2_total_tax",
+    "26": "estimated_payments",
+    "31": "schedule3_other_payments",
+}
 
 # Guardrail vocabulary and checks live in src/guardrails.py (owner: Juee; policy: data/policy.md).
 # Intake calls classify_reply() on every turn before accepting an answer.

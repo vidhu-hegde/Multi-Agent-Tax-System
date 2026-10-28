@@ -466,7 +466,8 @@ def test_skeleton_uses_local_provenance_and_deduplicated_dependency_traces(make_
             assert len([p for p in line.provenance if p.kind == "tool"]) == 1
     assert sum(len(line.provenance) for line in state["lines"].values()) < 60
     html = render_draft(state)
-    assert len(html.encode()) < 250000
+    # About 306 KB with lines 18-23 and 31-32; duplicated traces would grow far faster than that.
+    assert len(html.encode()) < 350000
     if mark_stubs_nonstub:
         audit = _audit_for(html, "37")
         visited = set()

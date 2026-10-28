@@ -120,7 +120,10 @@ The chart does not apply, and SilverFile escalates `out_of_scope`, if:
 - Amounts from W-2, SSA-1099, 1099-R, 1099-INT and 1099-DIV.
 - All five filing statuses.
 - Standard deduction only, plus the Schedule 1-A senior deduction.
-- Schedules 1, 2 and 3: the taxpayer types the totals in directly.
+- Schedules 1, 2 and 3: the taxpayer types the totals in directly. Schedule 1 line 26 goes to line 10,
+  Schedule 3 line 8 to line 20, Schedule 2 line 21 to line 23, and Schedule 3 line 15 to line 31.
+  SilverFile does not ask for Schedule 2 line 3 (line 17), and dependent credits (line 19) are not
+  computed; a positive dependent count pauses for a volunteer.
 
 **Out of scope: escalate `out_of_scope`, never attempt**
 

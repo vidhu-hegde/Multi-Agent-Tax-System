@@ -6,6 +6,7 @@ The dashboard calls only this module; it never touches the graph or the checkpoi
         for s in sessions.list_sessions():                   # every session, newest first
             print(s.thread_id, s.status, [t.ticket_id for t in s.open_tickets])
         sessions.resolve(thread_id, ticket_id, action="continue", note="Checked with client", resolved_by="staff-7")
+        sessions.resume(thread_id)                           # a return that stopped partway (a tax_math outage)
 """
 
 import threading
@@ -40,6 +41,9 @@ class SessionSummary:
     open_tickets: list[EscalationTicket]
     awaiting_ticket_id: str | None  # the ticket the graph is paused on right now
     pending_question: str | None  # what the taxpayer is being asked, when waiting on them
+    # The steps still to run when the return stopped between steps with nothing pending, for example because
+    # the tax_math server went down partway. Empty otherwise. resume() continues it.
+    stalled_at: tuple[str, ...] = ()
 
 
 def _is_escalation(value) -> bool:
@@ -107,6 +111,7 @@ class Sessions:
                 if question is not None
                 else None
             ),
+            stalled_at=() if pending else tuple(snapshot.next),
         )
 
     def list_sessions(self, status: str | None = None) -> list[SessionSummary]:
@@ -210,6 +215,18 @@ class Sessions:
             if values is not None:
                 decision["values"] = values
             self.graph.invoke(Command(resume={paused_on.id: decision}), self._config(thread_id))
+        return self.summary(thread_id)
+
+    def resume(self, thread_id: str) -> SessionSummary:
+        """Continue a return that stopped partway (see SessionSummary.stalled_at), from the step that failed.
+
+        Decisions and answers recorded before it stopped are kept. Not for a return someone is running right
+        now: between two steps of a live run, it also looks stopped partway.
+        """
+        with self._lock:
+            if not self.summary(thread_id).stalled_at:
+                raise ValueError(f"Session {thread_id} did not stop partway, so there is nothing to resume.")
+            self.graph.invoke(None, self._config(thread_id))
         return self.summary(thread_id)
 
 

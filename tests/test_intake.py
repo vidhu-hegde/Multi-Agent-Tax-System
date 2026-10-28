@@ -267,9 +267,7 @@ def test_repeated_model_escalation_is_committed_before_next_interrupt(make_graph
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("schedule2_total_tax", "25"),
-        ("schedule3_nonrefundable_credits", "10"),
-        ("schedule3_other_payments", "30"),
+        # Schedule 2/3 totals are consumed by Computation: see tests/test_schedules.py.
         # taxpayer_claimed_dependent, dual_status_alien and spouse_itemizes are now consumed by Rules and
         # escalate as out_of_scope: see tests/test_guardrails.py::test_chart_exceptions_escalate_as_out_of_scope
         ("dependent_count", 1),
@@ -536,7 +534,10 @@ def test_changed_downstream_input_requires_fresh_staff_review(make_graph, tmp_pa
     from tests.conftest import SKELETON_CASE
 
     case = json.loads(open(SKELETON_CASE).read())
-    case["answers"]["schedule2_total_tax"] = "120"
+    case["answers"].update(
+        dependent_count=1,
+        dependent_1_name="Synthetic Child", dependent_1_relationship="child", dependent_1_ssn="901-12-3456",
+    )
     path = tmp_path / "downstream-review.json"
     path.write_text(json.dumps(case))
     graph = make_graph()
@@ -544,8 +545,11 @@ def test_changed_downstream_input_requires_fresh_staff_review(make_graph, tmp_pa
     first_id = question(result)["ticket_id"]
     result = graph.invoke(Command(resume="continue"), config())
     assert result["intake_complete"]
-    graph.invoke({"intake_complete": False, "intake_revisit": "schedule2_total_tax"}, config())
-    result = graph.invoke(Command(resume="240"), config())
+    graph.invoke({"intake_complete": False, "intake_revisit": "dependent_count"}, config())
+    graph.invoke(Command(resume="2"), config())
+    graph.invoke(Command(resume="Second Child"), config())
+    graph.invoke(Command(resume="child"), config())
+    result = graph.invoke(Command(resume="901-12-3457"), config())
     assert question(result)["ticket_id"] != first_id
     assert result["status"] == "waiting_on_human"
     result = graph.invoke(Command(resume="stop"), config())
