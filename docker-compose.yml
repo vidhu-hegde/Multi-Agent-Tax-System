@@ -1,0 +1,59 @@
+# SilverFile in Docker. README.md, "Getting started with Docker".
+#
+#   docker compose up -d --build                         # tax-math + dashboard (http://127.0.0.1:8000)
+#   docker compose run --rm app python run.py --case data/fixtures/skeleton_case.json
+#   docker compose down                                  # keeps sessions; `down -v` deletes them
+name: silverfile
+
+x-silverfile: &silverfile
+  image: silverfile:local
+  build: .
+  env_file:
+    - path: .env
+      required: false  # the dashboard, evals and tests run without one; run.py needs ANTHROPIC_API_KEY
+
+# app and dashboard: talk to tax-math, share one SQLite database and one output folder
+x-client: &client
+  <<: *silverfile
+  environment:
+    # These win over .env, whose values (localhost:8001, data/...) are for running outside Docker.
+    TAX_MATH_MCP_URL: http://tax-math:8001/mcp
+    SILVERFILE_DB_PATH: /app/state/silverfile.sqlite
+  volumes:
+    - state:/app/state
+    - output:/app/output
+  depends_on:
+    tax-math:
+      condition: service_healthy
+
+services:
+  tax-math:
+    <<: *silverfile
+    command: ["python", "-m", "src.tax_math.server"]
+    environment:
+      # 0.0.0.0 so the other containers can reach it. The SDK's Host-header check applies only on
+      # 127.0.0.1, where it would refuse "tax-math:8001" (421). Port 8001 is not published to the host.
+      TAX_MATH_MCP_HOST: 0.0.0.0
+    healthcheck:
+      # A plain port check: the image has no curl, and GET /mcp opens a stream that never ends.
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8001), 2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  dashboard:
+    <<: *client
+    command: ["python", "-m", "src.dashboard", "--host", "0.0.0.0"]
+    ports:
+      - "127.0.0.1:8000:8000"  # this machine only
+
+  app:
+    <<: *client
+    profiles: ["cli"]  # not started by `up`; docker compose run --rm app python run.py ...
+    stdin_open: true
+    tty: true
+
+volumes:
+  state:   # /app/state/silverfile.sqlite: sessions survive `docker compose down`
+  output:  # /app/output: demo database and case files, HTML drafts

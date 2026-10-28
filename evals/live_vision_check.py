@@ -22,6 +22,11 @@ CASES = [("w2-1", ROOT / "data/fixtures/w2_1_expected.json"), ("w2-2", ROOT / "d
 
 
 def same(expected, got) -> bool:
+    """Equal as values: amounts compare as numbers at any depth, so box 12's "1000.00" matches 1000.0."""
+    if isinstance(expected, dict) and isinstance(got, dict):
+        return expected.keys() == got.keys() and all(same(value, got[key]) for key, value in expected.items())
+    if isinstance(expected, list) and isinstance(got, list):
+        return len(expected) == len(got) and all(same(a, b) for a, b in zip(expected, got))
     try:
         return Decimal(str(expected)) == Decimal(str(got))
     except (InvalidOperation, ValueError, TypeError):

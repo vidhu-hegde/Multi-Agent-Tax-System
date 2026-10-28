@@ -62,19 +62,28 @@ not an expected savings percentage. If the curve is not materially flatter, repo
 
 ## Limits and coordination
 
-Professor §4.5 refers to ten **invoices** and to a nonexistent invoice scenario in §4.2, while this
-project prepares tax returns. The current harness uses ten sequential **synthetic Intake classifier
-items**, not ten invoices or ten completed returns. The team still needs to resolve that difference in the assignment wording. Iris/the team must confirm the intended evaluation unit
-with the instructor or record an explicit team assumption before calling §4.5 complete.
+Professor §4.5 refers to ten **invoices** in this tax-return assignment. Vidhatri recorded the team's
+working interpretation on [PR #15](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/15#issuecomment-6473238861): ten sequential Intake items in one return thread, not ten returns sharing an identity.
+She proposed short multi-turn exchanges with unclear replies, corrections and go-back, keeping Iris's
+classifier harness. The current harness still uses one classifier call per item. The multi-turn item
+refinement remains to be integrated; this team assumption is not an instructor clarification.
 
-`src/graph.py:run_batch` is still the team's stub. `build_graph(use_context_strategy=...)` currently
-does not configure models. Vidhatri/Max need to wire the existing `make_intake` factory and connect the
-batch hook; the integration example is in `IMPLEMENTATION_NOTES.md`. Extraction now makes live W-2
-vision calls (#7/#13), so the historical statement that no other agent calls a model no longer applies.
-This Intake-only harness does not aggregate its provider usage. The owners must use the same
-boundary (or equivalent usage logging) so measurements eventually sum **all** model calls for the
-agreed item. Vidhatri's live W-2 results in `evals/README.md` are extraction evidence, not the required
-context ON/OFF experiment.
+`src/graph.py:run_batch` is still a stub on merged main. Max has prepared `max/batch-metrics`
+(`4372d4c`) with `run.py --batch` wiring and a results-table generator; it has no open PR as of this
+review. Keep that work with its owner instead of duplicating it in #15. Vidhatri offered to perform
+the live ON/OFF run after integration. Iris does not need to obtain more credits.
+
+For the agreed classifier-only items, record every classifier call per item; a multi-turn item must
+sum its new call IDs. If an item includes image extraction, its usage must also be instrumented and
+included. The current harness does not call or account for W-2 extraction and makes no full-return
+usage claim. The normal return graph still uses deterministic Intake; its unused strategy parameter
+must not be presented as production-wide context reduction. The existing W-2 live checks are separate
+extraction evidence, not context-window measurements.
+
+After integration, use the owner-provided `python run.py --batch [--no-context-strategy]` commands.
+The direct `src.memory` commands above remain available now. Retain the actual raw result JSONs in
+a tracked evidence directory, add the ten rows and a two-series curve, and report outcome validity,
+first-to-last growth, model, fresh thread IDs and dates. Do not fill the table from test doubles.
 
 The offline suite verifies selective exclusion of older context, PII minimization, provider usage
 propagation, missing-usage failure, validated outcomes and ten sequential items in two distinct

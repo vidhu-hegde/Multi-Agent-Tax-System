@@ -41,7 +41,8 @@
   {% for s in sessions %}
     <tr>
       <td><a href="/sessions/{{ s.thread_id|urlencode }}" class="mono">{{ s.thread_id }}</a></td>
-      <td><span class="badge {{ s.status }}">{{ status_labels[s.status] }}</span></td>
+      <td><span class="badge {{ s.status }}">{{ status_labels[s.status] }}</span>
+        {% if s.stalled_at %}<div class="muted">Stopped partway: open it to resume</div>{% endif %}</td>
       <td class="opt">{{ s.open_tickets|length }}</td>
       <td class="opt">{{ when(s.updated_at) }}</td>
     </tr>

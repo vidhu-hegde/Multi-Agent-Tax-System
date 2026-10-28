@@ -180,3 +180,36 @@ def test_readiness_evals_reject_lost_inputs_and_unrelated_pauses(settings, monke
     assert not outcome.passed
     expected = "confirmed answer" if fault == "lost_input" else "pending escalation evidence"
     assert any(expected in problem for problem in outcome.problems)
+
+
+@pytest.mark.parametrize("case", [
+    case for case in run_evals.load_cases()
+    if case["id"].startswith("iris-schedule")
+], ids=lambda case: case["id"])
+def test_schedule_evals_reject_zeroed_intake_totals(settings, monkeypatch, case):
+    """A reviewed draft must not hide a lost nonzero Schedule input."""
+    from langgraph.types import Overwrite
+    from src.agents.intake import intake
+    from src.graph import build_graph
+    from src.state import merge_answers
+
+    assert run_evals.run_case(case).passed
+    [field] = case["answers"]
+
+    def broken_intake(state):
+        update = intake(state)
+        if update.get("intake_complete"):
+            update["answers"] = Overwrite([
+                answer.model_copy(update={"value": "0"}) if answer.field == field else answer
+                for answer in merge_answers(state.get("answers", []), update.get("answers", []))
+            ])
+        return update
+
+    monkeypatch.setattr(run_evals, "make_graph", lambda _: build_graph(
+        settings, InMemorySaver(), agents={"intake": broken_intake},
+    ))
+    outcome = run_evals.run_case(case)
+    assert not outcome.passed
+    assert outcome.status == "draft_ready"
+    assert any("confirmed answer" in problem for problem in outcome.problems)
+    assert any(problem.startswith("line ") for problem in outcome.problems)

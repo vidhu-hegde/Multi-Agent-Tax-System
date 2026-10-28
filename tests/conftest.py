@@ -7,6 +7,8 @@ os.environ["LANGGRAPH_STRICT_MSGPACK"] = "true"
 # Tests are offline and free even when a developer's .env holds a key (load_dotenv never overrides this).
 # The live W-2 check is python -m evals.live_vision_check.
 os.environ["ANTHROPIC_API_KEY"] = ""
+# The same for a developer's TAX_MATH_MCP_URL: tax math runs in-process. tests/test_tax_math_mcp.py starts its own server.
+os.environ["TAX_MATH_MCP_URL"] = ""
 
 import pytest  # noqa: E402
 from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
@@ -16,6 +18,13 @@ from src.graph import build_graph  # noqa: E402
 from src.memory import serializer  # noqa: E402
 
 SKELETON_CASE = "data/fixtures/skeleton_case.json"
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "production_stubs: run with real placeholder tax tools so Review must fail closed",
+    )
 
 
 @pytest.fixture

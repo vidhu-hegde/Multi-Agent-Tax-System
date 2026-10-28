@@ -120,7 +120,10 @@ The chart does not apply, and SilverFile escalates `out_of_scope`, if:
 - Amounts from W-2, SSA-1099, 1099-R, 1099-INT and 1099-DIV.
 - All five filing statuses.
 - Standard deduction only, plus the Schedule 1-A senior deduction.
-- Schedules 1, 2 and 3: the taxpayer types the totals in directly.
+- Schedules 1, 2 and 3: the taxpayer types the totals in directly. Schedule 1 line 26 goes to line 10,
+  Schedule 3 line 8 to line 20, Schedule 2 line 21 to line 23, and Schedule 3 line 15 to line 31.
+  SilverFile does not ask for Schedule 2 line 3 (line 17), and dependent credits (line 19) are not
+  computed; a positive dependent count pauses for a volunteer.
 
 **Out of scope: escalate `out_of_scope`, never attempt**
 
@@ -167,7 +170,7 @@ Forms W-2 and W-3* before submission.
 | Box 12 code K, Z | present | Excise or additional tax |
 | Box 12 code Q | present | Nontaxable combat pay election |
 | Box 12 code R, W | present | Archer MSA / HSA forms |
-| Box 12 code T | present | Adoption benefits, Form 8839 |
+| Box 12 code T | present | Adoption benefits (Form 8839) |
 | Box 12 code H, FF, GG, HH, II | present | Need forms or judgement outside scope |
 | Box 12 any other unlisted code | present | Escalate as `uncertain` |
 
@@ -234,6 +237,16 @@ not sure, don't know or can't remember, and the question needs a definite answer
 - An SSN volunteered where it was not asked for is removed from saved answers, tickets and model
   context (`[SSN removed]`). W-2 records keep only the last four digits.
 
+<a id="tool-input-safety"></a>
+### 12.1 Tax calculation input failures
+
+If a `tax_math` tool rejects an input, SilverFile escalates `tool_input_invalid` instead of allowing the
+exception to stop the workflow. The ticket records only the tool name and invalid field names. It must
+not retain the rejected value or original exception text in state, checkpoints, logs or the dashboard.
+
+This ticket is stop-only. Staff must stop the session, correct the source data, and start a new return.
+Continuing without correcting the input must never produce a draft.
+
 <a id="escalation"></a>
 ## 13. Escalation reasons
 
@@ -246,6 +259,7 @@ not sure, don't know or can't remember, and the question needs a definite answer
 | `filing_status_ambiguity` | 4.4 #5 | Rules | [filing-status](#filing-status) |
 | `exploitation_concern` | 4.4 #6 | Intake | [exploitation](#exploitation) |
 | `uncertain` | 4.3 | Intake, orchestrator | [uncertainty](#uncertainty) |
+| `tool_input_invalid` | Tax calculation rejected an input | Rules, Computation, Review | [tool-input-safety](#tool-input-safety) |
 | `review_limit` | 4.1 | Orchestrator | review loop bound |
 | `loop_guard` | 4.1 | Orchestrator | loop guard |
 

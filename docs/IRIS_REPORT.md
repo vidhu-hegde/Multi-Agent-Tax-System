@@ -1,90 +1,84 @@
 # Agent Memory and accessible Intake (Iris)
 
-This report contribution was checked on 2026-10-28 against merged `main` at `5c44100` and the
-follow-up now on `Iris-agent-memory`. Iris still needs to review it personally before the team uses
-it in the final report. Test evidence and owner dependencies are in [IRIS_HANDOFF.md](IRIS_HANDOFF.md).
+This contribution describes PR #15 integrated with main at `1bfd9e8` on 2026-10-28.
+It is a draft for Iris's personal review. Verification and owner dependencies are in
+[IRIS_HANDOFF.md](IRIS_HANDOFF.md).
 
 ## Memory and state
 
-Each return has an opaque thread ID that cannot contain an SSN. SQLite stores the typed LangGraph state,
-and the taxpayer driver and staff session API can use the same configured database path. Intake
-saves accepted answers before asking the next question. The partial case-file fix extends that
-behavior to imported answers: if a case is missing a field, its validated answers are saved before
-Intake pauses to ask for it. Another process can then resume with those answers in its recap.
+Each return has an opaque thread ID that cannot contain an SSN. SQLite stores typed LangGraph state,
+and the taxpayer driver and staff session API share the configured database. Intake saves accepted
+answers before asking the next question. Partial case-file imports also checkpoint their validated
+answers before pausing for a missing field, so another process can resume with those answers in its
+recap. The Docker configuration now mounts the shared database on a persistent volume.
 
-Intake records answer history and derives the current value of each field. It orders confirmations
-by time before collapsing repeated values, so retrying an old answer cannot undo a later correction.
-An unchanged answer adds no effective change. Contradictory values confirmed at the same time fail
-explicitly. This history assumes a single Intake writer; concurrent answer editing has no general
-guarantee.
+Intake keeps answer history and derives the current value of each field by confirmation time.
+Replaying an old answer cannot undo a newer correction. An unchanged answer adds no effective change;
+contradictory confirmations at the same time fail explicitly. This assumes a single Intake writer.
+Parallel extraction branches merge documents by ID. Disjoint writes survive either merge order;
+conflicting versions remain available for staff to choose between.
 
-Parallel extraction branches merge documents by ID. Disjoint writes survive in either order, and
-conflicting records remain available for staff to choose between. An identical retry cannot reopen
-a resolved escalation. Tests cover both merge orders and conflicts.
-
-Corrections use Anupama's shared revision and evidence contracts with Vidhatri's routing. Changing a
-confirmed input archives prior work, clears stale results and requests fresh Rules and Computation
-work before Review checks the replacement draft. Inventory changes use the existing retraction
-interface. Intake records inputs without doing tax arithmetic, selecting tax rules or giving advice.
-The process-restart test checks updated line-26 provenance and total payments, archived old amounts,
-persistence after another exit, and isolation from a second return.
+Corrections use Anupama's revision/evidence contracts and Vidhatri's routing. A changed input archives
+prior work, clears stale results and requests fresh Rules and Computation work before Review checks
+the replacement draft. Inventory replacement uses the shared retraction interface. Intake records
+facts without calculating tax, choosing tax rules or offering advice. The process-restart test checks
+literal recalculated tax/refund values, payment provenance, archived amounts and another return's
+isolation. Finished-return corrections are available through the graph API; dashboard correction
+controls remain separate work.
 
 ## Accessibility and dignity
 
-| Choice from brief §4.3 | Behavior and demonstration |
+| Choice from brief section 4.3 | Behavior and demonstration |
 |---|---|
-| One question at a time | Dependent name, relationship and required synthetic SSN are separate turns. The dependent eval pauses when collection finishes because downstream output is incomplete. |
-| Plain language | Filing-status choices use full names. Schedule and payment prompts include short explanations. Dialogue tests check length, jargon and internal-name leakage. Juee owns policy and wording decisions. |
-| Repetition and drift | An unrelated reply returns to the unfinished question. `go back to adjustments` preserves other inputs. A correction keeps history and triggers fresh calculations. |
-| Resumability | Reopening the same thread after a process exit gives one short recap and continues at the unanswered question. Ordinary retries do not repeat the recap. |
-| Honest uncertainty | "I'm not sure" creates a typed volunteer ticket. Staff resolve it through the session API, and the taxpayer returns to the original question with earlier answers preserved. |
-| Minimize unnecessary PII | Intake never asks for the taxpayer's SSN. Required dependent SSNs use the assignment's synthetic range. Recaps omit birth-date values and SSNs; model summaries exclude typed dependent, DOB and document records. |
+| One question at a time | Dependent name, relationship and required synthetic SSN use separate prompts. Dependent output is still incomplete, so the collection case pauses afterward. |
+| Plain language | Filing-status choices use full names; Schedule/payment prompts include short explanations. Dialogue tests check length, jargon and internal-name leakage. Juee owns final wording decisions. |
+| Repetition and drift | An unrelated reply returns to the pending question. Go-back preserves other fields; a correction retains history and requests fresh calculation. |
+| Resumability | Restarting with the same ID gives one short recap and continues at the unanswered question. Ordinary retries do not repeat the recap. |
+| Honest uncertainty | Uncertainty creates a volunteer ticket. Staff resolve it through the shared API, and the taxpayer returns to the original question with earlier answers preserved. |
+| Minimize PII | Intake never asks for the taxpayer's SSN. Dependent SSNs use only the assignment's test range. Recaps omit DOB values and SSNs, and model summaries omit typed dependent/DOB/document records. |
 
-The [demo rehearsal](../demo/iris_memory_accessibility.md) exercises these choices without model
-credentials. Browser smoke checks cover keyboard disclosure, visible source details and the HTML
-draft at a narrow viewport. Screen-reader compatibility still needs human review. The team's required
-5-to-10-minute video must show at least four of the choices above.
+The [rehearsal](../demo/iris_memory_accessibility.md) exercises these choices without model credits.
+Keyboard/click provenance and narrow-screen checks supplement the dialogue tests. Human screen-reader
+review remains open. The required team video must show at least four choices through actual actions.
 
 ## Context strategy
 
-Selective recall sends the current classifier item and a small allowlisted summary. The OFF baseline
-also sends earlier classifier dialogue. Both paths redact SSNs and record provider-reported input
-usage by call ID. A response without usage fails instead of substituting a token estimate.
+Selective recall sends the current classifier item and a small allowlisted session summary. The OFF
+baseline also sends earlier classifier dialogue. Both paths redact SSNs and record provider-reported
+input usage by call ID; missing usage fails instead of using an estimate. Separate fresh ON/OFF
+threads each hold ten sequential synthetic Intake items, with outcome validity checked per item.
 
-The harness processes ten sequential synthetic Intake items in one persisted thread, with separate
-fresh threads for ON and OFF. It checks the expected outcome for each item. Offline tests cover the
-context boundary, usage propagation, thread separation and both CLI modes, including rejection of
-unsupported sampling parameters.
+Malformed or unsupported model output formerly counted as correct through the `uncertain` fallback.
+The follow-up keeps the safe volunteer handoff but records whether output was valid, so invalid
+output fails the benchmark. Provider-double tokens verify logging only. Iris made no live model
+calls or token measurements.
 
-The audit found that malformed or unsupported model output could count as correct because Intake
-converted it to the expected `uncertain` fallback. The fix preserves the volunteer handoff and
-records whether the model output was valid. Invalid output now fails the benchmark's outcome check,
-as do wrong classifications and missing usage. Token values from test doubles check this plumbing.
-No live token measurements or measured curve improvement are available.
+Vidhatri recorded ten Intake items per return thread as the team's working interpretation of the
+brief's ambiguous invoice wording, proposed multi-turn items and offered to run the live comparison.
+Max has prepared batch wiring and a results-table generator on `max/batch-metrics`. Those changes and
+the multi-turn refinement still need integration; the normal graph currently uses deterministic
+Intake. The team must record actual per-item counts, outcomes and a curve in `metrics.md`. This
+classifier-only harness makes no claim to measure W-2 extraction or full-return usage.
 
-Vidhatri and Max still need to connect the normal graph and batch path and account for other model
-calls. The team also needs to resolve the assignment's invoice/item ambiguity. A team member with
-available credits must then run the live comparison; Iris has exhausted her API allowance.
+## Verification and limits
 
-## Verification and remaining work
+Current main passed 649 tests. Combining it with the old #15 exposed nine failures: three Schedule
+cases still expected pauses, and six fault-test instances relied on them. The repaired revision passes
+674 tests with seven existing PyMuPDF/SWIG warnings and all 25 shared evals, in-process and through a
+real local MCP server. The pinned Docker image also builds and passes 674 tests and all 25 MCP
+evals. An isolated container-recreation check preserves partial imports, one resume recap and a
+dashboard staff decision; it completes the typed clean return with a $2,455.50 refund without a model
+key. Three new fault checks ensure that zeroed nonzero Schedule inputs fail the
+evaluation even when the altered draft passes Review.
 
-Fresh execution of the merged baseline passed 504 tests. The incoming follow-up passed 516; after
-the audit fixes, 532 tests pass with the same seven PyMuPDF/SWIG warnings. All 24 shared offline evals
-pass, including eight Iris cases. The four readiness cases check retained answers and the relevant
-handoff fields. Fault tests confirm that lost inputs and unrelated pauses cause them to fail.
+The eight Iris evals now cover corrections, go-back, drift/repetition, scope disclosure, dependent
+collection and completed Schedule 2/3 outcomes. Only the dependent case retains a missing-output
+pause. The SQLite regression uses five real Python processes; staff recovery uses the production
+session interface after reopening the database.
 
-Removing the partial-import guard reproduced the missing saved answer, and restoring it passed.
-Invalid-output benchmark regressions also failed before their fix. The restart/correction test uses
-five separate Python processes with SQLite. The staff-recovery test reopens the database and graph
-through the production session interface. All inputs are synthetic; no live model request was made.
-
-Dependent rendering and nonzero Schedule 2/3 consumers remain incomplete. Their evals verify a staff
-pause; correct finished returns still need the owners' implementation. QCD, line 25c and other direct
-inputs, plus the brief's limited adjustment set, need schema and policy decisions. Max owns the actual
-MCP transport and Docker volume/restart verification; the merged tax functions currently run locally.
-
-Qiyan's ingress and checkpoint protections are in unmerged PR #11. Intake redaction alone cannot
-establish that raw resume payloads or external traces are free of PII. A fault probe also showed that
-current Review accepts a coherent $1 corruption of tax, total tax and refund. Its total checks do
-not validate every tax result or source. Qiyan and Vidhatri own that gap. These limits need to remain
-visible in the team's account of system completion.
+MCP transport, Docker, Security/Review and Schedule 2/3 are now merged teammate contributions.
+Vidhatri's #17 review records the keyed container restart Iris requested. Dependent output/credits,
+line 17 and other direct-input/QCD contracts remain software or policy limits. Security tests cover
+recognized SSN shapes and ingress boundaries; they do not establish production authentication,
+encrypted storage or provider-side trace privacy. The final report, individual confirmations and
+5-to-10-minute team recording remain submission work.

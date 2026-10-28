@@ -7,6 +7,7 @@ from langgraph.types import Command
 
 import run
 from src.agents.computation import computation
+from src.agents.rules import rules
 from src.memory import open_checkpointer
 from src.schemas import FORM_LINES
 from tests.conftest import SKELETON_CASE
@@ -72,6 +73,58 @@ def test_review_loop_is_bounded_then_escalates(make_graph, settings):
     assert result["status"] == "stopped"
 
 
+def test_review_recovers_from_a_one_time_computation_error(make_graph):
+    calls = 0
+
+    def computation_wrong_once(state):
+        nonlocal calls
+        calls += 1
+        update = computation(state)
+        if calls == 1:
+            line = update["lines"]["6b"]
+            update["lines"]["6b"] = line.model_copy(update={"amount": line.amount + Decimal("1")})
+        return update
+
+    graph = make_graph(agents={"computation": computation_wrong_once})
+    result = graph.invoke({"case_path": SKELETON_CASE}, config("recover-computation"))
+
+    assert result["status"] == "draft_ready"
+    assert result["review_status"] == "passed"
+    assert result["review_passes"] == 2
+    assert calls == 2
+    assert [handoff.to_agent for handoff in result["handoffs"]][-4:] == [
+        "review", "computation", "review", "end",
+    ]
+
+
+def test_review_routes_a_wrong_rule_through_rules_then_computation(make_graph):
+    calls = 0
+
+    def rules_wrong_once(state):
+        nonlocal calls
+        calls += 1
+        update = rules(state)
+        if calls == 1:
+            decisions = dict(update["rule_decisions"])
+            decision = decisions["age_blind_boxes"]
+            outcome = dict(decision.outcome)
+            outcome["count"] += 1
+            decisions["age_blind_boxes"] = decision.model_copy(update={"outcome": outcome})
+            update["rule_decisions"] = decisions
+        return update
+
+    graph = make_graph(agents={"rules": rules_wrong_once})
+    result = graph.invoke({"case_path": SKELETON_CASE}, config("recover-rules"))
+
+    assert result["status"] == "draft_ready"
+    assert result["review_status"] == "passed"
+    assert result["review_passes"] == 2
+    assert calls == 2
+    hops = [handoff.to_agent for handoff in result["handoffs"]]
+    first_review = hops.index("review")
+    assert hops[first_review:first_review + 5] == ["review", "rules", "computation", "review", "end"]
+
+
 def test_loop_guard_breaks_a_pathological_cycle(make_graph, settings):
     def intake_that_never_finishes(state):
         return {}
@@ -127,7 +180,20 @@ def test_1099r_box_2b_escalates_and_resolves(make_graph, make_case):
     assert pending_interrupt(result)["reason"] == "1099r_taxable_not_determined"
     assert result["status"] == "waiting_on_human"
 
-    result = graph.invoke(Command(resume={"action": "continue", "note": "checked with client", "resolved_by": "staff-1"}), config())
+    result = graph.invoke(
+        Command(
+            resume={
+                "action": "continue",
+                "note": "checked with client",
+                "resolved_by": "staff-1",
+                "corrections": {
+                    "taxable_amount": "5500",
+                },
+            }
+        ),
+        config(),
+    )
+
     assert result["status"] == "draft_ready"
     ticket = result["escalations"]["1099r_taxable_not_determined:r-1"]
     assert ticket.resolved_by == "staff-1"
@@ -155,7 +221,9 @@ def test_session_resumes_from_sqlite_after_restart(settings, make_graph):
     with open_checkpointer(settings) as saver:  # a new process on Friday
         graph = make_graph(checkpointer=saver)
         waiting_on = graph.get_state(config("resume")).interrupts[0].value
-        assert "date of birth" in waiting_on  # picks up at the next question, not the first
+        assert waiting_on["type"] == "intake_question"
+        assert waiting_on["field"] == "taxpayer_dob"
+        assert "date of birth" in waiting_on["prompt"]
         assert "So far:" not in waiting_on
         replies = iter(["1950-02-03", "no", "no", "no", "none", "0", "0", "0", "0", "0", "0"])
         result = run.drive(graph, "resume", None, ask=lambda _: next(replies), say=lambda _: None)
@@ -206,8 +274,9 @@ def test_conflicting_ticket_resolutions_pause_and_allow_stop(make_graph):
     assert result["status"] == "stopped"
 
 
-@pytest.mark.parametrize("count,schedule2", [("1", "0"), ("0", "120")])
-def test_nonzero_interactive_intake_finishes_after_one_staff_approval(make_graph, count, schedule2):
+# A dependent still pauses for staff; a Schedule 2 total now flows straight into line 23.
+@pytest.mark.parametrize("count,schedule2,escalations", [("1", "0", 1), ("0", "120", 0)])
+def test_nonzero_interactive_intake_finishes_after_one_staff_approval(make_graph, count, schedule2, escalations):
     replies = ["single", "none", "1950-02-03", "no", "no", "no", "none", count, "0", schedule2, "0", "0", "0"]
     if count == "1":
         replies.extend(["Synthetic Child", "child", "901-12-3456"])
@@ -217,4 +286,5 @@ def test_nonzero_interactive_intake_finishes_after_one_staff_approval(make_graph
     result = run.drive(make_graph(), "interactive-nonzero", {}, ask=lambda _: next(replies), say=shown.append)
     assert result["intake_complete"]
     assert result["status"] == "draft_ready"
-    assert sum("[Escalation:" in prompt for prompt in shown) == 1
+    assert sum("[Escalation:" in prompt for prompt in shown) == escalations
+    assert result["lines"]["23"].amount == Decimal(schedule2)

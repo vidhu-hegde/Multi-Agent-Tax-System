@@ -2,8 +2,9 @@
 
 Use these shots in the team's required 5-to-10-minute video. This file is the rehearsal script;
 the recording still needs to be made. Use only synthetic data and a dedicated demo database. Real
-tax functions are merged, but dependent/Schedule 2/3 consumers, actual MCP transport and live context measurements
-remain incomplete. A successful demo of memory does not establish a complete tax system.
+tax functions, Schedule 2/3 consumers, MCP transport, Docker and Security/Review are merged. Dependent
+output and live context measurements remain incomplete. A successful demo of memory does not establish
+a complete tax system.
 
 ## Dialogue without model credentials
 
@@ -13,7 +14,7 @@ Run from the repository root. For a new rehearsal choose a fresh database filena
 filename and thread ID for every restart in the rehearsal. Reuse the same command to resume after Ctrl-C.
 
 ```bash
-ANTHROPIC_API_KEY='' SILVERFILE_DB_PATH=output/iris-demo.sqlite .venv/bin/python -c '
+ANTHROPIC_API_KEY='' TAX_MATH_MCP_URL='' SILVERFILE_DB_PATH=output/iris-demo.sqlite .venv/bin/python -c '
 from dataclasses import replace
 from src.config import load_settings
 from src.graph import build_graph
@@ -40,7 +41,7 @@ with open_checkpointer(settings) as saver:
 6. In a separately labelled **staff** terminal, resolve the pause through the existing staff API:
 
 ```bash
-ANTHROPIC_API_KEY='' SILVERFILE_DB_PATH=output/iris-demo.sqlite .venv/bin/python -c '
+ANTHROPIC_API_KEY='' TAX_MATH_MCP_URL='' SILVERFILE_DB_PATH=output/iris-demo.sqlite .venv/bin/python -c '
 from src.sessions import open_sessions
 with open_sessions() as sessions:
     summary = sessions.summary("iris-demo-return")
@@ -71,24 +72,25 @@ PII minimization. Screen-reader and UI accessibility still need human review.
 .venv/bin/python -m pytest tests/test_memory.py -v
 .venv/bin/python -m pytest tests/test_intake.py -v
 .venv/bin/python -m pytest tests/test_iris_integration.py -v
-ANTHROPIC_API_KEY='' .venv/bin/python -m evals.run_evals
+ANTHROPIC_API_KEY='' TAX_MATH_MCP_URL='' .venv/bin/python -m evals.run_evals
 ```
 
 Show `test_restart_correction_recomputes_and_preserves_audit_and_isolation`: it checks five separate
 Python processes, a partial-import checkpoint, one recap, corrections, archived old values and another
 return's isolation. The staff-recovery integration test checks the production session interface.
-Show the eight `iris-...` shared cases: 24/24 total cases passed in the 2026-10-28 audit. The four
-readiness cases assert retained answers and the correct integration handoff; they do not complete
-dependent or nonzero Schedule 2/3 returns.
+Show the eight `iris-...` shared cases. The integrated suite has 25 cases: the three Schedule cases
+now verify completed lines/refunds, while only the dependent case checks a missing-output handoff.
+Fault tests reject lost dependent answers, wrong tickets and zeroed nonzero Schedule inputs.
 
 For the context segment, show `docs/metrics.md`. Say: "The offline harness is verified. A team member
-with model credits still needs to run the measured ON/OFF comparison after the team settles the item
-definition and full-path integration." Synthetic test usage values are not benchmark results.
+with model credits still needs to run the measured ON/OFF comparison after batch integration.
+Vidhatri has offered to run it; the team has chosen ten Intake items per thread, with multi-turn
+refinement pending." Synthetic test usage values are not benchmark results.
 
 ## Integrated draft/provenance shot without API credits
 
 ```bash
-ANTHROPIC_API_KEY='' .venv/bin/python -m src.render --case data/fixtures/skeleton_case.json --output output/iris-offline-draft.html
+ANTHROPIC_API_KEY='' TAX_MATH_MCP_URL='' .venv/bin/python -m src.render --case data/fixtures/skeleton_case.json --output output/iris-offline-draft.html
 ```
 
 Open `output/iris-offline-draft.html`, Tab to an amount and press Enter/Space to inspect its sources.
@@ -118,3 +120,11 @@ Suggested team-video allocation: scope/architecture 1 minute; restart/correction
 volunteer handoff 1 minute; document/provenance/dashboard teammate segments 2 to 3 minutes; context
 measurements and limitations 1 minute. Max/Vidhatri own assembling the final UI/video; Juee owns
 wording approval and the final escalation demonstration.
+
+## Final recording checklist
+
+- Record this segment on the integrated PR revision; keep the full team video between 5 and 10 minutes.
+- Show at least four choices through actions, not only test output. The restart, correction/drift and uncertainty steps cover them.
+- Vidhatri's graded clean/HITL walkthroughs are `demo/eval_case_1.md` and `demo/eval_case_2.md`; use their finished-draft shots for the team portion.
+- The Docker restart requested by Iris was already exercised with a live image W-2 in [Vidhatri's #17 review](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/17). Use the PR's Reviews tab for the exact recorded steps; no new key is required for this offline segment.
+- Show the live token curve only once actual measurements exist. Leave it explicitly pending otherwise.

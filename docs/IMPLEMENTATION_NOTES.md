@@ -72,6 +72,74 @@ tool result is rounded to cents, half up, once in `call_tool()` (`src/tools.py`)
 `src/tax_math/rules.py` stay exact. This supersedes the whole-dollar recommendation in
 `docs/tax_math_rules_spec.md` section 4.
 
+## tax_math MCP server
+
+`call_tool()` (`src/tools.py`) runs the seven tools of `src/tax_math/registry.py` (`sum`, `subtract`,
+`subtract_floor_zero` and the four rules) in-process when `TAX_MATH_MCP_URL` is empty, and on the MCP server
+(`python -m src.tax_math.server`, streamable HTTP at `/mcp`, port 8001) when it is set. The URL is read once
+per process from `.env`; `run.py`, the dashboard and `python -m evals.run_evals` all go through `call_tool()`,
+so they all follow it. Both paths share one implementation and return the same `(Decimal, Provenance)`:
+
+- Amounts travel as strings (`src/tax_math/wire.py`); the server turns money arguments back into `Decimal`.
+  Its tool arguments are typed `Any`, so it never coerces a value (`True` into `1`) that the rules refuse.
+- The server returns the exact result; `call_tool()` rounds it to cents, half up, as in-process.
+- A tool step's `Provenance.via` is the server URL, or `None` in-process. `inputs` are the caller's own
+  values on both paths, so the draft view is the same.
+- A rule error crosses as `ToolError("ValueError: ...")` (also `TypeError`, `InvalidOperation`) and is raised
+  again as that class, so callers that catch `ValueError` behave the same on both paths.
+- If the server cannot answer, `call_tool()` raises `TaxMathUnavailable`, a `RuntimeError` and deliberately
+  not a `ValueError` (the dashboard shows a `ValueError` as bad form input). There is one reconnect, since
+  the tools are pure, and never a fallback to in-process math. `run.py` and the dashboard lifespan call
+  `check_server()` at startup, so a missing server stops them before a return is half computed.
+- `call_tool()` stays synchronous. Each MCP call runs on one event loop in a daemon thread, so it works from
+  `run.py`, the dashboard's threadpool, and inside a running loop (the dashboard's `async def resolve`). The
+  server is stateless, so each call opens a short MCP session; about 5 ms per call on localhost.
+- A missing or unexpected argument is a `TypeError` on both paths: `call_tool()` binds the arguments to the
+  tool's signature before sending, because the server would otherwise ignore an extra (misspelled) one.
+- On `127.0.0.1` the SDK checks the Host header (DNS rebinding protection). `TAX_MATH_MCP_HOST=0.0.0.0`, for
+  Docker, turns that check off.
+
+Tests force `TAX_MATH_MCP_URL` empty (`tests/conftest.py`). `tests/test_tax_math_mcp.py` starts the server in
+a thread on a free port and checks every tool and every rule error against the in-process path, a call from
+inside a running loop, concurrent calls, the unreachable case (run.py and the dashboard refuse to start) and
+a whole graph run.
+
+## Docker
+
+`Dockerfile` builds one image (`python:3.11-slim-bookworm`, `requirements.txt` only, about 850 MB, mostly the
+pip layer). `docker-compose.yml` runs it three ways: `tax-math` (the MCP server), `dashboard` (port 8000,
+published on the host's 127.0.0.1 only) and `app` (`run.py`, evals, tests; `cli` profile, so `up` does not
+start it). The README's "Getting started with Docker" has the commands.
+
+- **Secrets.** `.dockerignore` keeps `.env` out of the build context; compose passes it at run time with
+  `env_file` (optional, so the offline paths need none). A build with a fake key in `.env` left no trace of it
+  in the image or in `docker history`.
+- **Addresses.** Compose sets `TAX_MATH_MCP_URL=http://tax-math:8001/mcp` and `SILVERFILE_DB_PATH` in
+  `environment`, which wins over `.env` (whose `localhost` and `data/` values are for running outside Docker).
+  tax-math listens on `0.0.0.0` (`TAX_MATH_MCP_HOST`): on 127.0.0.1 the SDK's Host-header check refuses
+  `Host: tax-math:8001` with 421. On 0.0.0.0 the SDK does no Host check; port 8001 is not published, so only
+  the compose network reaches it. The dashboard binds 0.0.0.0 with its existing `--host` flag; no code changed.
+- **Readiness.** tax-math's healthcheck is a plain TCP connect (no curl in the image, and `GET /mcp` opens a
+  stream that never closes). app and dashboard wait for it (`service_healthy`), and their own
+  `check_server()` then confirms the MCP tools answer.
+- **Persistence.** The `state` volume holds `/app/state/silverfile.sqlite`, shared by app and dashboard. The
+  `output` volume holds `/app/output` (the demo database, `demo_cases/`, which demo sessions re-read, and HTML
+  drafts). Nothing is mounted over `/app/data`, which holds policy.md and the fixtures. Named volumes live in
+  Docker's Linux VM, where SQLite locking is reliable; do not bind-mount the database to a macOS folder.
+- **Pinned versions.** `constraints.txt` pins all 83 installed packages to the versions tested in the image;
+  the Dockerfile installs `requirements.txt` with `-c constraints.txt`, so a rebuild cannot drift.
+  `requirements.txt` keeps the ranges. After changing it, regenerate the pins the same way, inside the
+  container (`docker compose build`, then `docker compose run --rm --no-deps -T app pip freeze >
+  constraints.txt`): a Mac venv resolves differently (on 2026-10-28 it had `anthropic` 1.17.0 to the image's
+  2.3.0, plus leftover streamlit packages).
+- **Permissions.** The code is owned by root and read-only to the app, which runs as `silverfile` (uid 1000);
+  only `/app/state` and `/app/output` are writable. A named volume takes its owner from the image the first
+  time it is mounted. Run the tests with `-p no:cacheprovider` (pytest cannot write `.pytest_cache`).
+- **Verified (2026-10-28, Docker 29.9.2, Compose v5.6.1):** tax-math healthy, dashboard 200, port 8001
+  unreachable from the host; evals 16 of 16 through tax-math (1,872 MCP requests, 4 per tool call); 532 tests
+  in the container; the demo restart check (resolve over HTTP, `down`, `up -d`, `0 new returns`, ticket still
+  resolved).
+
 ## Review → revise bound
 
 Review increments `review_passes` on every run and returns `RevisionRequest`s; it never edits lines.
@@ -241,7 +309,6 @@ input fields, so an extraction test can compare its output directly.
 
 | Piece | Current behaviour | Remaining work |
 |---|---|---|
-| `tools.py` tax rules | Real functions from #10; results rounded to cents in #14 | Max's actual MCP server/client transport; current calls are local Python |
 | Intake model hookup | Checkpointed structured dialogue; optional model classifier via `make_intake` | Vidhatri/Max connect the factory to the default entry point |
 | Extraction | Typed direct entries plus Claude W-2 vision (#7/#13); unreadable documents require staff fields or stop | Further live quality evidence belongs to the extraction owner; no API needed for offline Intake work |
 | Rules citations | Juee's `data/policy.md` and centralized guardrails are merged (#9) | Policy/wording follow-ups belong to Juee |
@@ -282,10 +349,12 @@ and resets its pass count. The existing graph performs those reruns. The orchest
 confirmed answers with `guard_answer_count` and advances `guard_window_start` when that count grows.
 Pathological Intake and model re-ask cycles with no new answers still trip the guard.
 A finished return can be reopened through the existing graph API
-with `{"intake_complete": false, "intake_revisit": "estimated_payments"}`; dashboard hookup is Max's task.
+with `{"intake_complete": false, "intake_revisit": "estimated_payments"}`; finished-return correction controls are not wired into Vidhatri's dashboard.
 
 Review-to-Intake requests first use the integrated `RevisionRequest.field` (#7), then the existing
-line bindings: `10` asks for `adjustments`, and `26` asks for `estimated_payments`; an explicit
+line bindings: `10` asks for `adjustments`, `20` for `schedule3_nonrefundable_credits`,
+`23` for `schedule2_total_tax`, `26` for `estimated_payments`, and `31` for
+`schedule3_other_payments`; an explicit
 `intake_revisit` also supplies a target. The request remains
 pending until that field is confirmed. Go-back to another field does not consume a line-targeted
 request. A confirmation with no change marks Review pending without resetting its bounded pass count.
@@ -300,8 +369,9 @@ explicit staff selection. These interfaces handle retraction and versioning for 
 
 Nonzero inputs awaiting downstream integration create one uncertainty ticket for their fingerprint.
 Staff `continue` lets Intake finish without re-asking the same field; `stop` ends the workflow.
-Changed unsupported values create a fresh ticket. This approval does not implement dependent or
-Schedule 2/3 calculations: the escalation explicitly discloses that those inputs remain unused.
+Changed unsupported values create a fresh ticket. This approval does not implement dependent
+calculations: the escalation explicitly discloses that those inputs remain unused. Schedule 2/3 totals
+are no longer gated: Computation uses them for lines 20, 23 and 31 (see below).
 
 ## Iris: accessibility and dignity
 
@@ -317,11 +387,12 @@ them in the required 5-to-10-minute team video; that recording remains to be mad
 | Resumability | The CLI shows a recap once, on the first question after resuming. Ordinary questions and retries omit it. Other frontends should use the same resume boundary. | `test_resume_recap_is_shown_once`, process-restart tests |
 | Honest uncertainty | "I'm not sure; let me flag this for a volunteer" creates the existing typed ticket, and the existing human node interrupts. Staff resolution returns to the unfinished question. | `test_uncertainty_pause_survives_restart_and_staff_resolution`, existing escalation tests |
 
-Intake sanitizes unsolicited SSNs before storing
-its answers, tickets or model context, including the baseline. LangGraph can persist the original
-`Command(resume=...)` payload before the node runs. Raw resume payloads and external traces still need protection. Qiyan must provide validation/redaction before those
-commands are created; Max must connect it to the UI/CLI. Requested fake dependent SSNs remain in typed
-records because the assignment requires them. Encryption, authentication and retention are not claimed.
+Intake sanitizes unsolicited SSNs before storing answers, tickets or model context, including the
+baseline. Qiyan's merged #11 also validates/redacts replies before `Command(resume=...)`, using the
+question's input type, and validates staff decisions through `Sessions.resolve()`. This matters because
+LangGraph can save the raw resume payload before Intake runs. Requested test dependent SSNs remain
+in typed records because the assignment requires them. External provider traces, encryption, production
+authentication and retention are not established by these tests; see `SECURITY_AND_PII.md`.
 
 ## Iris: model context and measurement interface
 
@@ -363,13 +434,15 @@ API key in the historical attempt. Live execution now remains an external team d
 Iris has no credits. No further key/token request or live call was made. Production-wide token
 reduction and the completed invoice evaluation remain unmeasured.
 
-New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`). Nonzero Schedule
-2/3 totals and a positive dependent count pause for a volunteer. Staff continue lets Intake finish
-without repeating the same field; it does not implement those downstream consumers. Positive
-standard-deduction exception inputs now reach Rules and escalate with policy citations (#9), rather
-than using this readiness gate. Preserve truthful answers and show the integration pause in demos.
-Remove each readiness gate only alongside owner integration and correct-output tests. Intake does
-not determine tax eligibility or compute amounts.
+New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`), now limited to
+a positive dependent count. Standard-deduction scope exceptions are recorded by Intake and escalated
+by Rules, with policy citations. Schedule 2/3 totals left the gate once Computation consumed them: Schedule 3 line 8
+fills line 20, Schedule 2 line 21 fills line 23 and Schedule 3 line 15 fills line 31, and lines 18, 21,
+22, 24, 32 and 33 are derived through `tax_math` (`tests/test_schedules.py`, eval
+`schedules-2-and-3-typed-totals`). Line 17 and line 19 are not supported, so lines 18 and 21 each have
+one part. Staff continue does not implement dependent output. Preserve truthful answers and stop
+unsupported dependent workflows until their owner integration is complete. This gate checks missing software support; Intake
+does not determine tax eligibility or compute amounts. Remove each gate only with downstream tests.
 
 ## Iris: per-turn disclosure and field-aware PII fixes
 
@@ -384,9 +457,9 @@ for field validation. Thus `123456789` can be an amount; labelled identifiers an
 parse as money. The same applies to corrections targeting a monetary field. A separately redacted turn
 is still used for model context and escalation evidence, and the raw-text copy is generically redacted.
 Unsolicited nine-digit integers in structured metadata are redacted too. Requested dependent SSNs still
-use the shared 900-series schema and have no raw-text copy. Qiyan/Max must use this field-aware distinction
-for their ingress protection before resume commands; upstream checkpoint/trace PII protection remains
-unverified. No other owner's module was modified. See `docs/IRIS_HANDOFF.md` for regression results and
+use the shared 900-series schema and have no raw-text copy. The merged security ingress reuses this
+field-aware distinction before resume commands; external trace handling still requires deployment
+review. See `docs/IRIS_HANDOFF.md` for regression results and
 all ten updated checklist statuses. Live context measurements remain unavailable.
 
 

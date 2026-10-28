@@ -60,6 +60,36 @@
       }
     },
     {
+      "id": "schedules-2-and-3-typed-totals",
+      "owner": "Vidhatri",
+      "area": "computation",
+      "description": "The clean-run taxpayer also has Schedule 2 tax of $150, Schedule 3 credits of $100 and Schedule 3 other payments of $200, typed in at Intake. No escalation; credits reduce tax, other taxes and payments are added, and the refund rises from $2,455.50 to $2,605.50.",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "answers": {
+        "schedule2_total_tax": "150",
+        "schedule3_nonrefundable_credits": "100",
+        "schedule3_other_payments": "200"
+      },
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [],
+        "lines": {
+          "16": "644.50",
+          "18": "644.50",
+          "20": "100",
+          "21": "100",
+          "22": "544.50",
+          "23": "150",
+          "24": "694.50",
+          "31": "200",
+          "32": "200",
+          "33": "3300",
+          "34": "2605.50",
+          "37": "0"
+        }
+      }
+    },
+    {
       "id": "hitl-out-of-scope-document",
       "owner": "Vidhatri",
       "area": "hitl",
@@ -144,7 +174,7 @@
       "id": "hitl-1099r-box-2b",
       "owner": "Vidhatri",
       "area": "hitl",
-      "description": "The IRA 1099-R has box 2b checked (taxable amount not determined), which always escalates. Staff continue.",
+      "description": "The IRA 1099-R has box 2b checked (taxable amount not determined), which always escalates. Staff supplies a verified taxable amount.",
       "case_file": "data/fixtures/skeleton_case.json",
       "document_values": {
         "r-1": {
@@ -155,7 +185,10 @@
         {
           "reason": "1099r_taxable_not_determined",
           "action": "continue",
-          "note": "Volunteer will review the 1099-R"
+          "corrections": {
+            "taxable_amount": "5500"
+          },
+          "note": "Volunteer verified the taxable amount from supporting records"
         }
       ],
       "expect": {
@@ -567,26 +600,27 @@
       "owner": "Iris",
       "area": "memory-intake",
       "case_file": "data/fixtures/skeleton_case.json",
-      "id": "iris-schedule2-total-tax-awaits-consumer",
-      "description": "Preserve a nonzero schedule2_total_tax input and pause for missing downstream integration; no complete calculation is claimed.",
+      "id": "iris-schedule2-total-tax-completes",
+      "description": "Retain the confirmed nonzero Intake total and verify the completed Schedule 2/3 lines and refund after downstream integration.",
       "answers": {
         "schedule2_total_tax": "120"
       },
       "expect": {
-        "status": "waiting_on_human",
-        "escalations": [
-          "uncertain"
-        ],
+        "status": "draft_ready",
+        "escalations": [],
         "state": {
-          "intake_complete": false
+          "intake_complete": true,
+          "review_status": "passed"
         },
         "answers": {
           "schedule2_total_tax": "120"
         },
-        "escalation_evidence": {
-          "fields": [
-            "schedule2_total_tax"
-          ]
+        "lines": {
+          "23": "120",
+          "24": "764.50",
+          "33": "3100",
+          "34": "2335.50",
+          "37": "0"
         }
       }
     },
@@ -594,26 +628,28 @@
       "owner": "Iris",
       "area": "memory-intake",
       "case_file": "data/fixtures/skeleton_case.json",
-      "id": "iris-schedule3-nonrefundable-credits-awaits-consumer",
-      "description": "Preserve a nonzero schedule3_nonrefundable_credits input and pause for missing downstream integration; no complete calculation is claimed.",
+      "id": "iris-schedule3-nonrefundable-credits-completes",
+      "description": "Retain the confirmed nonzero Intake total and verify the completed Schedule 2/3 lines and refund after downstream integration.",
       "answers": {
         "schedule3_nonrefundable_credits": "10"
       },
       "expect": {
-        "status": "waiting_on_human",
-        "escalations": [
-          "uncertain"
-        ],
+        "status": "draft_ready",
+        "escalations": [],
         "state": {
-          "intake_complete": false
+          "intake_complete": true,
+          "review_status": "passed"
         },
         "answers": {
           "schedule3_nonrefundable_credits": "10"
         },
-        "escalation_evidence": {
-          "fields": [
-            "schedule3_nonrefundable_credits"
-          ]
+        "lines": {
+          "20": "10",
+          "21": "10",
+          "22": "634.50",
+          "24": "634.50",
+          "34": "2465.50",
+          "37": "0"
         }
       }
     },
@@ -621,26 +657,27 @@
       "owner": "Iris",
       "area": "memory-intake",
       "case_file": "data/fixtures/skeleton_case.json",
-      "id": "iris-schedule3-other-payments-awaits-consumer",
-      "description": "Preserve a nonzero schedule3_other_payments input and pause for missing downstream integration; no complete calculation is claimed.",
+      "id": "iris-schedule3-other-payments-completes",
+      "description": "Retain the confirmed nonzero Intake total and verify the completed Schedule 2/3 lines and refund after downstream integration.",
       "answers": {
         "schedule3_other_payments": "30"
       },
       "expect": {
-        "status": "waiting_on_human",
-        "escalations": [
-          "uncertain"
-        ],
+        "status": "draft_ready",
+        "escalations": [],
         "state": {
-          "intake_complete": false
+          "intake_complete": true,
+          "review_status": "passed"
         },
         "answers": {
           "schedule3_other_payments": "30"
         },
-        "escalation_evidence": {
-          "fields": [
-            "schedule3_other_payments"
-          ]
+        "lines": {
+          "31": "30",
+          "32": "30",
+          "33": "3130",
+          "34": "2485.50",
+          "37": "0"
         }
       }
     }
