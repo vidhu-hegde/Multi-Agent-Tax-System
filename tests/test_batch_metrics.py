@@ -14,19 +14,22 @@ from langchain_core.messages import AIMessage
 import run
 import src.config
 from src.config import load_settings
+from src.memory import load_context_items
 from src.metrics_table import HEADER, main as metrics_table
-from tests.conftest import benchmark_answer
+
+EXPECTED = {t["reply"]: t["expected"] for item in load_context_items()["items"] for t in item["turns"]}
 
 
 class FakeClaude:
-    """Answers every turn as expected and reports 50 + 2 tokens per message it was sent."""
+    """Answers each turn's expected label and reports 50 + 2 tokens per message it was sent."""
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
     def invoke(self, messages):
         count = 50 + 2 * len(messages)
-        return AIMessage(content=benchmark_answer(messages[-1].content),
+        reason = EXPECTED[json.loads(messages[-1].content)["reply"]]
+        return AIMessage(content=json.dumps({"reason": reason}),
                          usage_metadata={"input_tokens": count, "output_tokens": 5, "total_tokens": count + 5})
 
 
