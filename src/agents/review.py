@@ -15,13 +15,17 @@ from src.tools import call_tool
 SUM_CHECKS = {
     "9": ["1z", "2b", "3b", "4b", "5b", "6b"],
     "14": ["12e", "13b"],
-    "24": ["16"],
+    "18": ["16"],
+    "21": ["20"],
+    "24": ["22", "23"],
     "25d": ["25a", "25b"],
-    "33": ["25d", "26"],
+    "32": ["31"],
+    "33": ["25d", "26", "32"],
 }
 SUBTRACT_CHECKS = {
     "11a": ("subtract", "9", "10"),
     "15": ("subtract_floor_zero", "11a", "14"),
+    "22": ("subtract_floor_zero", "18", "21"),
     "34": ("subtract_floor_zero", "33", "24"),
     "37": ("subtract_floor_zero", "24", "33"),
 }
@@ -51,7 +55,13 @@ SOURCE_DOCUMENT_LINES = {
     "25a": (("W-2",), "federal_withheld", None),
     "25b": (("1099-INT", "1099-DIV", "1099-R", "SSA-1099"), "federal_withheld", None),
 }
-SOURCE_INTAKE_LINES = {"10": "adjustments", "26": "estimated_payments"}
+SOURCE_INTAKE_LINES = {
+    "10": "adjustments",
+    "20": "schedule3_nonrefundable_credits",
+    "23": "schedule2_total_tax",
+    "26": "estimated_payments",
+    "31": "schedule3_other_payments",
+}
 
 
 def check_source_lines(state: SilverFileState) -> list[RevisionRequest]:
@@ -320,15 +330,19 @@ DERIVED_DEPENDENCIES = {
     "14": ["12e", "13b"],
     "15": ["11a", "14"],
     "16": ["15"],
-    "24": ["16"],
+    "18": ["16"],
+    "21": ["20"],
+    "22": ["18", "21"],
+    "24": ["22", "23"],
     "25d": ["25a", "25b"],
-    "33": ["25d", "26"],
+    "32": ["31"],
+    "33": ["25d", "26", "32"],
     "34": ["33", "24"],
     "37": ["24", "33"],
 }
-SUM_DEPENDENCIES = {"9", "14", "24", "25d", "33"}
+SUM_DEPENDENCIES = {"9", "14", "18", "21", "24", "25d", "32", "33"}
 SUBTRACT_DEPENDENCIES = {
-    "11a": "subtract", "15": "subtract_floor_zero",
+    "11a": "subtract", "15": "subtract_floor_zero", "22": "subtract_floor_zero",
     "34": "subtract_floor_zero", "37": "subtract_floor_zero",
 }
 RULE_PROVENANCE = {
