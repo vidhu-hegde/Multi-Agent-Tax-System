@@ -2,6 +2,8 @@
 
 Owner: **Qiyan Zhai** (focus area: Security).
 
+Latest Update: 2026-10-27
+
 Primary code: `src/security.py`, `src/resolution.py`, and security boundaries in `src/tools.py`, `src/communication.py`, `src/sessions.py`, `src/agents/human.py`, and `src/dashboard/`.
 
 Primary tests: `tests/test_security.py`, `tests/test_review.py`, with integration coverage in `tests/test_sessions.py`, `tests/test_dashboard.py`, and `tests/test_communication.py`.
@@ -199,10 +201,10 @@ Merge chronology, individual conflict resolutions, commit identifiers, intermedi
 With strict LangGraph checkpoint serialization enabled:
 
 ```text
-543 passed
+546 passed
 ```
 
-This includes security, Review, communication, sessions, dashboard, document recovery, guardrails, tax math, provenance, and checkpoint tests.
+This includes security, Review, communication, sessions, dashboard, document recovery, guardrails, tax math, cents-rounding, provenance, and checkpoint tests.
 
 ### Offline end-to-end evaluations
 

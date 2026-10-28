@@ -2,9 +2,10 @@
 
 For now the tools run locally: the plain sums here, and the four tax rules from src/tax_math/rules.py.
 Step 3 swaps this file for calls to the tax_math MCP server; agents do not change.
+The rule functions stay exact; call_tool() rounds each result to cents, half up, once.
 """
 
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from src.schemas import Provenance
 from src.tax_math import rules
@@ -20,6 +21,9 @@ def _subtract(a, b):
 
 def _subtract_floor_zero(a, b):
     return max(Decimal("0"), Decimal(a) - Decimal(b))
+
+
+CENT = Decimal("0.01")
 
 
 class ToolInputError(ValueError):
@@ -63,7 +67,10 @@ TOOLS = {
 def call_tool(name: str, **inputs) -> tuple[Decimal, Provenance]:
     fn, is_stub = TOOLS[name]
     try:
-        result = fn(**inputs)
+        result = fn(**inputs).quantize(
+            CENT,
+            rounding=ROUND_HALF_UP,
+        )
     except (ValueError, InvalidOperation, TypeError) as exc:
         fields = _invalid_fields(str(exc), inputs)
         raise ToolInputError(name, fields) from None
