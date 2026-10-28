@@ -25,6 +25,8 @@ from pathlib import Path
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
+from src.state import current_answers
+
 ROOT = Path(__file__).resolve().parent.parent
 CASES = ROOT / "evals" / "cases.json"
 MAX_STEPS = 100
@@ -165,6 +167,15 @@ def run_case(case: dict) -> Outcome:
     for name, value in expect.get("state", {}).items():
         if state.get(name) != value:
             outcome.problems.append(f"{name} is {state.get(name)!r}, expected {value!r}")
+    answers = current_answers(state)
+    for name, value in expect.get("answers", {}).items():
+        actual = answers[name].model_dump(mode="json")["value"] if name in answers else None
+        if name not in answers or actual != value:
+            outcome.problems.append(f"confirmed answer {name} does not match expected value")
+    evidence = paused[0].value.get("evidence", {}) if paused and isinstance(paused[0].value, dict) else {}
+    for name, value in expect.get("escalation_evidence", {}).items():
+        if evidence.get(name) != value:
+            outcome.problems.append(f"pending escalation evidence {name} does not match expected value")
     if replies:
         outcome.problems.append(f"{len(replies)} scripted reply(s) never used")
     if staff:

@@ -191,7 +191,8 @@ at the same question once staff resolve the ticket. If the person repeats a repl
 escalated, Intake says so and asks again instead of raising a second ticket. The ticket's evidence holds
 the question, the reply, and what was said to the taxpayer (`said_to_taxpayer`).
 
-**Reply detection:** Intake's default `classify_reply()` uses keyword lists. The optional `make_intake(model,
+**Reply detection:** Intake's default `classify_reply()` uses Juee's named rules in `src/guardrails.py`.
+The optional `make_intake(model,
 use_context_strategy=True)` adds a model fallback for unparseable replies, accepting only the approved
 escalation reason or null. The escalation path stays the same. Data for eval case 2 is in
 `data/fixtures/conflict_case.json`.
@@ -304,21 +305,24 @@ EE, J, L, P, V, Y, and the `retirement_plan` and `third_party_sick_pay` checkbox
 The ground truth for the sample images (`data/fixtures/w2_N_expected.json`) has exactly the `W2Record`
 input fields, so an extraction test can compare its output directly.
 
-## Stubs still in place
+## Integration status (audited 2026-10-28)
 
-| Piece | Current behaviour | Replaced by |
+| Piece | Current behaviour | Remaining work |
 |---|---|---|
 | Intake model hookup | Checkpointed structured dialogue; optional model classifier via `make_intake` | Vidhatri/Max connect the factory to the default entry point |
-| Extraction | Typed-in values only; images escalate as `uncertain` | Claude vision W-2 extraction |
-| Rules citations | Placeholder `policy.md#...` ids | `data/policy.md` |
+| Extraction | Typed direct entries plus Claude W-2 vision (#7/#13); unreadable documents require staff fields or stop | Further live quality evidence belongs to the extraction owner; no API needed for offline Intake work |
+| Rules citations | Juee's `data/policy.md` and centralized guardrails are merged (#9) | Policy/wording follow-ups belong to Juee |
+| Staff dashboard | FastAPI/Jinja queue, return details, resolution and provenance draft are merged (#13) | Finished-return correction controls and final accessibility review |
 | `run_batch` | Team entry-point hook not implemented; Iris benchmark available in `src.memory` | Vidhatri/Max wire the hook; live usage needs an API key (`docs/metrics.md`) |
 
 ## Iris: memory and state
 
-Intake now commits every accepted interactive answer before the next question. Case-file imports may
-commit several validated fields together. `answers` uses `merge_answers`: `(field, answered_at,
-entered_by)` identifies an event. Events are ordered by confirmation time before collapsing repeated
-effective values; replay of an old suppressed answer cannot undo a newer correction. Contradictory
+Intake saves each accepted interactive answer before asking the next question. Case-file imports may
+commit several validated fields together. They return a checkpoint update before interrupting for a
+missing interactive answer, so a partial case's imported values survive restart and appear in the
+resume recap. `answers` uses `merge_answers`: `(field, answered_at,
+entered_by)` identifies an event. The reducer orders events by confirmation time before collapsing repeated
+effective values, so replaying an old suppressed answer cannot undo a newer correction. Contradictory
 values at the same confirmation time fail explicitly. `current_answers()` uses the same ordering,
 including for legacy checkpoints whose history was written in arrival order.
 Intake is the single answer writer; this history is not a commutative multi-writer CRDT.
@@ -332,9 +336,9 @@ The CLI displays the candidates and accepts `{"action":"continue","choice":1}` o
 Staff API callers use `sessions.resolve(..., choice=1)`; staff CLI callers add `--choice 1`.
 
 `thread_config()` generates opaque return ids and rejects SSN-shaped supplied ids. The SQLite saver
-enforces that boundary for existing entry points too. One id identifies one return workflow, not an SSN
-or a person across tax years. `SILVERFILE_DB_PATH` remains configurable. The tests start **three separate
-Python processes** with one database and return id, then a separate return id, verifying answers,
+enforces that boundary for existing entry points too. Each id identifies a single return workflow. It carries no SSN and does not identify a person across
+tax years. `SILVERFILE_DB_PATH` remains configurable. The tests start three separate
+Python processes with one database and return id, then a separate return id, verifying answers,
 recap, pending question, retry idempotency and isolation. A different SQLite connection alone is not
 our process-restart evidence. The DB is ignored by Git; no real taxpayer data was used.
 
@@ -345,21 +349,23 @@ and resets its pass count. The existing graph performs those reruns. The orchest
 confirmed answers with `guard_answer_count` and advances `guard_window_start` when that count grows.
 Pathological Intake and model re-ask cycles with no new answers still trip the guard.
 A finished return can be reopened through the existing graph API
-with `{"intake_complete": false, "intake_revisit": "estimated_payments"}`; dashboard hookup is Max's task.
+with `{"intake_complete": false, "intake_revisit": "estimated_payments"}`; finished-return correction controls are not wired into Vidhatri's dashboard.
 
-Review-to-Intake requests use the existing line bindings: `10` asks for `adjustments`, and `26` asks for
-`estimated_payments`; an explicit existing `intake_revisit` also supplies a target. The request remains
+Review-to-Intake requests first use the integrated `RevisionRequest.field` (#7), then the existing
+line bindings: `10` asks for `adjustments`, `20` for `schedule3_nonrefundable_credits`,
+`23` for `schedule2_total_tax`, `26` for `estimated_payments`, and `31` for
+`schedule3_other_payments`; an explicit
+`intake_revisit` also supplies a target. The request remains
 pending until that field is confirmed. Go-back to another field does not consume a line-targeted
 request. A confirmation with no change marks Review pending without resetting its bounded pass count.
-Unknown targets are explicitly handed off as `uncertain`, with the missing
-`RevisionRequest.field / Intake targeting contract` recorded, and removed from the routing queue;
-other requests remain. Vidhatri/Anupama own extending the generic targeting contract.
+Unknown/unavailable targets are explicitly handed off as `uncertain` and removed from the routing
+queue; other requests remain. Named-field targeting itself is no longer a missing interface.
 
-A document-list change after extraction pauses on an `uncertain` ticket and keeps the prior inventory.
-The graph has no record-retraction API. A staff "continue" resumes the question, not acceptance of the
-unapplied change. Vidhatri/Anupama must coordinate record retraction and fresh review; use staff stop
-and a fresh workflow until then. Corrections that change a previously resolved issue also need an
-owner-approved issue/version key; conflicting identities now require explicit staff selection.
+The integrated `src/evidence.py` contract from #7 archives prior documents/lines/rules, retracts
+removed or replaced inventory records, increments an evidence epoch and clears stale results before
+fresh Rules/Computation/Review. Changed evidence gets fresh rule-ticket identities, preserving prior
+approvals as history without applying them to the new occurrence. Competing writes still require
+explicit staff selection. These interfaces handle retraction and versioning for the supported paths.
 
 Nonzero inputs awaiting downstream integration create one uncertainty ticket for their fingerprint.
 Staff `continue` lets Intake finish without re-asking the same field; `stop` ends the workflow.
@@ -369,8 +375,8 @@ are no longer gated: Computation uses them for lines 20, 23 and 31 (see below).
 
 ## Iris: accessibility and dignity
 
-These are working dialogue choices with automated evidence. The live demo instructions are in
-`demo/iris_memory_accessibility.md`. A recorded 5–10 minute team video has **not** been produced here.
+The tests below exercise the dialogue choices. Use `demo/iris_memory_accessibility.md` to record
+them in the required 5-to-10-minute team video; that recording remains to be made.
 
 | Brief §4.3 choice | Behavior | Verification |
 |---|---|---|
@@ -381,12 +387,12 @@ These are working dialogue choices with automated evidence. The live demo instru
 | Resumability | The CLI shows a recap once, on the first question after resuming. Ordinary questions and retries omit it. Other frontends should use the same resume boundary. | `test_resume_recap_is_shown_once`, process-restart tests |
 | Honest uncertainty | "I'm not sure; let me flag this for a volunteer" creates the existing typed ticket, and the existing human node interrupts. Staff resolution returns to the unfinished question. | `test_uncertainty_pause_survives_restart_and_staff_resolution`, existing escalation tests |
 
-**PII boundary requiring Qiyan/Max coordination:** Intake sanitizes unsolicited SSNs before storing
-its answers, tickets or model context, including the baseline. LangGraph can persist the original
-`Command(resume=...)` payload before the node runs. This work does **not** establish that raw resume
-payloads or external traces are free of PII. Qiyan must provide validation/redaction before those
-commands are created; Max must connect it to the UI/CLI. Requested fake dependent SSNs remain in typed
-records because the assignment requires them. Encryption, authentication and retention are not claimed.
+Intake sanitizes unsolicited SSNs before storing answers, tickets or model context, including the
+baseline. Qiyan's merged #11 also validates/redacts replies before `Command(resume=...)`, using the
+question's input type, and validates staff decisions through `Sessions.resolve()`. This matters because
+LangGraph can save the raw resume payload before Intake runs. Requested test dependent SSNs remain
+in typed records because the assignment requires them. External provider traces, encryption, production
+authentication and retention are not established by these tests; see `SECURITY_AND_PII.md`.
 
 ## Iris: model context and measurement interface
 
@@ -394,7 +400,10 @@ records because the assignment requires them. Encryption, authentication and ret
 ON sends the current question/reply and a small allowlisted summary of confirmed session inputs. OFF
 sends the same summary plus accumulated classifier dialogue. Both redact SSNs. The model returns an
 escalation classification only; invalid output becomes `uncertain`, and arbitrary generated prose is
-not passed to the taxpayer. A completed model call is committed before another interrupt to prevent
+not passed to the taxpayer. A boolean `silverfile_classification_valid` in response metadata
+distinguishes valid output from the safety fallback. Benchmark correctness requires a valid expected
+classification; malformed JSON and unsupported reasons fail that check. Intake commits a completed
+model call before the next interrupt to prevent
 normal resume replay from billing the same call again. A crash between provider response and checkpoint
 commit still has an at-least-once delivery risk; no exactly-once remote-call guarantee is claimed.
 
@@ -402,8 +411,8 @@ Actual `AIMessage.usage_metadata.input_tokens` is recorded by call id in `input_
 usage raises an error; text length is never substituted. The benchmark sums all new call entries per
 item, verifies outcomes, and persists ten sequential items in a single fresh thread for each run.
 It calls the same classifier as Intake, using synthetic unclear replies. Its small evaluation graph
-uses its own `ContextBenchmarkState`; `context_item` and `context_reason` are absent from
-`SilverFileState`. See `docs/metrics.md` for commands and blockers.
+uses its own `ContextBenchmarkState`. Its fields `context_item`, `context_reason` and
+`context_classification_valid` are absent from `SilverFileState`. See `docs/metrics.md` for commands and blockers.
 
 The default `run.py` graph still uses deterministic Intake. Vidhatri/Max can opt into the tested model
 path without replacing the graph:
@@ -421,37 +430,36 @@ graph = build_graph(settings, checkpointer,
 `build_graph(use_context_strategy=...)` alone currently does not configure any model. Its owner must
 wire this factory and the existing `run.py --batch` hook. The Iris-owned measurement entry point is
 `python -m src.memory --batch [--no-context-strategy]`. Live measurements were blocked by the missing
-API key. No production-wide token reduction or completed invoice evaluation is claimed.
+API key in the historical attempt. Live execution now remains an external team dependency because
+Iris has no credits. No further key/token request or live call was made. Production-wide token
+reduction and the completed invoice evaluation remain unmeasured.
 
-New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`). A positive
-dependent count or positive scope-exception inputs pause for a volunteer rather than producing a draft
-that ignores them. Schedule 2/3 totals left the gate once Computation consumed them: Schedule 3 line 8
+New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`), now limited to
+a positive dependent count. Standard-deduction scope exceptions are recorded by Intake and escalated
+by Rules, with policy citations. Schedule 2/3 totals left the gate once Computation consumed them: Schedule 3 line 8
 fills line 20, Schedule 2 line 21 fills line 23 and Schedule 3 line 15 fills line 31, and lines 18, 21,
 22, 24, 32 and 33 are derived through `tax_math` (`tests/test_schedules.py`, eval
 `schedules-2-and-3-typed-totals`). Line 17 and line 19 are not supported, so lines 18 and 21 each have
-one part. Staff continue returns to the affected input; it does not
-make an unsupported computation correct. Preserve truthful answers, stop that workflow, and complete
-the owner integration before running those cases. This gate checks missing software support; Intake
+one part. Staff continue does not implement dependent output. Preserve truthful answers and stop
+unsupported dependent workflows until their owner integration is complete. This gate checks missing software support; Intake
 does not determine tax eligibility or compute amounts. Remove each gate only with downstream tests.
 
 ## Iris: per-turn disclosure and field-aware PII fixes
 
-A scope pre-check now notices explicit unsupported-topic disclosures in the whole turn before accepting
-an answer or applying a structured correction. It reuses the shared `out_of_scope` and
-`1099r_taxable_not_determined` reasons and `escalate()` helper. It covers the assignment's foreign-income/
-account, unsupported form/income, deduction, return-type and explicit 1099-R box-2b disclosures. A simple
-explicit denial of foreign income does not count as an affirmative disclosure. No dedicated Juee scope
-catalogue/policy module is present in this checkout; this narrow lexical notice list mirrors §3.3 and
-must be reconciled with Juee's authoritative vocabulary when provided. It does not interpret tax rules.
+A per-turn pre-check delegates to Juee's centralized `src/guardrails.py` (#9) before accepting an answer
+or applying a structured correction. It reuses the shared reasons and `escalate()` helper. The checks
+notice disclosures independently of the field being requested and record the named matching rule
+for staff. They do not interpret tax rules. Wording/false-alarm follow-ups reproduced during Iris's
+offline review are recorded in `docs/IRIS_HANDOFF.md`.
 
 Only a complete valid monetary literal in a requested monetary field bypasses generic SSN redaction
 for field validation. Thus `123456789` can be an amount; labelled identifiers and dashed SSNs cannot
 parse as money. The same applies to corrections targeting a monetary field. A separately redacted turn
 is still used for model context and escalation evidence, and the raw-text copy is generically redacted.
 Unsolicited nine-digit integers in structured metadata are redacted too. Requested dependent SSNs still
-use the shared 900-series schema and have no raw-text copy. Qiyan/Max must use this field-aware distinction
-for their ingress protection before resume commands; upstream checkpoint/trace PII protection remains
-unverified. No other owner's module was modified. See `docs/IRIS_HANDOFF.md` for regression results and
+use the shared 900-series schema and have no raw-text copy. The merged security ingress reuses this
+field-aware distinction before resume commands; external trace handling still requires deployment
+review. See `docs/IRIS_HANDOFF.md` for regression results and
 all ten updated checklist statuses. Live context measurements remain unavailable.
 
 
@@ -459,6 +467,7 @@ all ten updated checklist statuses. Live context measurements remain unavailable
 
 [ANUPAMA_HANDOFF.md](ANUPAMA_HANDOFF.md) supersedes earlier descriptions of extraction as a typed-values-only
 stub, missing generic revision-field targeting, and blocked inventory retraction. It documents the
-Claude vision interface (live testing pending), audited manual records, graph message validation,
-evidence epochs/archives and the HTML provenance view. Existing tax_math stubs, policy placeholders,
-normal model/batch integration and full dashboard remain dependencies. This update changes no tax policy.
+Claude vision interface, audited manual records, graph message validation, evidence epochs/archives
+and the HTML provenance view. The later status table above supersedes historical dependency claims:
+live W-2 testing, real tax functions, policy and the dashboard landed in #9/#10/#13/#14. Normal Intake
+model/batch wiring and actual MCP transport remain open. This update changes no tax policy.

@@ -442,6 +442,244 @@
           "uncertain"
         ]
       }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-correction-revalidates-adjustments",
+      "description": "While answering payments, correct the previously confirmed adjustments; the reviewed draft uses the correction.",
+      "remove_answers": [
+        "estimated_payments"
+      ],
+      "replies": [
+        "change adjustments to 100",
+        "1000"
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [],
+        "lines": {
+          "10": "100",
+          "26": "1000",
+          "33": "3100"
+        },
+        "answers": {
+          "adjustments": "100",
+          "estimated_payments": "1000",
+          "filing_status": "single"
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-go-back-preserves-other-inputs",
+      "description": "Revisit adjustments from the payments question, confirm a new value, then finish without losing the documents or withholding.",
+      "remove_answers": [
+        "estimated_payments"
+      ],
+      "replies": [
+        "go back to adjustments",
+        "100",
+        "1000"
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [],
+        "lines": {
+          "10": "100",
+          "26": "1000",
+          "1z": "18000",
+          "25d": "2100"
+        },
+        "answers": {
+          "adjustments": "100",
+          "estimated_payments": "1000",
+          "filing_status": "single"
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-drift-and-repeat-keep-progress",
+      "description": "An unrelated reply and a repeated filing-status confirmation retain prior inputs and return to the unfinished payment question.",
+      "remove_answers": [
+        "estimated_payments"
+      ],
+      "replies": [
+        "I was walking my dog earlier",
+        "change filing status to single",
+        "1000"
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [],
+        "lines": {
+          "26": "1000",
+          "1z": "18000"
+        },
+        "answers": {
+          "filing_status": "single",
+          "estimated_payments": "1000",
+          "adjustments": "0"
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-dependent-collection-awaits-output",
+      "description": "Collect dependent name, relationship and test SSN in separate turns, then pause on the missing downstream consumer. This is not a completed dependent return.",
+      "answers": {
+        "dependent_count": 1
+      },
+      "replies": [
+        "Synthetic Child",
+        "child",
+        "901-12-3456"
+      ],
+      "expect": {
+        "status": "waiting_on_human",
+        "escalations": [
+          "uncertain"
+        ],
+        "state": {
+          "intake_complete": false
+        },
+        "answers": {
+          "dependent_count": 1,
+          "dependent_1_name": "Synthetic Child",
+          "dependent_1_relationship": "child",
+          "dependent_1_ssn": "901-12-3456",
+          "dependents": [
+            {
+              "name": "Synthetic Child",
+              "ssn": "901-12-3456",
+              "relationship": "child"
+            }
+          ]
+        },
+        "escalation_evidence": {
+          "fields": [
+            "dependent_count"
+          ]
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-scope-disclosure-during-payment",
+      "description": "Foreign-income disclosure at the payment question must reach staff rather than become an invalid-amount retry.",
+      "remove_answers": [
+        "estimated_payments"
+      ],
+      "replies": [
+        "I have foreign income"
+      ],
+      "staff": [
+        {
+          "reason": "out_of_scope",
+          "action": "stop"
+        }
+      ],
+      "expect": {
+        "status": "stopped",
+        "escalations": [
+          "out_of_scope"
+        ]
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-schedule2-total-tax-completes",
+      "description": "Retain the confirmed nonzero Intake total and verify the completed Schedule 2/3 lines and refund after downstream integration.",
+      "answers": {
+        "schedule2_total_tax": "120"
+      },
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [],
+        "state": {
+          "intake_complete": true,
+          "review_status": "passed"
+        },
+        "answers": {
+          "schedule2_total_tax": "120"
+        },
+        "lines": {
+          "23": "120",
+          "24": "764.50",
+          "33": "3100",
+          "34": "2335.50",
+          "37": "0"
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-schedule3-nonrefundable-credits-completes",
+      "description": "Retain the confirmed nonzero Intake total and verify the completed Schedule 2/3 lines and refund after downstream integration.",
+      "answers": {
+        "schedule3_nonrefundable_credits": "10"
+      },
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [],
+        "state": {
+          "intake_complete": true,
+          "review_status": "passed"
+        },
+        "answers": {
+          "schedule3_nonrefundable_credits": "10"
+        },
+        "lines": {
+          "20": "10",
+          "21": "10",
+          "22": "634.50",
+          "24": "634.50",
+          "34": "2465.50",
+          "37": "0"
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-schedule3-other-payments-completes",
+      "description": "Retain the confirmed nonzero Intake total and verify the completed Schedule 2/3 lines and refund after downstream integration.",
+      "answers": {
+        "schedule3_other_payments": "30"
+      },
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [],
+        "state": {
+          "intake_complete": true,
+          "review_status": "passed"
+        },
+        "answers": {
+          "schedule3_other_payments": "30"
+        },
+        "lines": {
+          "31": "30",
+          "32": "30",
+          "33": "3130",
+          "34": "2485.50",
+          "37": "0"
+        }
+      }
     }
   ]
 }
