@@ -406,7 +406,7 @@ from langchain_anthropic import ChatAnthropic
 from src.agents.intake import make_intake
 
 model = ChatAnthropic(model=settings.model, api_key=settings.anthropic_api_key,
-                      temperature=0, max_retries=0)
+                      max_retries=0)
 graph = build_graph(settings, checkpointer,
                     agents={"intake": make_intake(model, use_context_strategy)})
 ```

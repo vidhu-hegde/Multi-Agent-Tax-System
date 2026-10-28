@@ -29,10 +29,12 @@ Use the same environment, provider/model and ten synthetic inputs for both runs.
 model's availability was verified here. Never put a key on a command line or commit it.
 
 ```bash
-.venv/bin/python -m src.memory --batch --thread-id iris-context-on \
-  --output output/context_on.json
-.venv/bin/python -m src.memory --batch --no-context-strategy --thread-id iris-context-off \
-  --output output/context_off.json
+# Strategy ON, then OFF: each writes output/context_{on,off}.json from a new thread (or pass --thread-id <new id>).
+.venv/bin/python run.py --batch
+.venv/bin/python run.py --batch --no-context-strategy
+# The ten result rows and first-to-last growth for the table below; --out copies both raw files to commit.
+.venv/bin/python -m src.metrics_table output/context_on.json output/context_off.json --out docs/metrics
+# run.py --batch calls Iris's entry point, which also runs directly: .venv/bin/python -m src.memory --batch
 ```
 
 Each command uses **one fresh SQLite thread for all ten sequential items**; ON and OFF use different

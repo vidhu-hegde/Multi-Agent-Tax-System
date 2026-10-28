@@ -148,6 +148,15 @@ def main(argv=None):
     if not settings.anthropic_api_key:
         sys.exit("ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key.")
 
+    if args.batch:
+        # Iris's context-window benchmark (docs/metrics.md): ten sequential Intake classifier items, one
+        # fresh thread, actual provider input tokens per item -> output/context_{on,off}.json.
+        from src.memory import main as context_benchmark
+
+        context_benchmark(["--batch", *(["--no-context-strategy"] if args.no_context_strategy else []),
+                           *(["--thread-id", args.thread_id] if args.thread_id else [])])
+        return
+
     from src.tools import TaxMathUnavailable, check_server
 
     try:
@@ -159,17 +168,13 @@ def main(argv=None):
         run_staff_command(args, settings)
         return
 
-    from src.graph import build_graph, run_batch
+    from src.graph import build_graph
     from src.memory import open_checkpointer, thread_config
 
     use_context_strategy = not args.no_context_strategy
 
     with open_checkpointer(settings) as checkpointer:
         graph = build_graph(settings, checkpointer, use_context_strategy=use_context_strategy)
-
-        if args.batch:
-            run_batch(graph, use_context_strategy=use_context_strategy)
-            return
 
         if args.thread_id:
             thread_id, first_input = args.thread_id, None  # None resumes from the checkpoint
