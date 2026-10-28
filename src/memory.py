@@ -20,6 +20,7 @@ from langgraph.graph.message import add_messages
 from src.config import Settings
 from src.schemas import Contract, EscalationReason, IntakeAnswer
 from src.state import current_answers, merge_answers, merge_dicts
+from src.security import redact_ssns
 
 
 class ContextBenchmarkState(TypedDict, total=False):
@@ -38,19 +39,6 @@ CLASSIFIER_PROMPT = (
     "Return only JSON with one reason: out_of_scope, 1099r_taxable_not_determined, advice_request, exploitation_concern, uncertain, or null. "
     "Use uncertain when a volunteer is needed; null means the question should simply be repeated."
 )
-
-
-def redact_ssns(value):
-    """Minimize identifiers in Intake-owned state and all model context, including the baseline."""
-    if isinstance(value, str):
-        return SSN_LIKE.sub("[SSN removed]", value)
-    if type(value) is int and SSN_LIKE.fullmatch(str(value)):
-        return "[SSN removed]"
-    if isinstance(value, list):
-        return [redact_ssns(v) for v in value]
-    if isinstance(value, dict):
-        return {k: redact_ssns(v) for k, v in value.items()}
-    return value
 
 
 def model_context(state, current_item: str, use_context_strategy: bool = True):

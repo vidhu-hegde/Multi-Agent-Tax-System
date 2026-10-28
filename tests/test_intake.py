@@ -17,7 +17,15 @@ def config(thread="intake"):
 
 
 def question(result):
-    return result["__interrupt__"][0].value
+    value = result["__interrupt__"][0].value
+
+    if (
+        isinstance(value, dict)
+        and value.get("type") == "intake_question"
+    ):
+        return value["prompt"]
+
+    return value
 
 
 @pytest.mark.parametrize("raw", ["NaN", "Infinity", "-1", "-Infinity"])

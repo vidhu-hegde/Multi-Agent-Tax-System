@@ -5,6 +5,16 @@ import pytest
 from src import memory
 
 
+def question_text(value):
+    if (
+        isinstance(value, dict)
+        and value.get("type") == "intake_question"
+    ):
+        return value["prompt"]
+
+    return str(value)
+
+
 def test_thread_identity_is_opaque_stable_and_rejects_ssns():
     a, b = memory.thread_config(), memory.thread_config()
     assert a != b
@@ -34,6 +44,10 @@ from src.config import load_settings
 from src.graph import build_graph
 from src.memory import open_checkpointer, thread_config
 from src.state import current_answers
+def question_text(value):
+    if isinstance(value, dict) and value.get("type") == "intake_question":
+        return value["prompt"]
+    return str(value)
 with open_checkpointer(load_settings()) as saver:
     graph = build_graph(load_settings(), saver)
     config = thread_config(sys.argv[1])
@@ -43,7 +57,7 @@ with open_checkpointer(load_settings()) as saver:
         result = graph.invoke(Command(resume=reply), config)
     snapshot = graph.get_state(config)
     print(json.dumps({'answers': {k: str(v.value) for k, v in current_answers(snapshot.values).items()},
-                      'question': snapshot.interrupts[0].value,
+                      'question': question_text(snapshot.interrupts[0].value),
                       'count': len(snapshot.values.get('answers', []))}))
 """
     env = {**os.environ, "SILVERFILE_DB_PATH": str(settings.db_path)}
@@ -87,10 +101,14 @@ def test_uncertainty_pause_survives_restart_and_staff_resolution(settings, make_
     with memory.open_checkpointer(settings) as saver:
         graph = make_graph(checkpointer=saver)
         result = graph.invoke(Command(resume={"action": "continue", "resolved_by": "staff-test"}), config)
-        assert "spouse who died" in result["__interrupt__"][0].value
+        assert "spouse who died" in question_text(
+            result["__interrupt__"][0].value
+        )
         assert current_answers(result)["filing_status"].value == "single"
         result = graph.invoke(Command(resume="none"), config)
-        assert "date of birth" in result["__interrupt__"][0].value
+        assert "date of birth" in question_text(
+            result["__interrupt__"][0].value
+        )
 
 
 def test_selective_recall_excludes_old_dialogue_and_sensitive_answers():

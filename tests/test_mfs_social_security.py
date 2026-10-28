@@ -39,8 +39,10 @@ def mfs_case(tmp_path):
 
 def test_mfs_filer_with_social_security_is_asked(make_graph, mfs_case):
     result = make_graph().invoke({"case_path": mfs_case()}, config())
-    assert isinstance(paused_on(result), str)
-    assert QUESTION in paused_on(result)
+    prompt = paused_on(result)
+    assert prompt["type"] == "intake_question"
+    assert prompt["field"] == "mfs_lived_with_spouse"
+    assert QUESTION in prompt["prompt"]
 
 
 def test_not_living_together_uses_the_standard_base(make_graph, mfs_case):

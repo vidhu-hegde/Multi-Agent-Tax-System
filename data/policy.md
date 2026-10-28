@@ -167,7 +167,7 @@ Forms W-2 and W-3* before submission.
 | Box 12 code K, Z | present | Excise or additional tax |
 | Box 12 code Q | present | Nontaxable combat pay election |
 | Box 12 code R, W | present | Archer MSA / HSA forms |
-| Box 12 code T | present | Adoption benefits, Form 8839 |
+| Box 12 code T | present | Adoption benefits (Form 8839) |
 | Box 12 code H, FF, GG, HH, II | present | Need forms or judgement outside scope |
 | Box 12 any other unlisted code | present | Escalate as `uncertain` |
 
@@ -234,6 +234,16 @@ not sure, don't know or can't remember, and the question needs a definite answer
 - An SSN volunteered where it was not asked for is removed from saved answers, tickets and model
   context (`[SSN removed]`). W-2 records keep only the last four digits.
 
+<a id="tool-input-safety"></a>
+### 12.1 Tax calculation input failures
+
+If a `tax_math` tool rejects an input, SilverFile escalates `tool_input_invalid` instead of allowing the
+exception to stop the workflow. The ticket records only the tool name and invalid field names. It must
+not retain the rejected value or original exception text in state, checkpoints, logs or the dashboard.
+
+This ticket is stop-only. Staff must stop the session, correct the source data, and start a new return.
+Continuing without correcting the input must never produce a draft.
+
 <a id="escalation"></a>
 ## 13. Escalation reasons
 
@@ -246,6 +256,7 @@ not sure, don't know or can't remember, and the question needs a definite answer
 | `filing_status_ambiguity` | 4.4 #5 | Rules | [filing-status](#filing-status) |
 | `exploitation_concern` | 4.4 #6 | Intake | [exploitation](#exploitation) |
 | `uncertain` | 4.3 | Intake, orchestrator | [uncertainty](#uncertainty) |
+| `tool_input_invalid` | Tax calculation rejected an input | Rules, Computation, Review | [tool-input-safety](#tool-input-safety) |
 | `review_limit` | 4.1 | Orchestrator | review loop bound |
 | `loop_guard` | 4.1 | Orchestrator | loop guard |
 
