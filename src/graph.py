@@ -71,7 +71,3 @@ def build_graph(settings: Settings, checkpointer=None, use_context_strategy: boo
         builder.add_edge(node, "orchestrator")
 
     return builder.compile(checkpointer=checkpointer)
-
-
-def run_batch(graph, use_context_strategy: bool = True):
-    raise SystemExit("The batch scenario is not implemented yet (see docs/metrics.md).")
