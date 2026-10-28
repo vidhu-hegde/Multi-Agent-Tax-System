@@ -71,7 +71,7 @@ def call_tool(name: str, **inputs) -> tuple[Decimal, Provenance]:
             CENT,
             rounding=ROUND_HALF_UP,
         )
-    except (ValueError, InvalidOperation, TypeError) as exc:
+    except (ValueError, InvalidOperation) as exc:
         fields = _invalid_fields(str(exc), inputs)
         raise ToolInputError(name, fields) from None
 

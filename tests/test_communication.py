@@ -182,8 +182,7 @@ def test_contracts_survive_checkpoint_and_json_roundtrips():
         assert type(record).model_validate_json(record.model_dump_json()).model_dump_json() == record.model_dump_json()
 
 
-def test_manual_provenance_and_tool_inputs_reach_derived_line_and_html(make_graph, monkeypatch):
-    monkeypatch.setitem(TOOLS, "taxable_social_security", (lambda **_: Decimal("0"), True))
+def test_manual_provenance_and_tool_inputs_reach_derived_line_and_html(make_graph):
     graph = make_graph()
     state = graph.invoke({"case_path": SKELETON_CASE}, {"configurable": {"thread_id": "audit"}})
     source = state["documents"]["w2-1"].source

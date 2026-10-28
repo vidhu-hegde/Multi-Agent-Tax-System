@@ -11,11 +11,9 @@ os.environ["ANTHROPIC_API_KEY"] = ""
 import pytest  # noqa: E402
 from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
 
-import src.agents.computation as computation_module
 from src.config import load_settings  # noqa: E402
 from src.graph import build_graph  # noqa: E402
 from src.memory import serializer  # noqa: E402
-from src.tools import call_tool as production_call_tool
 
 SKELETON_CASE = "data/fixtures/skeleton_case.json"
 
@@ -24,24 +22,6 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers",
         "production_stubs: run with real placeholder tax tools so Review must fail closed",
-    )
-
-
-@pytest.fixture(autouse=True)
-def verified_test_tools(request, monkeypatch):
-    """Use verified tool provenance in tests unrelated to placeholder safety."""
-
-    if request.node.get_closest_marker("production_stubs"):
-        return
-
-    def call_verified_tool(name, **inputs):
-        result, provenance = production_call_tool(name, **inputs)
-        return result, provenance.model_copy(update={"stub": False})
-
-    monkeypatch.setattr(
-        computation_module,
-        "call_tool",
-        call_verified_tool,
     )
 
 
