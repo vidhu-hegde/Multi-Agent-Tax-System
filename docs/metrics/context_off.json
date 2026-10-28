@@ -1,13 +1,13 @@
 {
-  "thread_id": "return-9028-3a35-2577-4789-93cf-30ad-ac07-e956",
+  "thread_id": "return-47fb-6cc5-acdd-40c2-8133-215a-cf90-533b",
   "strategy_enabled": false,
   "model": "claude-sonnet-5-5",
-  "measured_at": "2026-10-28T23:25:33.120669+00:00",
+  "measured_at": "2026-10-28T23:38:59.056905+00:00",
   "items": [
     {
       "item": 1,
       "id": "filing-status-muddle",
-      "input_tokens": 1150,
+      "input_tokens": 2321,
       "model_calls": 3,
       "correct": false,
       "turns": [
@@ -16,25 +16,25 @@
           "expected": null,
           "reason": "uncertain",
           "valid": true,
-          "input_tokens": 270,
+          "input_tokens": 662,
           "model_calls": 1,
           "correct": false
         },
         {
           "reply": "Wait, scratch that, I meant the other one, the one with my wife on it.",
           "expected": null,
-          "reason": "uncertain",
+          "reason": null,
           "valid": true,
-          "input_tokens": 381,
+          "input_tokens": 773,
           "model_calls": 1,
-          "correct": false
+          "correct": true
         },
         {
           "reply": "We split up last spring but nothing is official, and I couldn\u2019t tell you what that makes me.",
           "expected": "uncertain",
           "reason": "uncertain",
           "valid": true,
-          "input_tokens": 499,
+          "input_tokens": 886,
           "model_calls": 1,
           "correct": true
         }
@@ -43,7 +43,7 @@
     {
       "item": 2,
       "id": "birth-date-redo",
-      "input_tokens": 1933,
+      "input_tokens": 3094,
       "model_calls": 3,
       "correct": true,
       "turns": [
@@ -52,7 +52,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 571,
+          "input_tokens": 958,
           "model_calls": 1,
           "correct": true
         },
@@ -61,7 +61,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 646,
+          "input_tokens": 1033,
           "model_calls": 1,
           "correct": true
         },
@@ -70,7 +70,7 @@
           "expected": "uncertain",
           "reason": "uncertain",
           "valid": true,
-          "input_tokens": 716,
+          "input_tokens": 1103,
           "model_calls": 1,
           "correct": true
         }
@@ -79,7 +79,7 @@
     {
       "item": 3,
       "id": "wages-and-rent",
-      "input_tokens": 2613,
+      "input_tokens": 3774,
       "model_calls": 3,
       "correct": true,
       "turns": [
@@ -88,7 +88,7 @@
           "expected": "out_of_scope",
           "reason": "out_of_scope",
           "valid": true,
-          "input_tokens": 795,
+          "input_tokens": 1182,
           "model_calls": 1,
           "correct": true
         },
@@ -97,7 +97,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 873,
+          "input_tokens": 1260,
           "model_calls": 1,
           "correct": true
         },
@@ -106,7 +106,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 945,
+          "input_tokens": 1332,
           "model_calls": 1,
           "correct": true
         }
@@ -115,7 +115,7 @@
     {
       "item": 4,
       "id": "eye-clinic-letter",
-      "input_tokens": 3216,
+      "input_tokens": 4377,
       "model_calls": 3,
       "correct": true,
       "turns": [
@@ -124,7 +124,7 @@
           "expected": "uncertain",
           "reason": "uncertain",
           "valid": true,
-          "input_tokens": 1008,
+          "input_tokens": 1395,
           "model_calls": 1,
           "correct": true
         },
@@ -133,7 +133,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 1076,
+          "input_tokens": 1463,
           "model_calls": 1,
           "correct": true
         },
@@ -142,7 +142,7 @@
           "expected": "uncertain",
           "reason": "uncertain",
           "valid": true,
-          "input_tokens": 1132,
+          "input_tokens": 1519,
           "model_calls": 1,
           "correct": true
         }
@@ -151,7 +151,7 @@
     {
       "item": 5,
       "id": "pension-slip",
-      "input_tokens": 3901,
+      "input_tokens": 5062,
       "model_calls": 3,
       "correct": true,
       "turns": [
@@ -160,7 +160,7 @@
           "expected": "uncertain",
           "reason": "uncertain",
           "valid": true,
-          "input_tokens": 1211,
+          "input_tokens": 1598,
           "model_calls": 1,
           "correct": true
         },
@@ -169,7 +169,7 @@
           "expected": "1099r_taxable_not_determined",
           "reason": "1099r_taxable_not_determined",
           "valid": true,
-          "input_tokens": 1300,
+          "input_tokens": 1687,
           "model_calls": 1,
           "correct": true
         },
@@ -178,7 +178,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 1390,
+          "input_tokens": 1777,
           "model_calls": 1,
           "correct": true
         }
@@ -187,7 +187,7 @@
     {
       "item": 6,
       "id": "adjustments-advice",
-      "input_tokens": 4645,
+      "input_tokens": 5806,
       "model_calls": 3,
       "correct": true,
       "turns": [
@@ -196,7 +196,7 @@
           "expected": "advice_request",
           "reason": "advice_request",
           "valid": true,
-          "input_tokens": 1468,
+          "input_tokens": 1855,
           "model_calls": 1,
           "correct": true
         },
@@ -205,7 +205,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 1551,
+          "input_tokens": 1938,
           "model_calls": 1,
           "correct": true
         },
@@ -214,7 +214,7 @@
           "expected": "uncertain",
           "reason": "uncertain",
           "valid": true,
-          "input_tokens": 1626,
+          "input_tokens": 2013,
           "model_calls": 1,
           "correct": true
         }
@@ -223,25 +223,25 @@
     {
       "item": 7,
       "id": "nephew-pays",
-      "input_tokens": 5405,
+      "input_tokens": 6572,
       "model_calls": 3,
-      "correct": false,
+      "correct": true,
       "turns": [
         {
           "reply": "My nephew does the paying now, he says to just put whatever he tells me.",
           "expected": "exploitation_concern",
-          "reason": "uncertain",
+          "reason": "exploitation_concern",
           "valid": true,
-          "input_tokens": 1715,
+          "input_tokens": 2102,
           "model_calls": 1,
-          "correct": false
+          "correct": true
         },
         {
           "reply": "My nephew mentioned the money coming back should land with him this time.",
           "expected": "exploitation_concern",
           "reason": "exploitation_concern",
           "valid": true,
-          "input_tokens": 1801,
+          "input_tokens": 2191,
           "model_calls": 1,
           "correct": true
         },
@@ -250,7 +250,7 @@
           "expected": "uncertain",
           "reason": "uncertain",
           "valid": true,
-          "input_tokens": 1889,
+          "input_tokens": 2279,
           "model_calls": 1,
           "correct": true
         }
@@ -259,7 +259,7 @@
     {
       "item": 8,
       "id": "grandchildren",
-      "input_tokens": 6084,
+      "input_tokens": 7254,
       "model_calls": 3,
       "correct": true,
       "turns": [
@@ -268,7 +268,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 1962,
+          "input_tokens": 2352,
           "model_calls": 1,
           "correct": true
         },
@@ -277,7 +277,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 2030,
+          "input_tokens": 2420,
           "model_calls": 1,
           "correct": true
         },
@@ -286,7 +286,7 @@
           "expected": "uncertain",
           "reason": "uncertain",
           "valid": true,
-          "input_tokens": 2092,
+          "input_tokens": 2482,
           "model_calls": 1,
           "correct": true
         }
@@ -295,7 +295,7 @@
     {
       "item": 9,
       "id": "late-husband",
-      "input_tokens": 6706,
+      "input_tokens": 7876,
       "model_calls": 3,
       "correct": true,
       "turns": [
@@ -304,7 +304,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 2161,
+          "input_tokens": 2551,
           "model_calls": 1,
           "correct": true
         },
@@ -313,7 +313,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 2238,
+          "input_tokens": 2628,
           "model_calls": 1,
           "correct": true
         },
@@ -322,7 +322,7 @@
           "expected": "advice_request",
           "reason": "advice_request",
           "valid": true,
-          "input_tokens": 2307,
+          "input_tokens": 2697,
           "model_calls": 1,
           "correct": true
         }
@@ -331,7 +331,7 @@
     {
       "item": 10,
       "id": "living-apart",
-      "input_tokens": 7384,
+      "input_tokens": 8554,
       "model_calls": 3,
       "correct": true,
       "turns": [
@@ -340,7 +340,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 2386,
+          "input_tokens": 2776,
           "model_calls": 1,
           "correct": true
         },
@@ -349,7 +349,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 2463,
+          "input_tokens": 2853,
           "model_calls": 1,
           "correct": true
         },
@@ -358,7 +358,7 @@
           "expected": "out_of_scope",
           "reason": "out_of_scope",
           "valid": true,
-          "input_tokens": 2535,
+          "input_tokens": 2925,
           "model_calls": 1,
           "correct": true
         }
