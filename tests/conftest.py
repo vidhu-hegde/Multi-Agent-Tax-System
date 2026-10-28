@@ -15,9 +15,15 @@ from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
 
 from src.config import load_settings  # noqa: E402
 from src.graph import build_graph  # noqa: E402
-from src.memory import serializer  # noqa: E402
+from src.memory import BENCHMARK_ITEMS, serializer  # noqa: E402
 
 SKELETON_CASE = "data/fixtures/skeleton_case.json"
+
+
+def benchmark_answer(text: str) -> str:
+    """A provider double's reply to one benchmark turn: the first classification that counts as correct."""
+    acceptable = {turn: ok for exchange in BENCHMARK_ITEMS for turn, ok in exchange}[text]
+    return json.dumps({"reason": acceptable[0]})
 
 
 def pytest_configure(config):

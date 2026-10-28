@@ -313,7 +313,7 @@ input fields, so an extraction test can compare its output directly.
 | Extraction | Typed direct entries plus Claude W-2 vision (#7/#13); unreadable documents require staff fields or stop | Further live quality evidence belongs to the extraction owner; no API needed for offline Intake work |
 | Rules citations | Juee's `data/policy.md` and centralized guardrails are merged (#9) | Policy/wording follow-ups belong to Juee |
 | Staff dashboard | FastAPI/Jinja queue, return details, resolution and provenance draft are merged (#13) | Finished-return correction controls and final accessibility review |
-| Context benchmark | `python run.py --batch [--no-context-strategy]` runs Iris's `src.memory` benchmark; `python -m src.metrics_table` writes the results table (#21) | Live ON/OFF run needs an API key (`docs/metrics.md`) |
+| Context benchmark | `python run.py --batch [--no-context-strategy]` runs Iris's `src.memory` benchmark; `python -m src.metrics_table` writes the results table (#21) | Measured live on 2026-10-28 with ten multi-turn items; results in `docs/metrics.md` |
 
 ## Iris: memory and state
 
@@ -427,12 +427,11 @@ graph = build_graph(settings, checkpointer,
                     agents={"intake": make_intake(model, use_context_strategy)})
 ```
 
-`build_graph(use_context_strategy=...)` alone currently does not configure any model. Its owner must
-wire this factory and the existing `run.py --batch` hook. The Iris-owned measurement entry point is
-`python -m src.memory --batch [--no-context-strategy]`. Live measurements were blocked by the missing
-API key in the historical attempt. Live execution now remains an external team dependency because
-Iris has no credits. No further key/token request or live call was made. Production-wide token
-reduction and the completed invoice evaluation remain unmeasured.
+`build_graph(use_context_strategy=...)` alone currently does not configure any model. `run.py --batch`
+runs the Iris-owned measurement entry point, `python -m src.memory --batch [--no-context-strategy]`.
+The live ON/OFF run was made on 2026-10-28 with ten multi-turn Intake exchanges: strategy ON stayed at
+620–691 input tokens per item, while OFF grew from 672 to 3,170 (`docs/metrics.md`). That measures the
+Intake classifier only; production-wide token reduction is not claimed.
 
 New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`), now limited to
 a positive dependent count. Standard-deduction scope exceptions are recorded by Intake and escalated
@@ -460,7 +459,7 @@ Unsolicited nine-digit integers in structured metadata are redacted too. Request
 use the shared 900-series schema and have no raw-text copy. The merged security ingress reuses this
 field-aware distinction before resume commands; external trace handling still requires deployment
 review. See `docs/IRIS_HANDOFF.md` for regression results and
-all ten updated checklist statuses. Live context measurements remain unavailable.
+all ten updated checklist statuses. Live context measurements are in `docs/metrics.md`.
 
 
 ## Communication/extraction integration update (Anupama, 2026-10-25)

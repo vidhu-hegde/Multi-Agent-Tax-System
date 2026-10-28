@@ -2,8 +2,8 @@
 
     python -m src.metrics_table output/context_on.json output/context_off.json [--out docs/metrics]
 
-Prints the ten markdown rows (strategy ON and OFF input tokens, both outcomes) and the first-to-last growth
-of each series, to paste into docs/metrics.md. --out copies the two raw result files into a directory so they
+Prints the ten markdown rows (strategy ON and OFF input tokens, both outcomes), the first-to-last growth
+of each series and a Mermaid line chart of both series (GitHub renders it), to paste into docs/metrics.md. --out copies the two raw result files into a directory so they
 can be committed (output/ is gitignored). It reports the numbers as measured; it never estimates or fills gaps.
 """
 
@@ -39,6 +39,22 @@ def growth(label: str, items: list[dict]) -> str:
     return f"{label}: {first:,} → {last:,} input tokens ({last - first:+,}, {change})"
 
 
+def chart(on: dict, off: dict) -> str:
+    """Both series as a Mermaid line chart. Mermaid's xychart has no legend, so the caption names the lines."""
+    series = [[row["input_tokens"] for row in run["items"]] for run in (on, off)]
+    return "\n".join([
+        "```mermaid",
+        "xychart-beta",
+        '    title "Input tokens per sequential item"',
+        f'    x-axis "Sequential item" [{", ".join(str(i) for i in range(1, ITEMS + 1))}]',
+        f'    y-axis "Input tokens" 0 --> {max(map(max, series))}',
+        *(f"    line [{', '.join(map(str, tokens))}]" for tokens in series),
+        "```",
+        "",
+        "Lines in order: strategy ON first, then strategy OFF.",
+    ])
+
+
 def table(on: dict, off: dict) -> str:
     if on.get("model") != off.get("model"):
         raise ValueError(f"The runs used different models: ON {on.get('model')!r}, OFF {off.get('model')!r}")
@@ -53,6 +69,8 @@ def table(on: dict, off: dict) -> str:
         f"First to last item. {growth('ON', on['items'])}; {growth('OFF', off['items'])}.",
         f"Model {on['model']}. ON thread {on['thread_id']} ({on['measured_at']}); "
         f"OFF thread {off['thread_id']} ({off['measured_at']}).",
+        "",
+        chart(on, off),
     ])
 
 
