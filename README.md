@@ -285,6 +285,7 @@ python -m evals.run_evals
 
 - [`docs/IMPLEMENTATION_NOTES.md`](docs/IMPLEMENTATION_NOTES.md)
 - [`docs/metrics.md`](docs/metrics.md)
+- [Team report with Mermaid diagrams](docs/TEAM_REPORT.md)
 - [`docs/AI_DISCLOSURE.md`](docs/AI_DISCLOSURE.md)
 
 

@@ -35,6 +35,8 @@ Add an object to `cases` in `cases.json`. Set `owner` to your name and `area` to
 | `lines` | Amounts on the draft, e.g. `{"1z": "18000.00"}` (compared as numbers) |
 | `hops` | The orchestrator's route, e.g. `["intake", "extraction", ...]` |
 | `state` | Exact values of other state fields, e.g. `{"review_passes": 3}` |
+| `answers` | Confirmed field values serialized to JSON, e.g. `{"estimated_payments": "1000"}`; missing fields fail even when the expected value is `null` |
+| `escalation_evidence` | Exact values for named evidence fields on the pending staff interrupt, e.g. `{"fields": ["dependent_count"]}` |
 
 A case fails if a reply or staff decision is left unused, if the session asks a question with no
 scripted reply, or if an escalation arrives that the next staff decision didn't expect.
@@ -63,10 +65,34 @@ compares every field with `data/fixtures/w2_N_expected.json` (two requests). Wit
 The full image-based clean run, `python run.py --case demo/anupama_vision_case.json`, also finished with
 the W-2 read from its image (wages $18,000, withholding $1,500 on lines 1z and 25a).
 
-## Cases still to add (owners)
+## Iris memory/Intake evidence
 
-- **Iris:** resume after restart, "go back" and "change X to Y" corrections, dependents.
-- **Anupama:** W-2 read from an image is now checked live (above); add a case for a second, harder image if useful.
-- **Max:** real tax_math numbers on the clean case (standard deduction, senior deduction, Social Security, tax) once the server lands. Update `eval-case-1-clean-run`'s expected lines.
-- **Juee:** rules edge dates (born 1 vs 2 January 1961), box counts, more out-of-scope items.
-- **Qiyan:** Review catching seeded errors; SSN masking in tickets and traces.
+Eight Iris-owned cases cover corrected adjustments, go-back, repetition/drift, scope disclosure at a
+payment question, dependent collection and the three Schedule 2/3 totals. The dependent case retains
+its confirmed inputs and pauses because dependent output is still incomplete. After #19, the Schedule
+cases finish: they assert retained nonzero answers, the affected lines, downstream totals and refund.
+They no longer expect a missing-consumer ticket. Fault tests in `tests/test_iris_integration.py` reject
+lost dependent input or an unrelated ticket, and reject zeroed Schedule inputs even when the changed
+return itself reaches `draft_ready` with a successful Review.
+
+Actual restart evidence lives in the existing pytest workflow because the JSON runner uses an
+in-memory saver and cannot prove process restarts:
+
+```bash
+python -m pytest tests/test_iris_integration.py tests/test_memory.py -v
+```
+
+`test_restart_correction_recomputes_and_preserves_audit_and_isolation` starts five separate Python
+processes with one SQLite database, checks one recap after resume, correction history, updated payment
+provenance, archived prior lines and isolation of another return. The partial case import initially
+failed this test; Intake now checkpoints imported answers before interrupting on a missing field.
+`test_uncertainty_is_visible_to_staff_and_resumes_the_same_question` verifies staff recovery through
+`Sessions.resolve()` after reopening SQLite. Benchmark tests use provider doubles only.
+
+## Remaining evaluation work (owners)
+
+- **Iris / Anupama / Vidhatri:** replace only the dependent pause case once dependent output is implemented. Schedule 2/3 output is covered now.
+- **Vidhatri / Max:** integrate the batch entry point and final item definition, then obtain actual ON/OFF measurements and curve in `docs/metrics.md`.
+- **Anupama / Vidhatri:** retain the live W-2 evidence above; extra difficult images would broaden coverage.
+- **Juee:** review field-sensitive guardrail wording and obtain a fresh language set. The existing tuned 42-item set is development evidence.
+- **Team:** repeat the two graded walkthroughs on the final integrated revision and record the required video. MCP, tax-rule, Review fault, SSN and date-boundary checks already exist in pytest; do not list them as absent.
