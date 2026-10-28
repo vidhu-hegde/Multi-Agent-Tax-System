@@ -11,18 +11,54 @@ SilverFile collects information from the taxpayer, reads their tax documents, an
 
 ---
 
-## Team
+## Quick start (Docker)
 
-| Focus area | Team member assigned |
+You need Docker Desktop (or another Docker engine) with Compose 2.24 or newer.
+
+```bash
+git clone https://github.com/vidhu-hegde/Multi-Agent-Tax-System.git
+cd Multi-Agent-Tax-System
+cp .env.example .env            # add your ANTHROPIC_API_KEY; only run.py needs it
+docker compose up -d --build    # starts the tax_math MCP server and the dashboard
+```
+
+Then:
+
+- **Dashboard:** open http://127.0.0.1:8000.
+- **Demo dashboard**, with returns in every state and no key needed: see [Demo dashboard](#demo-dashboard).
+- **A taxpayer session:** `docker compose run --rm app python run.py --case data/fixtures/skeleton_case.json`
+- **The eval cases:** `docker compose run --rm app python -m evals.run_evals`
+
+No Docker? See [Running without Docker](#running-without-docker).
+
+---
+
+## For graders
+
+| What is graded | Where to look |
 |---|---|
-| Agent memory | Iris |
-| Inter-agent communication | Anupama |
-| Task division and management | Vidhatri |
-| MLOps/DevOps | Max |
-| Guardrails and ethics | Juee |
-| Security | Qiyan |
+| Clean run from our eval case 1 data | [`demo/eval_case_1.md`](demo/eval_case_1.md): the commands, the expected draft and a hand check of every number |
+| W-2 amounts read from the image | Eval case 1 reads [`demo/w2_image_1.jpg`](demo/w2_image_1.jpg) with Claude. The dashboard shows the image and the W-2 record's source. `python -m evals.live_vision_check` checks both W-2 images field by field |
+| A HITL event from our eval case 2 data, resolved | [`demo/eval_case_2.md`](demo/eval_case_2.md): a wage conflict, then resolved on the dashboard or from the terminal |
+| A clean run with your own data | [Make up your own return](#make-up-your-own-return) |
+| Dashboard: returns in progress and submitted, HITL resolved by clicking | [Staff dashboard](#staff-dashboard) and the [demo dashboard](#demo-dashboard) |
+| Docker | [Quick start](#quick-start-docker) and the [Docker reference](#docker-reference) |
+| Tests and offline evals | [Tests and evals](#tests-and-evals): 653 tests, 17 of 17 eval cases |
 
-Team members: Vidhatri Hegde, Qiyan Zhai, Max Charles, Iris Li, Juee Patil, Anu
+---
+
+## What SilverFile handles
+
+- **Documents:** W-2 (typed values or a photo, read by Claude), SSA-1099, 1099-R, 1099-INT and 1099-DIV.
+- **Filing statuses:** all five.
+- **Deductions:** the standard deduction only, plus the Schedule 1-A senior deduction.
+- **Schedules 1, 2 and 3:** the taxpayer types the totals in directly.
+
+Anything else stops for a person rather than being guessed, for example itemized deductions, self-employment
+income, capital gains, digital assets, foreign income, or a return with dependents. The full policy, with the
+2025 figures and a citation for every rule, is in [`data/policy.md`](data/policy.md).
+
+> **Test SSNs only:** the system accepts only SSNs in the 900–999 range (e.g. `901-XX-XXXX`), so a real SSN can never be entered.
 
 ---
 
@@ -81,81 +117,77 @@ LangGraph interrupts fire for:
 5. Ambiguous filing status, such as a spouse who died during the tax year
 6. Signs of financial exploitation or third-party pressure
 
-> **Test SSNs only:** the system accepts only SSNs in the 900–999 range (e.g. `901-XX-XXXX`).
+They also fire when SilverFile can't go on safely by itself: a document it could not read (staff type the
+values in), an answer the taxpayer isn't sure about, a tax calculation that rejects an input, and the review
+limit or loop guard above. Every reason, with its policy section, is listed in
+[`data/policy.md`](data/policy.md#escalation).
 
 ---
 
-## Repository layout
+## Running without Docker
 
-```
-.
-├── README.md
-├── requirements.txt
-├── .env.example
-├── run.py
-├── src/
-│   ├── state.py
-│   ├── graph.py
-│   ├── memory.py
-│   ├── tools.py        # call_tool(): in-process, or the tax_math MCP server
-│   ├── tax_math/       # rules.py, registry.py, server.py (python -m src.tax_math.server)
-│   └── agents/
-├── data/
-│   ├── generate_fixtures.py
-│   ├── policy.md
-│   └── fixtures/
-├── evals/cases.json
-├── tests/              # test_merge_order.py, test_decision_table.py, ...
-├── traces/
-├── docs/               # graph.png, metrics.md, IMPLEMENTATION_NOTES.md, AI_DISCLOSURE.md
-└── demo/               # eval_case_1.md, eval_case_2.md, W-2 images, demo_video.mp4
-```
-
----
-
-## Getting started
-
-> TODO: fill in as the implementation lands.
-
-### Prerequisites
-
-- Python 3.11+
-- An LLM API key (see `.env.example`)
-
-### Setup
+You need Python 3.11 or newer.
 
 ```bash
 git clone https://github.com/vidhu-hegde/Multi-Agent-Tax-System.git
 cd Multi-Agent-Tax-System
 python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env   # then add your API keys
+source .venv/bin/activate                          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt -c constraints.txt  # the exact versions we tested
+cp .env.example .env                               # then add your ANTHROPIC_API_KEY
 ```
-
-### tax_math MCP server
 
 Every amount on the draft comes from a tax_math tool call (`call_tool()` in `src/tools.py`). `.env.example`
-sets `TAX_MATH_MCP_URL=http://localhost:8001/mcp`, so the tools run on the MCP server, and it must be running
-before `run.py` or the dashboard starts:
+sets `TAX_MATH_MCP_URL=http://localhost:8001/mcp`, so the tools run on the MCP server. Start it in its own
+terminal and leave it running:
 
 ```bash
-python -m src.tax_math.server              # http://127.0.0.1:8001/mcp (TAX_MATH_MCP_HOST; 0.0.0.0 in Docker)
-python -m src.tax_math.server --port 8002  # another port: change TAX_MATH_MCP_URL to match
+python -m src.tax_math.server              # terminal 1: http://127.0.0.1:8001/mcp
 ```
 
-`run.py` and the dashboard read `TAX_MATH_MCP_URL` from `.env` and check the server at startup; if it is not
-answering they stop with a message instead of failing partway through a return. Comment the line out of `.env`
-to run the same tools in-process, with no server. There is never a silent fallback from one to the other. Tests
-always run in-process, except `tests/test_tax_math_mcp.py`, which starts its own server on a free local port.
-
-### Run
+Then use a second terminal for everything else:
 
 ```bash
-python run.py                                            # interactive session
+python -m src.dashboard                    # terminal 2: the dashboard at http://127.0.0.1:8000
+python run.py --case data/fixtures/skeleton_case.json
+```
+
+`run.py` and the dashboard check the server at startup. If it isn't answering, they stop with a message
+instead of failing partway through a return. To run the same tools in-process with no server, comment
+`TAX_MATH_MCP_URL` out of `.env`, or prefix a command with `TAX_MATH_MCP_URL=`. There is never a silent
+fallback from one to the other. To use another port, start the server with `--port 8002` and change
+`TAX_MATH_MCP_URL` to match.
+
+---
+
+## Using SilverFile
+
+Commands are shown without Docker. With Docker, put `docker compose run --rm app` in front of `python ...`.
+
+### Taxpayer session
+
+`run.py` needs `ANTHROPIC_API_KEY` in `.env`.
+
+```bash
 python run.py --case data/fixtures/skeleton_case.json    # run a case file
-python run.py --thread-id <session id>                   # resume a saved session
+python run.py --case demo/anupama_vision_case.json       # the same return, with the W-2 read from its photo
+python run.py                                            # answer every question yourself
+python run.py --thread-id <session id>                   # pick up a saved session
+python run.py --case <file> --html output/draft.html     # also write the draft with its sources
 ```
+
+Intake asks only for what the case file doesn't already answer. Press **Ctrl-D** at any question to save the
+session and leave. `--thread-id` continues it later, and staff see it on the dashboard.
+
+### Make up your own return
+
+Copy [`data/fixtures/skeleton_case.json`](data/fixtures/skeleton_case.json), change the answers and the
+document values, and run it with `--case`. Leave an answer out and Intake asks for it. With Docker, mount the
+folder that holds your file (see [Docker reference](#docker-reference)).
+
+A document named only in the chat (by typing "W-2" when Intake asks) has no values yet, so the return pauses for
+staff to type them in on the dashboard. That's the unreadable-document escalation. For a clean run, put the
+values (or an `image_path` to a W-2 photo) in the case file.
 
 ### Staff dashboard
 
@@ -164,13 +196,21 @@ python -m src.dashboard           # http://127.0.0.1:8000, the same sessions as 
 python -m src.dashboard --demo    # a separate demo database with returns in every state
 ```
 
-The dashboard shows the queue of escalations waiting on staff and every return's status. For each
-escalation it shows the evidence, and for an unreadable W-2 it also shows the uploaded image. Staff
-continue (with a note, a chosen record, or the values typed from the document) or stop the session,
-and can open each draft with the source of every amount. Once a return with a reviewed draft has been
-filed, staff mark it **Submitted**; the returns list filters by every status, Submitted included, and
-shows who submitted each return and when. `--demo` seeds `output/demo.sqlite` from the
-eval cases, offline, and never touches the real database.
+- **Needs a decision:** every return waiting on staff, oldest first. Open one to see the evidence, the
+  uploaded image of an unreadable W-2, and what the taxpayer was told.
+- **Resolve:** continue (with a note, a chosen record, a corrected amount, or the values typed from the
+  document) or stop the session. The decision, note and staff ID are recorded on the ticket.
+- **All returns:** filter by status: In progress, Waiting on taxpayer, Waiting on staff, Draft ready,
+  Submitted, Stopped.
+- **Draft with sources:** each draft opens with the source of every amount: the document box, the answer, or
+  the tax_math call.
+- **Mark as submitted:** once a reviewed draft has been filed, staff record it. The return shows who
+  submitted it and when.
+- **Resume:** a return that stopped partway (the tax_math server went down) can be resumed once the server
+  is back.
+
+`--demo` seeds `output/demo.sqlite` from the eval cases, offline, and never touches the real database. Delete
+that file to start the demo fresh.
 
 ### Staff commands
 
@@ -178,11 +218,33 @@ The same actions the dashboard offers, from the terminal:
 
 ```bash
 python run.py --sessions                                   # list sessions and open escalations
-python run.py --resolve <session id> <ticket id> --note "Checked with client"
+python run.py --resolve <session id> <ticket id> --note "Checked with client" --staff-id staff-7
 python run.py --resolve <session id> <ticket id> --stop    # end the session instead
-python run.py --submit <session id> --staff-id staff-7     # record that a finished return was filed
 python run.py --resolve <session id> <ticket id> --values '{"employer_name": "...", "wages": "..."}'  # a document that couldn't be read
+python run.py --submit <session id> --staff-id staff-7     # record that a finished return was filed
 ```
+
+### Draft view without a key
+
+```bash
+python -m src.render --case data/fixtures/skeleton_case.json --output output/draft_1040sr.html
+```
+
+Open the HTML file and click or keyboard-activate an amount to see its sources and calculation. Amounts that
+aren't complete or verified are withheld rather than shown. The design is in
+[Anupama's handoff](docs/ANUPAMA_HANDOFF.md).
+
+### Tests and evals
+
+```bash
+python -m pytest -q                           # the tests, always in-process
+TAX_MATH_MCP_URL= python -m evals.run_evals   # the eval cases, offline, tax math in-process
+python -m evals.run_evals                     # the same, through the tax_math server (start it first)
+python -m evals.live_vision_check             # reads both W-2 images with Claude (needs the key)
+```
+
+The eval cases are in [`evals/cases.json`](evals/cases.json) (format: [`evals/README.md`](evals/README.md)), and
+every case also runs in `pytest`. `tests/test_tax_math_mcp.py` starts its own server on a free port.
 
 ### Context-window strategy measurement
 
@@ -193,26 +255,12 @@ python run.py --batch --no-context-strategy  # strategy disabled
 
 Results are recorded in [`docs/metrics.md`](docs/metrics.md).
 
-### Tests
-
-```bash
-pytest tests/
-```
-
 ---
 
-## Getting started with Docker
+## Docker reference
 
-One image runs everything (`Dockerfile`); `docker-compose.yml` starts the tax_math MCP server (`tax-math`) and
-the staff dashboard, and runs `run.py`, the evals and the tests on demand (`app`). You need Docker Desktop (or
-another Docker engine) with Compose 2.24 or newer.
-
-```bash
-git clone https://github.com/vidhu-hegde/Multi-Agent-Tax-System.git
-cd Multi-Agent-Tax-System
-cp .env.example .env            # optional: add ANTHROPIC_API_KEY to use run.py; everything else works without it
-docker compose up -d --build    # tax-math (healthy) + dashboard at http://127.0.0.1:8000
-```
+One image runs everything (`Dockerfile`). `docker-compose.yml` starts the tax_math MCP server (`tax-math`) and
+the staff dashboard, and runs `run.py`, the evals and the tests on demand (`app`).
 
 | Task | Command |
 |---|---|
@@ -227,13 +275,17 @@ docker compose up -d --build    # tax-math (healthy) + dashboard at http://127.0
 | Stop (keeps sessions) | `docker compose down` |
 | Stop and delete all sessions | `docker compose down -v` |
 
-**Demo dashboard.** The demo uses the same port, so stop the normal dashboard first:
+### Demo dashboard
+
+The demo uses the same port, so stop the normal dashboard first:
 
 ```bash
 docker compose stop dashboard
 docker compose run --rm --service-ports dashboard python -m src.dashboard --demo --host 0.0.0.0
 # Ctrl-C to stop it, then: docker compose start dashboard
 ```
+
+Without Docker: `python -m src.dashboard --demo`.
 
 **What persists.** Sessions live in `/app/state/silverfile.sqlite` on the `state` volume, which `app` and the
 dashboard share. The demo database, its case files and HTML drafts (`run.py --html output/draft.html`) live
@@ -272,37 +324,56 @@ press Ctrl-D (the session is saved), `down`, `up -d`, then `run.py --thread-id <
 
 ---
 
-## Demo / eval cases
+## Repository layout
 
-End-to-end eval cases live in [`evals/cases.json`](evals/cases.json) (format: [`evals/README.md`](evals/README.md)).
-They run offline and are part of `pytest`:
-
-```bash
-python -m evals.run_evals
 ```
-
-- [`demo/eval_case_1.md`](demo/eval_case_1.md): a clean run with no escalations
-- [`demo/eval_case_2.md`](demo/eval_case_2.md): triggers a HITL event, with steps to resolve it
+.
+├── run.py                  # taxpayer sessions, staff commands, --batch
+├── Dockerfile, docker-compose.yml, constraints.txt, requirements.txt, .env.example
+├── src/
+│   ├── graph.py            # the LangGraph graph and the orchestrator's routing
+│   ├── state.py, schemas.py, communication.py   # shared state and the typed contracts between agents
+│   ├── agents/             # orchestrator, intake, extraction, rules, computation, review, human
+│   ├── tools.py            # call_tool(): in-process, or the tax_math MCP server
+│   ├── tax_math/           # rules.py, registry.py, server.py (python -m src.tax_math.server)
+│   ├── sessions.py         # the staff API the dashboard and run.py use
+│   ├── dashboard/          # FastAPI app, templates, --demo seeding
+│   ├── render.py           # the draft with sources, as HTML
+│   ├── memory.py           # checkpointer and the context-window strategy
+│   └── guardrails.py, security.py, escalation.py, resolution.py, evidence.py, config.py
+├── data/
+│   ├── policy.md           # the 2025 rules every decision cites
+│   ├── generate_fixtures.py
+│   └── fixtures/           # case files, W-2 PDFs and their expected records
+├── evals/                  # cases.json, run_evals.py, live_vision_check.py, guardrail_eval.py
+├── tests/
+├── demo/                   # eval_case_1.md, eval_case_2.md, W-2 images, the vision case file
+├── docs/
+└── traces/
+```
 
 ## Documentation
 
-- [`docs/IMPLEMENTATION_NOTES.md`](docs/IMPLEMENTATION_NOTES.md)
-- [`docs/metrics.md`](docs/metrics.md)
-- [`docs/AI_DISCLOSURE.md`](docs/AI_DISCLOSURE.md)
+- [`docs/IMPLEMENTATION_NOTES.md`](docs/IMPLEMENTATION_NOTES.md): design decisions, routing, and how each part was built and checked
+- [`data/policy.md`](data/policy.md): the tax rules, scope and escalation reasons
+- [`docs/GUARDRAILS_AND_ETHICS.md`](docs/GUARDRAILS_AND_ETHICS.md) and [`docs/guardrail_eval.md`](docs/guardrail_eval.md): guardrails and how they were measured
+- [`docs/SECURITY_AND_PII.md`](docs/SECURITY_AND_PII.md): security boundaries and PII handling
+- [`docs/tax_math_rules_spec.md`](docs/tax_math_rules_spec.md): the tax_math tools
+- [`docs/metrics.md`](docs/metrics.md): the context-window strategy measurement
+- [`docs/AI_DISCLOSURE.md`](docs/AI_DISCLOSURE.md): how we used AI tools
+- Handoffs and report sections: [`docs/ANUPAMA_HANDOFF.md`](docs/ANUPAMA_HANDOFF.md), [`docs/ANUPAMA_REPORT.md`](docs/ANUPAMA_REPORT.md), [`docs/IRIS_HANDOFF.md`](docs/IRIS_HANDOFF.md)
 
+---
 
-## Extraction and provenance draft view
+## Team
 
-The communication/extraction integration is documented in [Anupama's handoff](docs/ANUPAMA_HANDOFF.md).
-Render the existing synthetic typed case without a model key:
+| Focus area | Team member assigned |
+|---|---|
+| Agent memory | Iris |
+| Inter-agent communication | Anupama |
+| Task division and management | Vidhatri |
+| MLOps/DevOps | Max |
+| Guardrails and ethics | Juee |
+| Security | Qiyan |
 
-```powershell
-.\.venv\Scripts\python -m src.render --case data/fixtures/skeleton_case.json --output output/draft_1040sr.html
-```
-
-Open the HTML file and click or keyboard-activate an amount to inspect its sources and calculation.
-Stub-dependent or stale amounts are withheld. For live W-2 vision, configure local `.env` credentials
-and use `demo/anupama_vision_case.json`; live accuracy testing is pending. See the handoff for
-manual-entry metadata, agent contracts, revisions, test commands and integration dependencies.
-[Anupama's report section](docs/ANUPAMA_REPORT.md) and [AI-use disclosure](docs/AI_DISCLOSURE.md)
-record the scope and limits of this contribution.
+Team members: Vidhatri Hegde, Qiyan Zhai, Max Charles, Iris Li, Juee Patil, Lakshmi Anupama Tamarapalli
