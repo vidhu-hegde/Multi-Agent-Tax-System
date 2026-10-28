@@ -51,6 +51,38 @@ def test_out_of_scope_document_escalates(make_graph, make_case):
     assert paused_on(result)["ticket_id"] == "out_of_scope:nec-1"
 
 
+@pytest.mark.parametrize("answer", ["continue", {"action": "continue"}, {"action": "continue", "note": "ok"}])
+def test_out_of_scope_is_not_passed_without_a_reason(make_graph, make_case, answer):
+    graph = make_graph()
+    graph.invoke({"case_path": make_case(other_document=True)}, config())
+    result = graph.invoke(Command(resume=answer), config())
+
+    ticket = paused_on(result)
+    assert ticket["ticket_id"] == "out_of_scope:nec-1"  # asked again, not left out silently
+    assert ticket["detail"].startswith("Write why")
+    assert result.get("status") != "draft_ready"
+
+
+def test_out_of_scope_continues_with_a_reason_recorded_on_the_ticket(make_graph, make_case):
+    graph = make_graph()
+    graph.invoke({"case_path": make_case(other_document=True)}, config())
+    graph.invoke(Command(resume="continue"), config())
+    reason = "Client confirms the 1099-NEC was issued in error"
+    result = graph.invoke(Command(resume={"action": "continue", "note": reason, "resolved_by": "staff-3"}), config())
+
+    assert result["status"] == "draft_ready"
+    ticket = result["escalations"]["out_of_scope:nec-1"]
+    assert ticket.status == "resolved" and ticket.resolved_by == "staff-3"
+    assert ticket.resolution["note"] == reason
+
+
+def test_out_of_scope_can_always_stop(make_graph, make_case):
+    graph = make_graph()
+    graph.invoke({"case_path": make_case(other_document=True)}, config())
+    result = graph.invoke(Command(resume="stop"), config())
+    assert result["status"] == "stopped"
+
+
 # 2. User statement vs document ---------------------------------------------------
 
 def test_stated_wages_that_disagree_with_the_w2_escalate(make_graph):

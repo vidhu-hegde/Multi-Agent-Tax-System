@@ -8,8 +8,9 @@ Taxpayer session:
 
 Staff (the same actions the dashboard offers):
     python run.py --sessions                                 # list sessions and open escalations
-    python run.py --resolve abc123 TICKET_ID --note "..."    # resolve and let the session continue
+    python run.py --resolve abc123 TICKET_ID --note "..."    # resolve and let the session continue (out_of_scope needs a reason)
     python run.py --resolve abc123 TICKET_ID --stop          # resolve by stopping the session
+    python run.py --resolve abc123 TICKET_ID --values '{"employer_name": "...", "wages": "..."}'  # unreadable document
 
 When the graph pauses with interrupt(), the taxpayer session shows the question or escalation,
 reads a reply from the terminal and resumes with Command(resume=reply).
@@ -35,6 +36,7 @@ def parse_args(argv=None):
         action="store_true",
         help="disable the context-window strategy (for the metrics comparison)",
     )
+    parser.add_argument("--html", help="write an accessible HTML draft with provenance")
     staff = parser.add_argument_group("staff")
     staff.add_argument("--sessions", action="store_true", help="list sessions and their open escalations")
     staff.add_argument("--resolve", nargs=2, metavar=("THREAD_ID", "TICKET_ID"), help="resolve an escalation")
@@ -42,6 +44,7 @@ def parse_args(argv=None):
     staff.add_argument("--note", default="", help="with --resolve: note recorded on the ticket")
     staff.add_argument("--staff-id", default="staff", help="with --resolve: who is resolving")
     staff.add_argument("--choice", type=int, help="with --resolve: select a conflicting record, numbered from 1")
+    staff.add_argument("--values", help='with --resolve: JSON values typed from an unreadable document, e.g. \'{"employer_name": "...", "wages": "26450.00"}\'')
     return parser.parse_args(argv)
 
 
@@ -50,6 +53,11 @@ def format_interrupt(value):
     if not isinstance(value, dict):
         return str(value)
     said = value.get("evidence", {}).get("said_to_taxpayer")
+    if value.get("reason") == "exploitation_concern":
+        # policy.md#exploitation: notice and stop, never accuse. The person steering the return may be
+        # reading this screen, so the taxpayer sees only the neutral message; staff see the full ticket
+        # with python run.py --sessions or in the dashboard.
+        return f"{said or 'Thank you.'}\n\n[Paused: a member of staff will continue this with you.]"
     lead = f"{said}\n" if said else ""
     if value.get("evidence", {}).get("state_write"):
         for number, candidate in enumerate(value["evidence"]["candidates"], 1):
@@ -111,8 +119,10 @@ def run_staff_command(args, settings):
             thread_id, ticket_id = args.resolve
             action = "stop" if args.stop else "continue"
             try:
+                values = json.loads(args.values) if args.values else None
                 summary = sessions.resolve(
-                    thread_id, ticket_id, action, note=args.note, resolved_by=args.staff_id, choice=args.choice
+                    thread_id, ticket_id, action, note=args.note, resolved_by=args.staff_id, choice=args.choice,
+                    values=values,
                 )
             except (StaleEscalation, ValueError) as exc:
                 sys.exit(str(exc))
@@ -164,6 +174,12 @@ def main(argv=None):
         result = drive(graph, thread_id, first_input)
         if result is not None:
             print_draft(result)
+            if args.html:
+                from pathlib import Path
+                from src.render import render_draft
+                target = Path(args.html)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(render_draft(result), encoding="utf-8")
 
 
 if __name__ == "__main__":
