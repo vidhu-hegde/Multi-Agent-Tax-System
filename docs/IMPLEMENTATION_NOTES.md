@@ -126,6 +126,12 @@ start it). The README's "Getting started with Docker" has the commands.
   `output` volume holds `/app/output` (the demo database, `demo_cases/`, which demo sessions re-read, and HTML
   drafts). Nothing is mounted over `/app/data`, which holds policy.md and the fixtures. Named volumes live in
   Docker's Linux VM, where SQLite locking is reliable; do not bind-mount the database to a macOS folder.
+- **Pinned versions.** `constraints.txt` pins all 83 installed packages to the versions tested in the image;
+  the Dockerfile installs `requirements.txt` with `-c constraints.txt`, so a rebuild cannot drift.
+  `requirements.txt` keeps the ranges. After changing it, regenerate the pins the same way, inside the
+  container (`docker compose build`, then `docker compose run --rm --no-deps -T app pip freeze >
+  constraints.txt`): a Mac venv resolves differently (on 2026-10-28 it had `anthropic` 1.17.0 to the image's
+  2.3.0, plus leftover streamlit packages).
 - **Permissions.** The code is owned by root and read-only to the app, which runs as `silverfile` (uid 1000);
   only `/app/state` and `/app/output` are writable. A named volume takes its owner from the image the first
   time it is mounted. Run the tests with `-p no:cacheprovider` (pytest cannot write `.pytest_cache`).

@@ -10,8 +10,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+# constraints.txt pins every package to the versions tested in this image (README, "Getting started with Docker").
+COPY requirements.txt constraints.txt ./
+RUN pip install -r requirements.txt -c constraints.txt
 
 # The code stays owned by root, so the app cannot rewrite it. Only the SQLite state and generated output
 # (demo database, demo case files, HTML drafts) are writable; compose mounts named volumes on both.

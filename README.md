@@ -254,6 +254,10 @@ press Ctrl-D (the session is saved), `down`, `up -d`, then `run.py --thread-id <
   `TAX_MATH_MCP_URL=http://tax-math:8001/mcp` and the database path itself, overriding the `localhost` and
   `data/` values in `.env`, which are for running outside Docker.
 - Port 8001 is not published: only the containers reach tax-math.
+- `constraints.txt` pins the image to the exact versions we tested (`pip install -r requirements.txt -c
+  constraints.txt`). After changing `requirements.txt`, regenerate it inside the container, not on your Mac
+  (some packages differ by platform): `docker compose build`, then
+  `docker compose run --rm --no-deps -T app pip freeze > constraints.txt` (`-T`: without it the TTY adds `\r` to every line).
 - The code in the image is read-only to the app (it runs as user `silverfile`, uid 1000); only `/app/state`
   and `/app/output` are writable. To run your own case file, mount it read-only, for example
   `docker compose run --rm -v "$PWD/cases:/app/cases:ro" app python run.py --case cases/mine.json`, and mount it
