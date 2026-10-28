@@ -131,15 +131,17 @@ I integrated these protections with the document-recovery flow while preserving 
 
 ### 1099-R Box 2b
 
-A `1099r_taxable_not_determined` ticket requires a finite, nonnegative taxable-amount correction before Continue is accepted.
+A `1099r_taxable_not_determined` ticket requires a finite, nonnegative taxable-amount correction that does not exceed the current gross distribution before Continue is accepted.
 
-The correction is validated through the shared resolution boundary, applied to the corresponding 1099-R, attributed to the staff member, and followed by recomputation.
+The correction is validated through the shared resolution boundary before `Sessions.resolve()` resumes LangGraph, applied to the corresponding 1099-R, attributed to the staff member, and followed by recomputation. Direct graph callers receive the same validation inside the Human node; rejected values cause a fresh interrupt rather than poisoning the pending resume value.
 
 During integration with the staff dashboard, I connected the dashboard’s correction form to this existing `Sessions.resolve()` contract. I also added regression coverage for:
 
 - a valid taxable-amount correction;
 - a missing correction;
 - an invalid correction;
+- a correction greater than the gross distribution followed by either a valid correction or Stop;
+- a rejected direct graph resume followed by a successful retry;
 - a stale or already-resolved ticket;
 - a second attempted resolution.
 
@@ -219,7 +221,7 @@ Merge chronology, individual conflict resolutions, commit identifiers, intermedi
 With strict LangGraph checkpoint serialization enabled:
 
 ```text
-607 passed
+610 passed
 ```
 
 This includes security, Review/Audit, true LangGraph revision loops, communication, sessions, dashboard, document recovery, guardrails, tax math, cents-rounding, provenance, and checkpoint tests. The focused Review and graph run passed `88` tests, including both recoverable revision workflows.

@@ -150,6 +150,47 @@ def test_1099r_correction_errors_do_not_echo_typed_values(dashboard, case_file):
     assert typed_value not in alert
     assert sessions.summary("box-2b-invalid").awaiting_ticket_id == ticket_id
 
+    too_large = post(
+        client,
+        "box-2b-invalid",
+        ticket_id,
+        action="continue",
+        taxable_amount="6001",
+    )
+    assert too_large.status_code == 400
+    assert "gross distribution" in too_large.text
+    assert sessions.summary("box-2b-invalid").awaiting_ticket_id == ticket_id
+
+    recovered = post(
+        client,
+        "box-2b-invalid",
+        ticket_id,
+        action="continue",
+        taxable_amount="5500",
+    )
+    assert recovered.status_code == 303
+    assert sessions.summary("box-2b-invalid").status == "draft_ready"
+
+
+def test_1099r_too_large_correction_can_still_be_stopped(dashboard, case_file):
+    sessions, client = dashboard
+    thread_id = "box-2b-invalid-then-stop"
+    ticket_id = "1099r_taxable_not_determined:r-1"
+    start(sessions, thread_id, case_file(r1_2b=True))
+
+    refused = post(
+        client,
+        thread_id,
+        ticket_id,
+        action="continue",
+        taxable_amount="6001",
+    )
+    assert refused.status_code == 400
+
+    stopped = post(client, thread_id, ticket_id, action="stop")
+    assert stopped.status_code == 303
+    assert sessions.summary(thread_id).status == "stopped"
+
 
 def test_stop_ends_the_session(dashboard, case_file):
     sessions, client = dashboard

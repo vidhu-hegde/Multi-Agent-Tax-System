@@ -307,11 +307,48 @@ def test_1099r_correction_cannot_exceed_gross_distribution(
     assert ticket.status == "open"
 
 
-def test_direct_graph_resume_cannot_bypass_1099r_correction(
+@pytest.mark.parametrize("recovery", ["continue", "stop"])
+def test_1099r_invalid_correction_can_be_recovered(
+    settings,
+    make_case,
+    recovery,
+):
+    """A rejected staff value must not poison the pending LangGraph interrupt."""
+
+    thread_id = f"1099r-recover-{recovery}"
+    ticket_id = "1099r_taxable_not_determined:r-1"
+
+    with open_sessions(settings) as sessions:
+        sessions.graph.invoke(
+            {"case_path": make_case(name=thread_id, r1_2b=True)},
+            config(thread_id),
+        )
+
+        with pytest.raises(ValueError, match="gross distribution"):
+            sessions.resolve(
+                thread_id,
+                ticket_id,
+                corrections={"taxable_amount": "6001"},
+            )
+
+        if recovery == "continue":
+            summary = sessions.resolve(
+                thread_id,
+                ticket_id,
+                corrections={"taxable_amount": "5500"},
+            )
+            assert summary.status == "draft_ready"
+            assert sessions.state(thread_id)["documents"]["r-1"].taxable_amount == Decimal("5500")
+        else:
+            summary = sessions.resolve(thread_id, ticket_id, action="stop")
+            assert summary.status == "stopped"
+
+
+def test_direct_graph_invalid_1099r_resume_can_be_retried(
     settings,
     make_case,
 ):
-    """Direct graph callers cannot bypass HITL correction validation."""
+    """The node re-interrupts instead of replaying a rejected direct resume forever."""
 
     thread_id = "1099r-direct-resume"
     ticket_id = "1099r_taxable_not_determined:r-1"
@@ -332,32 +369,36 @@ def test_direct_graph_resume_cannot_bypass_1099r_correction(
         )
         [pending_interrupt] = snapshot.interrupts
 
-        with pytest.raises(
-            ValueError,
-            match="corrected taxable amount",
-        ):
-            sessions.graph.invoke(
-                Command(
-                    resume={
-                        pending_interrupt.id: {
-                            "action": "continue",
-                            "note": (
-                                "Attempted to continue "
-                                "without a correction"
-                            ),
-                        },
-                    }
-                ),
-                thread_config,
-            )
+        sessions.graph.invoke(
+            Command(
+                resume={
+                    pending_interrupt.id: {
+                        "action": "continue",
+                        "corrections": {"taxable_amount": "6001"},
+                    },
+                }
+            ),
+            thread_config,
+        )
 
-        state = sessions.state(thread_id)
-        record = state["documents"]["r-1"]
-        ticket = state["escalations"][ticket_id]
+        [retry_interrupt] = sessions.graph.get_state(thread_config).interrupts
+        assert "gross distribution" in retry_interrupt.value["detail"]
 
-    assert record.taxable_amount == Decimal("6000")
-    assert record.taxable_not_determined is True
-    assert ticket.status == "open"
+        result = sessions.graph.invoke(
+            Command(
+                resume={
+                    retry_interrupt.id: {
+                        "action": "continue",
+                        "corrections": {"taxable_amount": "5500"},
+                    },
+                }
+            ),
+            thread_config,
+        )
+
+    assert result["status"] == "draft_ready"
+    assert result["documents"]["r-1"].taxable_amount == Decimal("5500")
+    assert result["escalations"][ticket_id].status == "resolved"
 
 
 @pytest.mark.parametrize("note", ["", "continue", "  OK. "])

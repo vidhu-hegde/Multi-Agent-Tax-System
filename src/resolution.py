@@ -60,3 +60,17 @@ def validate_resolution_corrections(
         )
 
     return {}
+
+
+def validate_1099r_correction_target(corrections: dict, record):
+    """Validate a parsed 1099-R correction against its current source record."""
+
+    if record is None or getattr(record, "form_type", None) != "1099-R":
+        raise ValueError("The 1099-R correction target is unavailable.")
+
+    amount = Decimal(corrections["taxable_amount"])
+    if amount > record.gross_distribution:
+        raise ValueError(
+            "The corrected taxable amount cannot exceed the gross distribution."
+        )
+    return amount

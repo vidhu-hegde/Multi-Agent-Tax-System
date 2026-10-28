@@ -11,14 +11,16 @@ does not prepare that return, so going on is a staff override that must say why.
 
 import json
 from datetime import datetime, timezone
-from decimal import Decimal
 
 from langgraph.types import Overwrite, interrupt
 from pydantic import TypeAdapter
 
 from src.agents.extraction import StaffEntryError, staff_entered_record
 from src.evidence import invalidate_evidence
-from src.resolution import validate_resolution_corrections
+from src.resolution import (
+    validate_1099r_correction_target,
+    validate_resolution_corrections,
+)
 from src.schemas import (
     EscalationTicket,
     Provenance,
@@ -107,11 +109,26 @@ def human(state: SilverFileState) -> dict:
                 except ValueError:
                     pass
             resolution = normalize_resolution(answer)
-            validated_corrections = validate_resolution_corrections(
-                ticket.reason,
-                resolution.get("action", "continue"),
-                resolution.get("corrections"),
-            )
+            try:
+                validated_corrections = validate_resolution_corrections(
+                    ticket.reason,
+                    resolution.get("action", "continue"),
+                    resolution.get("corrections"),
+                )
+                if (
+                    ticket.reason == "1099r_taxable_not_determined"
+                    and resolution.get("action") != "stop"
+                ):
+                    document_id = ticket.evidence.get("document_id")
+                    taxable_amount = validate_1099r_correction_target(
+                        validated_corrections,
+                        documents.get(document_id),
+                    )
+            except ValueError as exc:
+                # Never raise after consuming a resume value: a failed node
+                # would replay that value forever on every later resume.
+                prompt = {**prompt, "detail": str(exc)}
+                continue
 
             if validated_corrections:
                 resolution["corrections"] = validated_corrections
@@ -119,7 +136,14 @@ def human(state: SilverFileState) -> dict:
                 resolution.pop("corrections", None)
 
             choice = resolution.get("choice")
-            if resolution.get("action") == "stop" or not (channel or needs_values or needs_reason):
+            if resolution.get("action") == "stop" or not (
+                channel
+                or needs_values
+                or needs_reason
+                or ticket.reason == "1099r_taxable_not_determined"
+            ):
+                break
+            if ticket.reason == "1099r_taxable_not_determined":
                 break
             if needs_reason:
                 if has_written_reason(resolution.get("note")):
@@ -170,36 +194,8 @@ def human(state: SilverFileState) -> dict:
             == "1099r_taxable_not_determined"
             and resolution.get("action") == "continue"
         ):
-            document_id = ticket.evidence.get(
-                "document_id"
-            )
-            record = documents.get(document_id)
-
-            if (
-                record is None
-                or getattr(record, "form_type", None)
-                != "1099-R"
-            ):
-                raise ValueError(
-                    "The 1099-R correction target "
-                    "is unavailable."
-                )
-
-            taxable_amount = Decimal(
-                resolution["corrections"][
-                    "taxable_amount"
-                ]
-            )
-
-            if (
-                taxable_amount
-                > record.gross_distribution
-            ):
-                raise ValueError(
-                    "The corrected taxable amount "
-                    "cannot exceed the gross "
-                    "distribution."
-                )
+            document_id = ticket.evidence.get("document_id")
+            record = documents[document_id]
 
             corrected_source = Provenance(
                 kind="user_input",

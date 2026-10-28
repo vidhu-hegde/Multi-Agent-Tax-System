@@ -18,7 +18,10 @@ from src.agents.extraction import StaffEntryError, staff_entered_record
 from src.agents.human import REASON_REQUIRED, has_written_reason
 from src.config import Settings, load_settings
 from src.memory import open_checkpointer
-from src.resolution import validate_resolution_corrections
+from src.resolution import (
+    validate_1099r_correction_target,
+    validate_resolution_corrections,
+)
 from src.schemas import EscalationTicket
 from src.security import redact_ssns, validate_staff_identifier
 
@@ -149,6 +152,16 @@ class Sessions:
                 corrections,
             )
             evidence = paused_on.value.get("evidence", {})
+
+            if (
+                paused_on.value.get("reason") == "1099r_taxable_not_determined"
+                and action == "continue"
+            ):
+                document_id = evidence.get("document_id")
+                validate_1099r_correction_target(
+                    validated_corrections,
+                    snapshot.values.get("documents", {}).get(document_id),
+                )
 
             if evidence.get("state_write") and action == "continue":
                 if type(choice) is not int or not 1 <= choice <= len(evidence["candidates"]):
