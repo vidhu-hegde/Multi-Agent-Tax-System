@@ -16,4 +16,4 @@ I used Claude Code (Anthropic’s Claude; its commits carry a Co-Authored-By: Cl
 
 Existing author statements are available in [Juee's Guardrails and Ethics disclosure](GUARDRAILS_AND_ETHICS.md#ai-use-disclosure-juee) and [Qiyan's Security disclosure](SECURITY_AND_PII.md#ai-use-disclosure). Preserve their wording and have each author confirm the statement for the final submission.
 
-Together with Anupama's and Iris's paragraphs above, four contributors have disclosure text in the repository. No disclosure for Vidhatri was found in this review. Those two paragraphs must come from their authors. This index does not certify approval of any statement or supply the missing disclosures.
+Together with Anupama's, Iris's, and Max's paragraphs above, five contributors have disclosure text in the repository. No disclosure for Vidhatri was found in this review. The author must provide that paragraph. This index does not certify approval of any statement or supply the missing disclosures.
