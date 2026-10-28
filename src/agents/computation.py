@@ -79,15 +79,20 @@ def computation(state: SilverFileState) -> dict:
     from_documents("5b", pensions, "taxable_amount", "2a")
     from_documents("6a", ssa, "net_benefits", "5")
     from_answer("10", "adjustments")
+    # A missing decision passes None, which tax_math rejects for MFS with benefits rather than assuming a base.
+    base = decisions.get("social_security_base")
+    lived_with_spouse = base.outcome.get("mfs_lived_with_spouse") if base else None
+    base_rule = base.rule_id if base else None
 
     # Social Security last: it needs every other income line and the adjustments
     derive(
-        "6b", "taxable_social_security", ["6a", "2a", "10", *INCOME_BEFORE_SOCIAL_SECURITY],
+        "6b", "taxable_social_security", ["6a", "2a", "10", *INCOME_BEFORE_SOCIAL_SECURITY], rule=base_rule,
         filing_status=filing_status,
         benefits=amount("6a"),
         other_income=[amount(l) for l in INCOME_BEFORE_SOCIAL_SECURITY],
         tax_exempt_interest=amount("2a"),
         adjustments=amount("10"),
+        lived_with_spouse=lived_with_spouse,
     )
     total_of("9", [*INCOME_BEFORE_SOCIAL_SECURITY, "6b"])
     derive("11a", "subtract", ["9", "10"], a=amount("9"), b=amount("10"))

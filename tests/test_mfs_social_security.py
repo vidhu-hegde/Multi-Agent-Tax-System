@@ -1,10 +1,11 @@
 """Married filing separately and Social Security (policy.md#taxable-social-security; raised by Max on PR #9).
 
 An MFS filer who lived with their spouse at any time in 2025 has a $0 base amount, not $25,000.
-Intake asks only MFS filers with an SSA-1099; Rules records the case; a "yes" pauses until tax_math uses it.
+Intake asks only MFS filers with an SSA-1099; Rules records the case; Computation passes it to tax_math.
 """
 
 import json
+from decimal import Decimal
 
 import pytest
 from langgraph.types import Command
@@ -52,18 +53,8 @@ def test_not_living_together_uses_the_standard_base(make_graph, mfs_case):
     assert decision.citation == "policy.md#taxable-social-security"
 
 
-def test_living_together_pauses_instead_of_using_25000(make_graph, mfs_case):
+def test_rules_names_the_zero_base_case(make_graph, mfs_case):
     result = make_graph().invoke({"case_path": mfs_case(mfs_lived_with_spouse=True)}, config())
-    ticket = paused_on(result)
-    assert ticket["reason"] == "uncertain"
-    assert "mfs_lived_with_spouse" in ticket["evidence"]["fields"]
-    assert not result.get("lines")
-
-
-def test_rules_names_the_zero_base_case_once_staff_continue(make_graph, mfs_case):
-    graph = make_graph()
-    graph.invoke({"case_path": mfs_case(mfs_lived_with_spouse=True)}, config())
-    result = graph.invoke(Command(resume="continue"), config())
     assert result["rule_decisions"]["social_security_base"].outcome["case"] == "mfs_lived_with_spouse"
 
 
@@ -71,7 +62,10 @@ def test_not_sure_goes_to_a_volunteer(make_graph, mfs_case):
     graph = make_graph()
     graph.invoke({"case_path": mfs_case()}, config())
     result = graph.invoke(Command(resume="I'm not sure"), config())
-    assert paused_on(result)["reason"] == "uncertain"
+    ticket = paused_on(result)
+    assert ticket["reason"] == "uncertain"
+    assert QUESTION in ticket["evidence"]["question"]
+    assert not result.get("lines")
 
 
 def test_mfs_without_social_security_is_not_asked(make_graph, mfs_case, tmp_path):
@@ -88,3 +82,17 @@ def test_other_filing_statuses_are_never_asked(make_graph):
     result = make_graph().invoke({"case_path": SKELETON_CASE}, config())
     assert result["status"] == "draft_ready"
     assert result["rule_decisions"]["social_security_base"].outcome["case"] == "standard"
+
+
+def test_living_together_reaches_computation_with_no_base_amount(make_graph, mfs_case):
+    result = make_graph().invoke({"case_path": mfs_case(mfs_lived_with_spouse=True)}, config())
+    assert result["status"] == "draft_ready"
+    line = result["lines"]["6b"]
+    rule, tool = line.provenance
+    assert rule.kind == "rule" and rule.source == "social_security_base"
+    assert rule.value["case"] == "mfs_lived_with_spouse"
+    assert rule.citation == "policy.md#taxable-social-security"
+    assert tool.inputs["lived_with_spouse"] is True
+    # l8 = 11,000 + 24,420 + 80 = 35,500; 0.85 * 35,500 = 30,175, capped at 0.85 * 22,000 = 18,700
+    # (the $25,000 base would give 5,775)
+    assert line.amount == Decimal("18700")
