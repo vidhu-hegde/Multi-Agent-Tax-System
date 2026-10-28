@@ -197,7 +197,7 @@ def main(argv=None):
 
     enabled = not args.no_context_strategy
     config = thread_config(args.thread_id)
-    model = ChatAnthropic(model=settings.model, api_key=settings.anthropic_api_key, temperature=0, max_retries=0)
+    model = ChatAnthropic(model=settings.model, api_key=settings.anthropic_api_key, max_retries=0)  # no temperature: the API rejects sampling parameters
     with open_checkpointer(settings) as saver:
         rows = run_context_benchmark(model, saver, config["configurable"]["thread_id"], enabled)
     result = {

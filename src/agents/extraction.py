@@ -167,7 +167,7 @@ def read_w2(ref: DocumentRef, client, model: str) -> W2Record:
         ". Field descriptions/types: " + json.dumps(schema)
     )
     response = client.messages.create(
-        model=model, max_tokens=4096, temperature=0,
+        model=model, max_tokens=4096,  # sampling parameters (temperature etc.) are no longer accepted by the API
         messages=[{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": media_type,
                                          "data": base64.b64encode(data).decode("ascii")}},

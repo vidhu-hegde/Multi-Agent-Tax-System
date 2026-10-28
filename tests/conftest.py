@@ -4,6 +4,9 @@ from dataclasses import replace
 
 # Fail loudly if a state type is missing from the serializer allow-list (src/memory.py).
 os.environ["LANGGRAPH_STRICT_MSGPACK"] = "true"
+# Tests are offline and free even when a developer's .env holds a key (load_dotenv never overrides this).
+# The live W-2 check is python -m evals.live_vision_check.
+os.environ["ANTHROPIC_API_KEY"] = ""
 
 import pytest  # noqa: E402
 from langgraph.checkpoint.memory import InMemorySaver  # noqa: E402
