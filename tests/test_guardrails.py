@@ -129,9 +129,15 @@ def test_every_guardrail_reason_is_a_shared_escalation_reason():
 def test_ordinary_roth_answer_is_asked_again_not_escalated(make_graph):
     graph = make_graph()
     graph.invoke({}, config())
-    result = graph.invoke(Command(resume="My 1099-R is from a Roth IRA"), config())
-    assert isinstance(paused_on(result), str)          # Intake simply asks again
-    assert "Which filing status" in paused_on(result)
+    result = graph.invoke(
+        Command(resume="My 1099-R is from a Roth IRA"),
+        config(),
+    )
+
+    prompt = paused_on(result)
+    assert prompt["type"] == "intake_question"
+    assert prompt["field"] == "filing_status"
+    assert "Which filing status" in prompt["prompt"]
     assert not result.get("escalations")
 
 

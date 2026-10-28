@@ -126,6 +126,12 @@ start it). The README's "Getting started with Docker" has the commands.
   `output` volume holds `/app/output` (the demo database, `demo_cases/`, which demo sessions re-read, and HTML
   drafts). Nothing is mounted over `/app/data`, which holds policy.md and the fixtures. Named volumes live in
   Docker's Linux VM, where SQLite locking is reliable; do not bind-mount the database to a macOS folder.
+- **Pinned versions.** `constraints.txt` pins all 83 installed packages to the versions tested in the image;
+  the Dockerfile installs `requirements.txt` with `-c constraints.txt`, so a rebuild cannot drift.
+  `requirements.txt` keeps the ranges. After changing it, regenerate the pins the same way, inside the
+  container (`docker compose build`, then `docker compose run --rm --no-deps -T app pip freeze >
+  constraints.txt`): a Mac venv resolves differently (on 2026-10-28 it had `anthropic` 1.17.0 to the image's
+  2.3.0, plus leftover streamlit packages).
 - **Permissions.** The code is owned by root and read-only to the app, which runs as `silverfile` (uid 1000);
   only `/app/state` and `/app/output` are writable. A named volume takes its owner from the image the first
   time it is mounted. Run the tests with `-p no:cacheprovider` (pytest cannot write `.pytest_cache`).
@@ -357,8 +363,9 @@ owner-approved issue/version key; conflicting identities now require explicit st
 
 Nonzero inputs awaiting downstream integration create one uncertainty ticket for their fingerprint.
 Staff `continue` lets Intake finish without re-asking the same field; `stop` ends the workflow.
-Changed unsupported values create a fresh ticket. This approval does not implement dependent or
-Schedule 2/3 calculations: the escalation explicitly discloses that those inputs remain unused.
+Changed unsupported values create a fresh ticket. This approval does not implement dependent
+calculations: the escalation explicitly discloses that those inputs remain unused. Schedule 2/3 totals
+are no longer gated: Computation uses them for lines 20, 23 and 31 (see below).
 
 ## Iris: accessibility and dignity
 
@@ -416,9 +423,13 @@ wire this factory and the existing `run.py --batch` hook. The Iris-owned measure
 `python -m src.memory --batch [--no-context-strategy]`. Live measurements were blocked by the missing
 API key. No production-wide token reduction or completed invoice evaluation is claimed.
 
-New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`). Nonzero Schedule
-2/3 totals, a positive dependent count or positive scope-exception inputs pause for a volunteer rather
-than producing a draft that ignores them. Staff continue returns to the affected input; it does not
+New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`). A positive
+dependent count or positive scope-exception inputs pause for a volunteer rather than producing a draft
+that ignores them. Schedule 2/3 totals left the gate once Computation consumed them: Schedule 3 line 8
+fills line 20, Schedule 2 line 21 fills line 23 and Schedule 3 line 15 fills line 31, and lines 18, 21,
+22, 24, 32 and 33 are derived through `tax_math` (`tests/test_schedules.py`, eval
+`schedules-2-and-3-typed-totals`). Line 17 and line 19 are not supported, so lines 18 and 21 each have
+one part. Staff continue returns to the affected input; it does not
 make an unsupported computation correct. Preserve truthful answers, stop that workflow, and complete
 the owner integration before running those cases. This gate checks missing software support; Intake
 does not determine tax eligibility or compute amounts. Remove each gate only with downstream tests.

@@ -16,9 +16,18 @@ from langgraph.types import Overwrite, interrupt
 from pydantic import TypeAdapter
 
 from src.agents.extraction import StaffEntryError, staff_entered_record
-from src.schemas import EscalationTicket, RevisionRequest, TaxDocument
-from src.state import SilverFileState
 from src.evidence import invalidate_evidence
+from src.resolution import (
+    validate_1099r_correction_target,
+    validate_resolution_corrections,
+)
+from src.schemas import (
+    EscalationTicket,
+    Provenance,
+    RevisionRequest,
+    TaxDocument,
+)
+from src.state import SilverFileState
 
 
 # Escalations that "continue" may pass only with a written reason. Box 2b is handled with a corrected amount.
@@ -56,9 +65,25 @@ def human(state: SilverFileState) -> dict:
             "evidence": ticket.evidence,
             "how_to_resolve": "Reply 'continue' (with an optional note) to carry on, or 'stop' to end the session.",
         }
-        if channel:
+        if ticket.reason == "tool_input_invalid":
             prompt["how_to_resolve"] = (
-                'Reply with {"action":"continue","choice":1} to select a candidate (numbered from 1), or stop.'
+                "The tax calculation rejected an input. "
+                "The rejected value was not retained. "
+                "Reply 'stop', correct the source data, "
+                "and start a new return."
+            )
+        elif ticket.reason == "1099r_taxable_not_determined":
+            prompt["how_to_resolve"] = (
+                'Reply with {"action":"continue",'
+                '"corrections":{"taxable_amount":"5500"}} '
+                "to provide the confirmed taxable amount, "
+                'or reply "stop".'
+            )
+        elif channel:
+            prompt["how_to_resolve"] = (
+                'Reply with {"action":"continue","choice":1} '
+                "to select a candidate (numbered from 1), "
+                "or stop."
             )
         if needs_reason:
             prompt["how_to_resolve"] = (
@@ -72,14 +97,53 @@ def human(state: SilverFileState) -> dict:
             )
         while True:
             answer = interrupt(prompt)
-            if (channel or needs_values) and isinstance(answer, str):
+            expects_json = (
+                bool(channel)
+                or needs_values
+                or ticket.reason == "1099r_taxable_not_determined"
+            )
+
+            if expects_json and isinstance(answer, str):
                 try:
                     answer = json.loads(answer)
                 except ValueError:
                     pass
             resolution = normalize_resolution(answer)
+            try:
+                validated_corrections = validate_resolution_corrections(
+                    ticket.reason,
+                    resolution.get("action", "continue"),
+                    resolution.get("corrections"),
+                )
+                if (
+                    ticket.reason == "1099r_taxable_not_determined"
+                    and resolution.get("action") != "stop"
+                ):
+                    document_id = ticket.evidence.get("document_id")
+                    taxable_amount = validate_1099r_correction_target(
+                        validated_corrections,
+                        documents.get(document_id),
+                    )
+            except ValueError as exc:
+                # Never raise after consuming a resume value: a failed node
+                # would replay that value forever on every later resume.
+                prompt = {**prompt, "detail": str(exc)}
+                continue
+
+            if validated_corrections:
+                resolution["corrections"] = validated_corrections
+            else:
+                resolution.pop("corrections", None)
+
             choice = resolution.get("choice")
-            if resolution.get("action") == "stop" or not (channel or needs_values or needs_reason):
+            if resolution.get("action") == "stop" or not (
+                channel
+                or needs_values
+                or needs_reason
+                or ticket.reason == "1099r_taxable_not_determined"
+            ):
+                break
+            if ticket.reason == "1099r_taxable_not_determined":
                 break
             if needs_reason:
                 if has_written_reason(resolution.get("note")):
@@ -99,9 +163,7 @@ def human(state: SilverFileState) -> dict:
                         problem = str(exc)  # names fields only; never echoes typed values
                     else:
                         documents[document_id] = record
-                        current = update.get("documents")
-                        update["documents"] = Overwrite(documents) if isinstance(current, Overwrite) else {
-                            **(current or {}), document_id: record}
+                        update["documents"] = Overwrite(documents)
                         resolution = {k: v for k, v in resolution.items() if k != "values"}
                         resolution["entered_document"] = document_id
                         update["document_readiness"] = {**update.get("document_readiness", {}), document_id: True}
@@ -126,6 +188,52 @@ def human(state: SilverFileState) -> dict:
                     selected_ticket = True
                 break
             prompt = {**prompt, "detail": "Select a candidate number before continuing, or stop the session."}
+
+        if (
+            ticket.reason
+            == "1099r_taxable_not_determined"
+            and resolution.get("action") == "continue"
+        ):
+            document_id = ticket.evidence.get("document_id")
+            record = documents[document_id]
+
+            corrected_source = Provenance(
+                kind="user_input",
+                source=(
+                    f"HITL correction: 1099-R "
+                    f"{document_id}, box 2a"
+                ),
+                value=str(taxable_amount),
+                inputs={
+                    "previous_source": (
+                        record.source.model_dump(
+                            mode="json"
+                        )
+                    ),
+                },
+                entered_by=resolution.get(
+                    "resolved_by",
+                    "staff",
+                ),
+            )
+
+            documents[document_id] = (
+                record.model_copy(
+                    update={
+                        "taxable_amount": (
+                            taxable_amount
+                        ),
+                        "taxable_not_determined": (
+                            False
+                        ),
+                        "source": corrected_source,
+                    }
+                )
+            )
+            update["documents"] = Overwrite(
+                documents
+            )
+
         resolved[ticket.ticket_id] = ticket.model_copy(update={
             "status": "resolved",
             "resolution": resolution,

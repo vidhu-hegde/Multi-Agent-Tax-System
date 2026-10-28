@@ -106,14 +106,23 @@ def computation(state: SilverFileState) -> dict:
     total_of("14", ["12e", "13b"])
     derive("15", "subtract_floor_zero", ["11a", "14"], a=amount("11a"), b=amount("14"))
     derive("16", "tax_from_schedule", ["15"], filing_status=filing_status, taxable_income=amount("15"))
-    total_of("24", ["16"])
+    # Schedules 2 and 3 come in as typed totals. Line 17 (Schedule 2, line 3) and line 19 (dependent
+    # credits) are not supported, so lines 18 and 21 each have one part.
+    total_of("18", ["16"])
+    from_answer("20", "schedule3_nonrefundable_credits")
+    total_of("21", ["20"])
+    derive("22", "subtract_floor_zero", ["18", "21"], a=amount("18"), b=amount("21"))
+    from_answer("23", "schedule2_total_tax")
+    total_of("24", ["22", "23"])
 
     # Payments and result
     from_documents("25a", w2, "federal_withheld", WITHHOLDING_BOX)
     from_documents("25b", [*interest, *dividends, *ira, *pensions, *ssa], "federal_withheld", WITHHOLDING_BOX)
     total_of("25d", ["25a", "25b"])
     from_answer("26", "estimated_payments")
-    total_of("33", ["25d", "26"])
+    from_answer("31", "schedule3_other_payments")
+    total_of("32", ["31"])
+    total_of("33", ["25d", "26", "32"])
     derive("34", "subtract_floor_zero", ["33", "24"], a=amount("33"), b=amount("24"))
     derive("37", "subtract_floor_zero", ["24", "33"], a=amount("24"), b=amount("33"))
 

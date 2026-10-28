@@ -22,6 +22,7 @@ import logging
 import sys
 
 from src.config import load_settings
+from src.security import SSNValidationError, protect_resume_input
 
 log = logging.getLogger("silverfile")
 
@@ -44,14 +45,32 @@ def parse_args(argv=None):
     staff.add_argument("--note", default="", help="with --resolve: note recorded on the ticket")
     staff.add_argument("--staff-id", default="staff", help="with --resolve: who is resolving")
     staff.add_argument("--choice", type=int, help="with --resolve: select a conflicting record, numbered from 1")
-    staff.add_argument("--values", help='with --resolve: JSON values typed from an unreadable document, e.g. \'{"employer_name": "...", "wages": "26450.00"}\'')
+    staff.add_argument(
+        "--taxable-amount",
+        help=(
+            "with --resolve: confirmed 1099-R "
+            "taxable amount for box 2a"
+        ),
+    )
+    staff.add_argument(
+        "--values",
+        help=(
+            "with --resolve: JSON values typed from an unreadable "
+            "document"
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def format_interrupt(value):
-    """Intake questions are plain strings; escalations are dicts from the human node."""
+    """Format structured Intake questions and human escalations."""
+
+    if isinstance(value, dict) and value.get("type") == "intake_question":
+        return str(value["prompt"])
+
     if not isinstance(value, dict):
         return str(value)
+
     said = value.get("evidence", {}).get("said_to_taxpayer")
     if value.get("reason") == "exploitation_concern":
         # policy.md#exploitation: notice and stop, never accuse. The person steering the return may be
@@ -59,10 +78,22 @@ def format_interrupt(value):
         # with python run.py --sessions or in the dashboard.
         return f"{said or 'Thank you.'}\n\n[Paused: a member of staff will continue this with you.]"
     lead = f"{said}\n" if said else ""
+
     if value.get("evidence", {}).get("state_write"):
-        for number, candidate in enumerate(value["evidence"]["candidates"], 1):
-            lead += f"Candidate {number}: {json.dumps(candidate, sort_keys=True)}\n"
-    return f"{lead}\n[Escalation: {value['reason']}] {value['detail']}\n{value['how_to_resolve']}"
+        for number, candidate in enumerate(
+            value["evidence"]["candidates"],
+            1,
+        ):
+            lead += (
+                f"Candidate {number}: "
+                f"{json.dumps(candidate, sort_keys=True)}\n"
+            )
+
+    return (
+        f"{lead}\n"
+        f"[Escalation: {value['reason']}] {value['detail']}\n"
+        f"{value['how_to_resolve']}"
+    )
 
 
 def print_draft(state):
@@ -98,17 +129,41 @@ def drive(graph, thread_id, first_input, ask=input, say=print):
         interrupts = result.get("__interrupt__") if isinstance(result, dict) else None
         if not interrupts:
             return result
+        input_type = "text"
+
         for item in interrupts:
             prompt = format_interrupt(item.value)
-            if show_recap and isinstance(item.value, str):
-                prompt = recap(current_answers(result)) + prompt
-                show_recap = False
+
+            if (
+                    isinstance(item.value, dict)
+                    and item.value.get("type") == "intake_question"
+            ):
+                input_type = item.value["input_type"]
+
+                if show_recap:
+                    prompt = recap(current_answers(result)) + prompt
+                    show_recap = False
+
             say(prompt)
-        try:
-            payload = Command(resume=ask("> "))
-        except (EOFError, KeyboardInterrupt):
-            say(f"\nSession saved. Resume with: python run.py --thread-id {thread_id}")
-            return None
+
+        while True:
+            try:
+                reply = ask("> ")
+                protected_reply = protect_resume_input(
+                    reply,
+                    input_type=input_type,
+                )
+                payload = Command(resume=protected_reply)
+                break
+            except SSNValidationError as exc:
+                # The validation error is deliberately safe and never echoes the value.
+                say(str(exc))
+            except (EOFError, KeyboardInterrupt):
+                say(
+                    f"\nSession saved. Resume with: "
+                    f"python run.py --thread-id {thread_id}"
+                )
+                return None
 
 
 def run_staff_command(args, settings):
@@ -118,10 +173,24 @@ def run_staff_command(args, settings):
         if args.resolve:
             thread_id, ticket_id = args.resolve
             action = "stop" if args.stop else "continue"
+            corrections = None
+            if args.taxable_amount is not None:
+                corrections = {
+                    "taxable_amount": (
+                        args.taxable_amount
+                    ),
+                }
+
             try:
                 values = json.loads(args.values) if args.values else None
                 summary = sessions.resolve(
-                    thread_id, ticket_id, action, note=args.note, resolved_by=args.staff_id, choice=args.choice,
+                    thread_id,
+                    ticket_id,
+                    action,
+                    note=args.note,
+                    resolved_by=args.staff_id,
+                    choice=args.choice,
+                    corrections=corrections,
                     values=values,
                 )
             except (StaleEscalation, ValueError) as exc:

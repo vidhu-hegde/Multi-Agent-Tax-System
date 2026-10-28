@@ -9,6 +9,8 @@
 
 {% if done %}<div class="notice ok" role="status">Recorded your decision on <span class="mono">{{ done }}</span>.
   {% if summary.status == "waiting_on_human" %}The return is now waiting on its next ticket.{% elif summary.status == "draft_ready" %}The draft is ready.{% endif %}</div>{% endif %}
+{% if resumed %}<div class="notice ok" role="status">Resumed the return.
+  {% if summary.status == "waiting_on_human" %}It is now waiting on a ticket.{% elif summary.status == "draft_ready" %}The draft is ready.{% endif %}</div>{% endif %}
 {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
 
 {% if awaiting %}
@@ -75,12 +77,32 @@
     </fieldset>
     {% endif %}
 
+    {% if awaiting.reason == "1099r_taxable_not_determined" %}
+    <fieldset>
+      <legend>Confirmed taxable amount</legend>
+      <p class="hint">
+        Enter the verified taxable amount from box 2a or supporting records.
+        It cannot exceed the gross distribution in box 1.
+      </p>
+      <label for="taxable_amount">Taxable amount (box 2a)</label>
+      <input
+        type="text"
+        id="taxable_amount"
+        name="taxable_amount"
+        value="{{ form.get('taxable_amount', '') }}"
+        inputmode="decimal"
+        autocomplete="off"
+        required>
+    </fieldset>
+    {% endif %}
     <label for="note">{% if reason_required %}Reason for continuing <span class="hint">required to continue; not needed to stop</span>{% else %}Note <span class="hint">optional, kept on the ticket</span>{% endif %}</label>
     <textarea id="note" name="note">{{ form.get("note", "") }}</textarea>
     <label for="staff_id">Your staff ID</label>
     <input type="text" id="staff_id" name="staff_id" value="{{ staff_id }}" required autocomplete="off" style="max-width:16rem">
     <div class="actions">
+      {% if not stop_only %}
       <button class="primary" type="submit" name="action" value="continue">Continue the return</button>
+      {% endif %}
       <button class="secondary" type="submit" name="action" value="stop" formnovalidate>Stop the session</button>
     </div>
   </form>
@@ -88,6 +110,16 @@
 {% elif summary.status == "waiting_on_taxpayer" %}
 <section class="panel"><h2 style="margin-top:0">Waiting on the taxpayer</h2>
   <p>They are being asked:</p><p><strong>{{ show(summary.pending_question) }}</strong></p></section>
+{% elif summary.stalled_at %}
+<section class="panel" aria-labelledby="stalled-title">
+  <h2 id="stalled-title" style="margin-top:0">Stopped partway</h2>
+  <p>This return stopped before the <strong>{{ summary.stalled_at|join(", ")|replace("_", " ") }}</strong> step finished,
+    for example because the tax-math server stopped answering. Nothing recorded is lost: Resume runs it again from that step.</p>
+  <p class="hint">Resume only if nobody is working on this return right now.</p>
+  <form method="post" action="/sessions/{{ summary.thread_id|urlencode }}/resume">
+    <div class="actions"><button class="primary" type="submit">Resume the return</button></div>
+  </form>
+</section>
 {% endif %}
 
 {% if queued %}
