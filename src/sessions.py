@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from langgraph.types import Command
 
 from src.agents.extraction import StaffEntryError, staff_entered_record
+from src.agents.human import REASON_REQUIRED, has_written_reason
 from src.config import Settings, load_settings
 from src.memory import open_checkpointer
 from src.resolution import validate_resolution_corrections
@@ -127,7 +128,8 @@ class Sessions:
         """Record a staff decision on the ticket the session is paused on, then let the graph continue.
 
         For a document that could not be read (evidence "needs_document_values"), continuing requires
-        `values`: the fields typed from the document (see evidence "required_fields").
+        `values`: the fields typed from the document (see evidence "required_fields"). Continuing an
+        out_of_scope ticket requires a written reason in `note`.
 
         Returns the new summary: the session may finish, pause on its next ticket, or wait on the taxpayer.
         """
@@ -147,26 +149,27 @@ class Sessions:
                 corrections,
             )
             evidence = paused_on.value.get("evidence", {})
-            if (
-                    evidence.get("state_write")
-                    and action == "continue"
-            ):
-                if (
-                        type(choice) is not int
-                        or not 1 <= choice <= len(evidence["candidates"])
-                ):
+
+            if evidence.get("state_write") and action == "continue":
+                if type(choice) is not int or not 1 <= choice <= len(evidence["candidates"]):
                     raise ValueError(
                         "Select a conflicting record with choice "
                         "(numbered from 1), or stop."
                     )
-            safe_resolved_by = validate_staff_identifier(
-                resolved_by
-            )
 
             if (
-                    evidence.get("needs_document_values")
+                    paused_on.value.get("reason") in REASON_REQUIRED
                     and action == "continue"
+                    and not has_written_reason(note)
             ):
+                raise ValueError(
+                    "This is out of scope: write why the session "
+                    "can continue (--note), or stop."
+                )
+
+            safe_resolved_by = validate_staff_identifier(resolved_by)
+
+            if evidence.get("needs_document_values") and action == "continue":
                 if not isinstance(values, dict):
                     raise ValueError(
                         "Type the document's values "

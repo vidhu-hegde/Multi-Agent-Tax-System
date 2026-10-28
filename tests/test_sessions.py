@@ -84,7 +84,8 @@ def test_tickets_are_resolved_one_at_a_time(settings, make_case):
         first = sessions.summary("s")
         assert len(first.open_tickets) == 2
 
-        second = sessions.resolve("s", first.awaiting_ticket_id)
+        reason = "Client confirms the 1099-NEC was issued in error"  # out_of_scope needs one to continue
+        second = sessions.resolve("s", first.awaiting_ticket_id, note=reason)
         assert second.status == "waiting_on_human"
         assert second.awaiting_ticket_id != first.awaiting_ticket_id
 
@@ -357,3 +358,15 @@ def test_direct_graph_resume_cannot_bypass_1099r_correction(
     assert record.taxable_amount == Decimal("6000")
     assert record.taxable_not_determined is True
     assert ticket.status == "open"
+
+
+@pytest.mark.parametrize("note", ["", "continue", "  OK. "])
+def test_out_of_scope_needs_a_written_reason_to_continue(settings, make_case, note):
+    with open_sessions(settings) as sessions:
+        sessions.graph.invoke({"case_path": make_case(other_document=True)}, config("s"))
+        with pytest.raises(ValueError, match="out of scope"):
+            sessions.resolve("s", "out_of_scope:nec-1", note=note)
+        assert sessions.summary("s").awaiting_ticket_id == "out_of_scope:nec-1"  # nothing was recorded
+
+        done = sessions.resolve("s", "out_of_scope:nec-1", note="Issued in error; client never did contract work")
+    assert done.status == "draft_ready"

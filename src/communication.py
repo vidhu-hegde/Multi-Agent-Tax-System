@@ -8,6 +8,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from src.schemas import (DocumentRef, EvidenceSnapshot, EscalationTicket, Handoff, IntakeAnswer, LineValue,
                          RevisionRequest, RuleDecision, StateWriteConflict, TaxDocument)
+from src.tools import ToolInputError
 
 COMMON = {"last_agent", "escalations"}
 ALLOWED_OUTPUTS = {
@@ -18,7 +19,7 @@ ALLOWED_OUTPUTS = {
     "aggregate_documents": {"last_agent", "evidence_history", "evidence_epoch", "lines", "rule_decisions", "review_status", "review_passes", "revision_requests", "computed_evidence_fingerprint"},
     "rules": COMMON | {"rule_decisions", "revision_requests"},
     "computation": COMMON | {"lines", "revision_requests", "review_status", "computed_evidence_fingerprint"},
-    "review": {"revision_requests", "review_status", "review_passes", "last_agent"},
+    "review": COMMON | {"revision_requests", "review_status","review_passes"},
     "human": COMMON | {"documents", "document_readiness", "revision_requests", "review_status", "review_passes", "guard_window_start",
                         "rule_decisions", "lines", "evidence_epoch", "evidence_history", "computed_evidence_fingerprint"},
     "orchestrator": {"next_agent", "handoffs", "escalations", "status", "guard_window_start", "guard_answer_count", "evidence_history", "evidence_epoch", "lines", "rule_decisions", "review_status", "review_passes", "computed_evidence_fingerprint"},
@@ -104,8 +105,44 @@ def checked_agent(agent, node):
             if evidence_fingerprint(state) != state["computed_evidence_fingerprint"]:
                 invalidated = invalidate_evidence(state)
                 state = {**state, **{k: v.value if isinstance(v, Overwrite) else v for k, v in invalidated.items()}}
-        result = {**invalidated, **node(state)}
-        if agent == "computation":
+        try:
+            node_result = node(state)
+        except ToolInputError as exc:
+            if agent not in {"rules", "computation", "review"}:
+                raise
+
+            fields = list(exc.fields)
+            field_text = ", ".join(fields) if fields else "input"
+            field_key = "-".join(fields) if fields else "input"
+
+            raised = EscalationTicket(
+                ticket_id=(
+                    f"tool_input_invalid:{agent}:"
+                    f"{exc.tool}:{field_key}"
+                ),
+                reason="tool_input_invalid",
+                raised_by=agent,
+                detail=(
+                    f"Tax calculation tool tax_math.{exc.tool} "
+                    f"rejected invalid field(s): {field_text}. "
+                    "The rejected value was not retained. "
+                    "Stop the session and correct the source data "
+                    "before restarting."
+                ),
+                evidence={
+                    "tool": f"tax_math.{exc.tool}",
+                    "invalid_fields": fields,
+                },
+            )
+            node_result = {
+                "last_agent": agent,
+                "escalations": {
+                    raised.ticket_id: raised,
+                },
+            }
+
+        result = {**invalidated, **node_result}
+        if agent == "computation" and "lines" in result:
             from src.evidence import evidence_fingerprint
             result["computed_evidence_fingerprint"] = evidence_fingerprint(state)
         if agent == "rules" and state.get("evidence_epoch", 0):

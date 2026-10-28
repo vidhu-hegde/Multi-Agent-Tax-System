@@ -6,6 +6,7 @@ from decimal import Decimal
 from src.agents.review import find_problems, review
 from src.schemas import FORM_LINES, LineValue, Provenance, RuleDecision
 from tests.conftest import SKELETON_CASE
+from src.tools import TOOLS
 
 
 def complete_zero_state(*, stub_line: str | None = None) -> dict:
@@ -63,7 +64,20 @@ def test_review_rejects_stubbed_tax_value_and_sends_it_back_to_computation():
 
 
 @pytest.mark.production_stubs
-def test_production_placeholder_tools_cannot_reach_draft_ready(make_graph):
+def test_production_placeholder_tools_cannot_reach_draft_ready(make_graph, monkeypatch):
+    for name in (
+        "taxable_social_security",
+        "standard_deduction",
+        "senior_deduction",
+        "tax_from_schedule",
+    ):
+        function, _ = TOOLS[name]
+        monkeypatch.setitem(
+            TOOLS,
+            name,
+            (function, True),
+        )
+
     result = make_graph().invoke(
         {"case_path": SKELETON_CASE},
         {"configurable": {"thread_id": "production-stub-gate"}},

@@ -44,10 +44,29 @@ scripted reply, or if an escalation arrives that the next staff decision didn't 
 - A finished draft has a record for every in-scope document, and every line has a source.
 - No SSN outside the 900–999 test range appears anywhere in the saved state.
 
+## Live W-2 vision check
+
+The cases above run offline, so a W-2 image goes to staff to type in. To check that Claude reads both
+committed W-2 images correctly, add your own `ANTHROPIC_API_KEY` to `.env` and run:
+
+```bash
+python -m evals.live_vision_check
+```
+
+It reads `demo/w2_image_1.jpg` and `demo/w2_image_2.jpg` through the Extraction agent's `read_w2()` and
+compares every field with `data/fixtures/w2_N_expected.json` (two requests). Without a key it is skipped.
+
+| Date | Model | Result |
+|---|---|---|
+| 2026-10-27 | claude-sonnet-5-5 | 2 of 2 images, 16 of 16 fields each |
+
+The full image-based clean run, `python run.py --case demo/anupama_vision_case.json`, also finished with
+the W-2 read from its image (wages $18,000, withholding $1,500 on lines 1z and 25a).
+
 ## Cases still to add (owners)
 
 - **Iris:** resume after restart, "go back" and "change X to Y" corrections, dependents.
-- **Anupama:** W-2 read from an image (once there's an API key; mark it so it can be skipped offline).
+- **Anupama:** W-2 read from an image is now checked live (above); add a case for a second, harder image if useful.
 - **Max:** real tax_math numbers on the clean case (standard deduction, senior deduction, Social Security, tax) once the server lands. Update `eval-case-1-clean-run`'s expected lines.
 - **Juee:** rules edge dates (born 1 vs 2 January 1961), box counts, more out-of-scope items.
 - **Qiyan:** Review catching seeded errors; SSN masking in tickets and traces.

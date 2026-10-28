@@ -17,6 +17,11 @@ from src.graph import build_graph
 from src.sessions import open_sessions
 from dataclasses import replace
 from pathlib import Path
+from langgraph.types import Command
+
+from src.resolution import validate_resolution_corrections
+from src.tools import call_tool
+from tests.conftest import SKELETON_CASE
 
 
 @pytest.mark.parametrize(
@@ -445,3 +450,88 @@ def test_repository_text_files_do_not_contain_secret_values():
             )
 
     assert offenders == []
+
+
+def test_tax_tool_error_becomes_a_sanitized_stop_only_ticket(
+    settings,
+):
+    """Rejected tax inputs pause safely without persisting the raw value."""
+
+    rejected_value = "raw-invalid-amount-98765"
+    thread_id = "security-tool-input-error"
+    config = memory.thread_config(thread_id)
+
+    def failing_computation(_state):
+        call_tool(
+            "tax_from_schedule",
+            filing_status="single",
+            taxable_income=rejected_value,
+        )
+
+    with memory.open_checkpointer(settings) as saver:
+        graph = build_graph(
+            settings,
+            checkpointer=saver,
+            agents={
+                "computation": failing_computation,
+            },
+        )
+
+        result = graph.invoke(
+            {"case_path": SKELETON_CASE},
+            config,
+        )
+
+        assert result["status"] == "waiting_on_human"
+        assert not result.get("lines")
+
+        ticket = next(
+            ticket
+            for ticket in result["escalations"].values()
+            if ticket.reason == "tool_input_invalid"
+        )
+
+        assert ticket.raised_by == "computation"
+        assert ticket.evidence == {
+            "tool": "tax_math.tax_from_schedule",
+            "invalid_fields": ["taxable_income"],
+        }
+        assert rejected_value not in str(ticket)
+        assert rejected_value not in str(result)
+        assert rejected_value not in str(
+            graph.get_state(config).values
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="cannot be continued",
+        ):
+            validate_resolution_corrections(
+                "tool_input_invalid",
+                "continue",
+                None,
+            )
+
+        assert (
+            validate_resolution_corrections(
+                "tool_input_invalid",
+                "stop",
+                None,
+            )
+            == {}
+        )
+
+        stopped = graph.invoke(
+            Command(resume="stop"),
+            config,
+        )
+        assert stopped["status"] == "stopped"
+        assert not stopped.get("lines")
+
+    persisted_bytes = b"".join(
+        path.read_bytes()
+        for path in settings.db_path.parent.glob(
+            settings.db_path.name + "*"
+        )
+    )
+    assert rejected_value.encode() not in persisted_bytes

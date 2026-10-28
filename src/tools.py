@@ -1,13 +1,13 @@
 """Client side of the tax_math tools. Computation and Review get every number through call_tool().
 
-For now the tools run locally: the plain sums are real, and the four tax rules are STUBS that return 0
-and mark their provenance stub=True. Step 3 swaps this file for calls to the tax_math MCP server;
-agents do not change.
+For now the tools run locally: the plain sums here, and the four tax rules from src/tax_math/rules.py.
+Step 3 swaps this file for calls to the tax_math MCP server; agents do not change.
 """
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from src.schemas import Provenance
+from src.tax_math import rules
 
 
 def _sum(values):
@@ -22,8 +22,30 @@ def _subtract_floor_zero(a, b):
     return max(Decimal("0"), Decimal(a) - Decimal(b))
 
 
-def _stub(**_):
-    return Decimal("0")
+class ToolInputError(ValueError):
+    """A sanitized tool failure containing field names, never rejected values."""
+
+    def __init__(self, tool: str, fields: tuple[str, ...]):
+        self.tool = tool
+        self.fields = fields
+        named = ", ".join(fields) if fields else "input"
+        super().__init__(
+            f"tax_math.{tool} rejected invalid field(s): {named}"
+        )
+
+
+def _invalid_fields(message: str, inputs: dict) -> tuple[str, ...]:
+    """Identify likely fields from an error without retaining its raw text."""
+
+    normalized = message.lower().replace("_", " ")
+    matched = tuple(
+        sorted(
+            name
+            for name in inputs
+            if name.lower().replace("_", " ") in normalized
+        )
+    )
+    return matched or tuple(sorted(inputs))
 
 
 # name -> (function, is_stub)
@@ -31,14 +53,25 @@ TOOLS = {
     "sum": (_sum, False),
     "subtract": (_subtract, False),
     "subtract_floor_zero": (_subtract_floor_zero, False),
-    "standard_deduction": (_stub, True),
-    "senior_deduction": (_stub, True),
-    "taxable_social_security": (_stub, True),
-    "tax_from_schedule": (_stub, True),
+    "standard_deduction": (rules.standard_deduction, False),
+    "senior_deduction": (rules.senior_deduction, False),
+    "taxable_social_security": (rules.taxable_social_security, False),
+    "tax_from_schedule": (rules.tax_from_schedule, False),
 }
 
 
 def call_tool(name: str, **inputs) -> tuple[Decimal, Provenance]:
     fn, is_stub = TOOLS[name]
-    result = fn(**inputs)
-    return result, Provenance(kind="tool", source=f"tax_math.{name}", value=result, inputs=inputs, stub=is_stub)
+    try:
+        result = fn(**inputs)
+    except (ValueError, InvalidOperation, TypeError) as exc:
+        fields = _invalid_fields(str(exc), inputs)
+        raise ToolInputError(name, fields) from None
+
+    return result, Provenance(
+        kind="tool",
+        source=f"tax_math.{name}",
+        value=result,
+        inputs=inputs,
+        stub=is_stub,
+    )

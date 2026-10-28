@@ -112,7 +112,7 @@ def serializer() -> JsonPlusSerializer:
 @contextmanager
 def open_checkpointer(settings: Settings):
     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
-    # check_same_thread=False: the Streamlit dashboard calls in from worker threads; SqliteSaver locks.
+    # check_same_thread=False: the dashboard calls in from worker threads; SqliteSaver locks.
     conn = sqlite3.connect(str(settings.db_path), check_same_thread=False)
     try:
         yield WorkflowSqliteSaver(conn, serde=serializer())
@@ -185,7 +185,7 @@ def main(argv=None):
 
     enabled = not args.no_context_strategy
     config = thread_config(args.thread_id)
-    model = ChatAnthropic(model=settings.model, api_key=settings.anthropic_api_key, temperature=0, max_retries=0)
+    model = ChatAnthropic(model=settings.model, api_key=settings.anthropic_api_key, max_retries=0)  # no temperature: the API rejects sampling parameters
     with open_checkpointer(settings) as saver:
         rows = run_context_benchmark(model, saver, config["configurable"]["thread_id"], enabled)
     result = {

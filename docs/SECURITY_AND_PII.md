@@ -1,173 +1,287 @@
 # SilverFile Security and PII Handling
 
-- **Owner:** Qiyan Zhai
-- **Focus area:** Security
-- **Last updated:** 2026-10-27
+Owner: **Qiyan Zhai** (focus area: Security).
 
-## 1. Scope
+Primary code: `src/security.py`, `src/resolution.py`, and security boundaries in `src/tools.py`, `src/communication.py`, `src/sessions.py`, `src/agents/human.py`, and `src/dashboard/`.
 
-SilverFile handles tax information containing PII, financial data, and credentials. The security work focuses on:
+Primary tests: `tests/test_security.py`, `tests/test_review.py`, with integration coverage in `tests/test_sessions.py`, `tests/test_dashboard.py`, and `tests/test_communication.py`.
 
-- preventing real SSNs and secrets from entering saved state;
-- validating synthetic test identities;
-- protecting taxpayer and staff resume inputs before checkpointing;
-- preserving safe audit provenance;
-- preventing unresolved, missing, or placeholder values from reaching `draft_ready`.
+## Security responsibility and completed work
 
-SilverFile prepares draft returns only. It does not file returns or replace an authorized tax preparer.
+SilverFile processes taxpayer documents, Social Security numbers, income amounts, staff corrections, escalation notes, checkpoints, and generated tax-return drafts.
 
-## 2. PII and SSN controls
+My Security contribution establishes shared boundaries for:
 
-SilverFile accepts only synthetic SSNs in the `9XX-XX-XXXX` range. Validation errors do not repeat rejected values.
+- validating synthetic test SSNs and rejecting real-range SSNs;
+- recursively masking SSN-shaped values;
+- protecting taxpayer replies before `Command(resume=...)`;
+- preventing sensitive staff identifiers and notes from entering checkpoints;
+- keeping provider credentials out of state and committed files;
+- enforcing safe staff resolution through `Sessions.resolve()`;
+- preventing unresolved document and calculation failures from reaching `draft_ready`;
+- converting invalid tax-tool inputs into sanitized HITL tickets;
+- validating Review/Audit provenance and fail-closed behavior;
+- integrating these controls with document recovery, real tax math, and the staff dashboard.
 
-Real or volunteered SSNs are rejected or redacted as:
+I implemented these protections at shared ingress, persistence, tool, and resolution boundaries so that the CLI and dashboard use the same security rules.
 
-```text
-***-**-6789
-```
+## Implemented controls
 
-`src/security.py` is the shared implementation for:
+| Boundary | Security behavior |
+|---|---|
+| Test SSNs | Only synthetic SSNs in the `9XX-XX-XXXX` range are accepted where an SSN is required. Invalid values are rejected without being repeated in the error. |
+| PII display | Dashed, compact, string, integer, and nested SSN-shaped values are masked to the last four digits. |
+| Taxpayer resume input | Text, money, and requested test-SSN inputs are handled separately before they are placed in `Command(resume=...)`. |
+| Staff identity | Staff identifiers must be non-empty and cannot contain an SSN-shaped value. |
+| Staff notes | Notes are redacted before they are stored in ticket resolutions or checkpoints. |
+| Checkpoints | Regression tests inspect SQLite artifacts and verify that selected raw SSNs and rejected tax inputs are absent. |
+| Secrets | API keys remain in local configuration, are excluded from state and checkpoints, and are protected by `.gitignore` and `.dockerignore`. |
+| Tax tools | Invalid inputs become `ToolInputError` with only the tool and affected field names retained. |
+| HITL resolution | Reason-specific corrections are validated before the graph resumes. |
+| Review/Audit | Missing provenance, placeholder calculations, inconsistent totals, unresolved scope issues, and invalid computations prevent successful review. |
 
-- synthetic SSN validation;
-- recursive SSN redaction;
-- field-aware resume protection;
-- staff identifier validation.
+## Design decisions and why
 
-W-2 records retain only the validated SSN’s last four digits. Real taxpayer SSNs must not be used in demos or tests.
+### 1. Protect values before checkpointing
 
-## 3. Field-aware input protection
+Redacting a value only after an agent reads it is too late because LangGraph may persist the resume payload before the next node executes.
 
-LangGraph may checkpoint `Command(resume=...)` before an agent processes it, so protection must happen before graph resume.
+I therefore added protection before taxpayer and staff inputs are placed in `Command(resume=...)`. The related tests inspect persisted SQLite bytes rather than checking only the returned Python state.
 
-Structured Intake questions identify:
+### 2. Use field-aware input protection
 
-```text
-type
-field
-input_type
-prompt
-```
+A nine-digit string may be an SSN or a legitimate monetary amount. Applying the same regular expression to every field would either expose PII or corrupt valid tax data.
 
-Supported input handling includes:
+The ingress boundary distinguishes between:
 
-- `text`: redact SSN-shaped content;
-- `money`: preserve a valid monetary value, including nine-digit amounts;
-- `test_ssn`: require a valid 900-series synthetic SSN.
+- ordinary text;
+- monetary input;
+- explicitly requested synthetic SSNs.
 
-Production CLI and staff resolution paths apply these controls before invoking the graph.
+A value such as `123456789` can remain valid in a money field, while the same digits in ordinary text are masked.
 
-## 4. Memory, checkpoints, and secrets
+### 3. Do not repeat rejected values
 
-Model context and stored messages use recursive redaction. Selective context avoids sending unnecessary sensitive answers to the model.
+Security errors identify the affected field or tool but do not repeat the submitted value.
 
-SSN-like thread IDs and staff identifiers are rejected. Staff notes are redacted before persistence.
+I applied this rule to:
 
-API keys are loaded from environment configuration and excluded from application state and debug representation. `.env`, databases, traces, output files, Git metadata, and virtual environments are excluded from the Docker build context.
+- SSN validation;
+- staff identifiers;
+- document-recovery fields;
+- dashboard forms;
+- staff notes;
+- tax-tool failures.
 
-SQLite provides persistence but not authentication or encryption at rest. Deployment access control and encryption remain future responsibilities.
+This reduces the chance that an exception, escalation ticket, dashboard page, or checkpoint becomes a second copy of sensitive input.
 
-## 5. HITL resolution security
+### 4. Use one staff-resolution boundary
 
-`Sessions.resolve()` is the shared staff-resolution boundary. It:
+Both the command-line workflow and the dashboard call `Sessions.resolve()`.
 
-- validates the staff identifier;
-- redacts free-text notes;
-- validates reason-specific correction values;
-- leaves the ticket open when validation fails;
-- resumes the graph only with the protected decision.
+This centralizes:
+
+- staff-ID validation;
+- note redaction;
+- stale-ticket checks;
+- allowed actions;
+- required corrections;
+- written override reasons;
+- checkpoint-safe resume payloads.
+
+The dashboard therefore cannot bypass the security behavior of the underlying workflow.
+
+### 5. Fail closed on invalid calculations
+
+The production tax-math functions raise `ValueError` when their contracts are violated. Raw exception text may contain rejected values and should not be copied into workflow state.
+
+I added a boundary in `call_tool()` that converts expected validation failures into `ToolInputError`. The agent boundary then raises a sanitized `tool_input_invalid` escalation containing only:
+
+- the safe tax-tool name;
+- the affected field names;
+- safe staff guidance.
+
+This ticket is stop-only. Staff cannot continue past an invalid calculation and produce a draft from incomplete or malformed source data.
+
+### 6. Preserve the placeholder safety invariant
+
+After PR #10 replaced the original tax stubs with real implementations, the original placeholder safety test no longer had a real stub to exercise.
+
+I updated the test to inject explicit stubs inside the test process. This continues to prove that placeholder calculations cannot reach `draft_ready` without incorrectly treating the production tools as placeholders.
+
+## Human-in-the-loop integrations
 
 ### Unreadable documents
 
-An unreadable document cannot be silently skipped. Staff must enter the required values or stop the session.
+When a document cannot be read, staff may type the required fields. The explicit per-form field definitions are the executable contract.
 
-Each supported form has an explicit `STAFF_ENTRY_FIELDS` contract. An explicit `0`, `false`, `null`, or `[]` is accepted where valid, but an omitted required field is rejected rather than silently becoming zero.
+The security boundary ensures that:
 
-Validated entries receive staff provenance and replace the failed document state.
+- omitted required fields are rejected;
+- an explicit zero is not confused with an omitted value;
+- typed values are protected before resume;
+- staff provenance is retained;
+- error messages do not repeat typed values;
+- a plain Continue action cannot skip the unresolved document;
+- incomplete document recovery cannot produce a completed draft.
+
+I integrated these protections with the document-recovery flow while preserving its original field definitions and ownership.
 
 ### 1099-R Box 2b
 
-A `1099r_taxable_not_determined` ticket cannot be resolved with plain `continue`.
+A `1099r_taxable_not_determined` ticket requires a finite, nonnegative taxable-amount correction before Continue is accepted.
 
-Staff must supply:
+The correction is validated through the shared resolution boundary, applied to the corresponding 1099-R, attributed to the staff member, and followed by recomputation.
+
+During integration with the staff dashboard, I connected the dashboard’s correction form to this existing `Sessions.resolve()` contract. I also added regression coverage for:
+
+- a valid taxable-amount correction;
+- a missing correction;
+- an invalid correction;
+- a stale or already-resolved ticket;
+- a second attempted resolution.
+
+### Invalid tax-tool inputs
+
+A tax-tool validation failure becomes a sanitized, stop-only `tool_input_invalid` ticket.
+
+I added regression coverage verifying that the rejected raw value does not appear in:
+
+- the escalation ticket;
+- returned workflow state;
+- LangGraph checkpoint state;
+- the checkpoint database;
+- dashboard output.
+
+A forged dashboard Continue request is also rejected. Staff may only stop the affected workflow, correct its source data, and begin a new return.
+
+## Review and audit controls
+
+Review checks the completed draft without changing calculated values itself.
+
+The Review boundary detects:
+
+- placeholder or stub-dependent calculations;
+- missing provenance;
+- taxable components larger than their corresponding totals;
+- inconsistent refund and amount-owed values;
+- incorrect aggregate lines;
+- unresolved scope issues;
+- incomplete revision cycles.
+
+I added and maintained tests showing that Review fails closed when these conditions occur.
+
+A failed calculation does not receive a successful Review fingerprint, and an unresolved Review failure cannot become `draft_ready`.
+
+## Integration with teammate work
+
+I developed the initial Security boundaries independently where stable shared contracts were already available. I then retested and extended them as document recovery, guardrails, real tax math, and the dashboard were merged.
+
+During integration, I:
+
+- preserved Vidhatri’s document-recovery and dashboard contracts;
+- connected the dashboard’s correction flow to the protected `Sessions.resolve()` boundary;
+- preserved Max’s tax-math functions while adding sanitized handling for rejected inputs;
+- retained Juee’s policy and guardrail reasons as the policy source;
+- preserved Anupama’s extraction, provenance, and vision-demo design;
+- resolved security-sensitive merge conflicts;
+- added cross-component regression tests;
+- ran the final offline and live validation against the integrated system.
+
+My contribution does not replace or claim ownership of those components. It protects the shared boundaries through which they exchange, persist, display, and correct sensitive information.
+
+Merge chronology, individual conflict resolutions, commit identifiers, intermediate test results, and detailed changed-file lists are recorded in PR #11 rather than in this long-lived security reference.
+
+## Verification
+
+### Automated regression suite
+
+With strict LangGraph checkpoint serialization enabled:
 
 ```text
-corrections.taxable_amount
+543 passed
 ```
 
-The amount is validated, recorded with staff provenance, and sent through recomputation and review.
+This includes security, Review, communication, sessions, dashboard, document recovery, guardrails, tax math, provenance, and checkpoint tests.
 
-## 6. Review boundary
+### Offline end-to-end evaluations
 
-Security Review rejects draft lines with missing provenance or stub/placeholder calculations.
+```text
+16 of 16 cases passed
+```
 
-A stub-derived result must not reach `draft_ready`, even when the placeholder returns a syntactically valid zero.
+These evaluations cover:
 
-Tests may explicitly inject verified test tools. Production stubs must remain marked as stubs until the real tax-math implementation is integrated.
-
-## 7. Integration record
-
-Commit `e5803ac` merged current `main`, including PRs #7, #8, and #9, into `Qiyan-security`.
-
-The conflict resolution preserved both teammate functionality and the security boundaries:
-
-- `run.py` supports document-value recovery while protecting taxpayer and staff resume inputs.
-- `src/agents/human.py` supports unreadable-document values and validated 1099-R corrections.
-- Successful document recovery replaces the failed document state.
-- `src/agents/intake.py` combines structured security metadata with the shared guardrail flow.
-- `src/sessions.py` supports both `values` and `corrections` while retaining note redaction and staff-ID validation.
-- Communication and MFS tests now use the structured Intake interrupt contract.
-- The 1099-R eval now supplies `corrections.taxable_amount` rather than bypassing the ticket.
-
-## 8. Test evidence
-
-Security and integration coverage includes:
-
-- synthetic SSN validation and redaction;
-- field-aware resume protection;
-- checkpoint and restart safety;
-- staff-note and staff-identity protection;
-- API-key and repository secret scanning;
+- clean draft generation;
+- document conflicts;
+- out-of-scope requests;
+- written reasons for staff overrides;
+- 1099-R Box 2b correction;
+- advice requests;
+- filing-status ambiguity;
+- exploitation concerns;
+- honest uncertainty;
 - unreadable-document recovery;
-- missing-field rejection;
-- structured guardrail questions;
-- MFS Social Security handling;
-- mandatory 1099-R correction;
-- placeholder calculation rejection;
-- strict MsgPack serialization.
+- Review and loop limits;
+- SSN refusal and masking.
 
-Latest results:
+### Live vision verification
+
+With a locally configured and Git-ignored API key:
 
 ```text
-Focused integration suite: 193 passed
-Communication tests: 67 passed
-MFS Social Security tests: 7 passed
-Eval pytest cases: 15 passed
-Full suite with LANGGRAPH_STRICT_MSGPACK=true: 464 passed
+PASS  demo/w2_image_1.jpg: 16 of 16 fields match
+PASS  demo/w2_image_2.jpg: 16 of 16 fields match
+
+2 of 2 W-2 images read correctly
 ```
 
-The earlier answer-event timestamp collision has been fixed. The integrated pytest suite currently has no failures.
+The live extraction used `claude-sonnet-5-5`. I did not add the API key to source control or workflow state.
 
-## 9. Remaining work
+### Anupama vision case
 
-The following work remains:
+Anupama designed and supplied `demo/anupama_vision_case.json` and its taxpayer scenario.
 
-- integrate PR #10’s real tax-math implementation;
-- rerun the standalone end-to-end eval suite after #10;
-- review the final Docker and deployment configuration;
-- add Dashboard authentication and role-based authorization;
-- define production data retention, deletion, and encryption policies;
-- review any future entry point that bypasses `run.drive()` or `Sessions.resolve()`;
-- perform live provider testing when an API key is available.
+I did not redesign the case or change its source data. During final Security integration, I:
 
-Until PR #10 replaces the tax-math stubs, a standalone eval may resolve the 1099-R ticket and then reach `review_limit`. This is expected fail-closed behavior and must not be bypassed by weakening Review.
+- updated its stale description after real tax math replaced the original calculation stubs;
+- ran the case with the live vision integration;
+- verified the merged extraction, provenance, computation, Review, and Security path;
+- confirmed that the run reached `draft_ready`.
 
-## 10. Ownership
+The resulting draft included:
 
-- **Qiyan:** security validation, redaction, HITL protection, tests, and security review.
-- **Iris:** Intake, memory, checkpoints, and context integration.
-- **Vidhatri:** orchestration and resume integration.
-- **Max:** tax math, Dashboard, Docker, and runtime deployment.
-- **Anupama:** extraction and provenance contracts.
-- **Juee:** policy, scope guardrails, and HITL wording.
+- taxable Social Security benefits of `$5,775.00`;
+- total income of `$30,195.00`;
+- taxable income of `$6,445.00`;
+- tax of `$644.50`;
+- an overpayment of `$2,455.50`.
 
-Security requirements apply across these components even when their primary implementation belongs to another team member.
+I report these results as integration evidence, not as a claim that I designed Anupama’s case or implemented Max’s tax formulas.
+
+## Known limits
+
+- SSN redaction is pattern-based. It protects recognized dashed, compact, string, integer, and nested SSN-shaped values, but it is not a general-purpose detector for every possible form of PII.
+- The protections depend on callers using the shared `protect_resume_input()`, `Sessions.resolve()`, `call_tool()`, and redaction boundaries. Any future entry point must reuse these boundaries rather than writing directly to workflow state or checkpoints.
+- The local SQLite checkpoint database is not encrypted. Production use would require deployment-level encryption, access control, retention, and secure-deletion policies.
+- The current local staff dashboard does not provide production authentication or role-based authorization. Staff-ID validation supports audit records but is not a replacement for identity management.
+- The application cannot control logs, retention, or telemetry independently maintained by an external model provider. Provider-side privacy settings must be reviewed before production use.
+- Security tests use synthetic identifiers and deliberately rejected values. They verify the implemented boundaries and selected persisted artifacts, but they cannot prove that every future code path is free of PII leakage.
+
+## AI-use disclosure
+
+I used OpenAI Codex to inspect the existing SilverFile repository, assignment context, teammate branches, and PR changes. Codex assisted me with identifying security-sensitive integration boundaries and with designing, generating, reviewing, and revising parts of the Security implementation and tests.
+
+I used Codex to assist with:
+
+- centralized SSN validation and recursive PII redaction;
+- field-aware protection before LangGraph resume and checkpoint persistence;
+- staff identifier and note protection;
+- secret-handling and Docker-context tests;
+- the sanitized `ToolInputError` and `tool_input_invalid` HITL boundary;
+- Review/Audit safety tests;
+- dashboard and 1099-R security integration;
+- merge-conflict analysis and regression-test planning;
+- documentation, handoff notes, and this Security report.
+
+The live W-2 extraction used Anthropic Claude Sonnet 5.5 as part of testing the application.

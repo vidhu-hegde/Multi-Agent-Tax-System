@@ -88,6 +88,13 @@ Intake agent that never finishes.
 any note meaning continue) or a dict `{"action": "continue" | "stop", "note": ..., "resolved_by": ...}`,
 which is what the dashboard will send. Resolved tickets are never reopened (`merge_escalations`).
 
+An `out_of_scope` ticket can always be stopped, but "continue" needs a written reason in `note`
+(for example "Client confirms the 1099-NEC was issued in error"). Plain `continue`, an empty note or
+"ok" asks again, and `Sessions.resolve` / `run.py --resolve` refuse it before touching the session.
+SilverFile does not prepare those returns, so continuing is a staff override, and the reason stays on
+the ticket's `resolution` for the reviewer. False alarms (for example a guardrail match on a reply)
+are the expected reason to continue.
+
 Agents raise tickets only through `escalate()` / `ticket()` in `src/escalation.py`. The ticket id is
 `<reason>:<key>`, where the key identifies the occurrence, so raising the same issue twice is harmless.
 
@@ -144,6 +151,32 @@ act on it. Resolutions are recorded on the ticket (`resolution`, `resolved_by`, 
 
 The same actions are on the command line for graders and for testing without the dashboard:
 `python run.py --sessions` and `python run.py --resolve THREAD_ID TICKET_ID [--stop] [--note ...]`.
+
+## Dashboard (`src/dashboard/`)
+
+`python -m src.dashboard` serves a FastAPI app with server-rendered Jinja templates (autoescaped, no
+JavaScript). It reads and resolves sessions only through `Sessions`, so every rule in `resolve()` applies
+exactly as it does on the command line.
+
+| Page | What staff see and do |
+|---|---|
+| `/` | The queue of open escalations across returns (oldest first) and every return, filterable by status |
+| `/sessions/{id}` | The ticket the return is paused on: reason, detail, evidence, which guardrail rule fired, staff-only guidance. A form that matches the ticket: a note, a reason (required for `out_of_scope`), a candidate (state-write conflict), or the document's fields with its image (unreadable document). Also the decisions so far, the documents and the taxpayer's answers |
+| `/sessions/{id}/draft` | Anupama's provenance view (`render_draft`) |
+
+Choices made for staff safety:
+
+- It binds to 127.0.0.1 and refuses form posts whose `Origin`/`Referer` is another site, so a page open
+  in the staff member's browser can't resolve tickets.
+- SSN-shaped values are masked to the last four digits wherever the dashboard displays state.
+- A document image is served only if it is that return's inventory image, an image type, and inside the project.
+- Error messages name fields by their form labels and never repeat typed values; the form keeps them so
+  staff can correct them.
+- The exploitation guidance is shown only on the staff page. The taxpayer's screen stays neutral (`run.py`).
+- Staff must give an ID; it is remembered in an HTTP-only cookie for the next decision.
+
+`python -m src.dashboard --demo` seeds `output/demo.sqlite` from eval cases, offline, with returns that
+are draft-ready, waiting on the taxpayer, and paused on each kind of escalation. Tests: `tests/test_dashboard.py`.
 
 ## Persistence
 

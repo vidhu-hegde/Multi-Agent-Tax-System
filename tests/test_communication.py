@@ -17,6 +17,7 @@ from src.memory import serializer
 from src.render import render_draft
 from src.schemas import (DocumentRef, EscalationTicket, Handoff, IntakeAnswer, LineValue,
                          Provenance, RevisionRequest, RuleDecision, W2Record)
+from src.tools import TOOLS
 from tests.conftest import SKELETON_CASE
 
 
@@ -44,6 +45,7 @@ def test_vision_transcribes_fixture_contract_and_sends_the_actual_image(settings
     record = make_extraction(settings, provider)({"doc": ref})["documents"][ref.document_id]
     expected = W2Record(document_id=ref.document_id, source=record.source, **fields)
     assert record == expected
+    assert not {"temperature", "top_p", "top_k"} & provider.calls[0].keys()  # the API rejects sampling parameters
     image = provider.calls[0]["messages"][0]["content"][0]["source"]
     assert image["media_type"] == "image/jpeg"
     assert base64.b64decode(image["data"]) == Path(ref.image_path).read_bytes()
@@ -180,7 +182,8 @@ def test_contracts_survive_checkpoint_and_json_roundtrips():
         assert type(record).model_validate_json(record.model_dump_json()).model_dump_json() == record.model_dump_json()
 
 
-def test_manual_provenance_and_tool_inputs_reach_derived_line_and_html(make_graph):
+def test_manual_provenance_and_tool_inputs_reach_derived_line_and_html(make_graph, monkeypatch):
+    monkeypatch.setitem(TOOLS, "taxable_social_security", (lambda **_: Decimal("0"), True))
     graph = make_graph()
     state = graph.invoke({"case_path": SKELETON_CASE}, {"configurable": {"thread_id": "audit"}})
     source = state["documents"]["w2-1"].source
@@ -451,11 +454,12 @@ def test_layered_diamond_audit_size_grows_with_nodes_not_paths():
 @pytest.mark.production_stubs
 @pytest.mark.parametrize("mark_stubs_nonstub", [False, True])
 def test_skeleton_uses_local_provenance_and_deduplicated_dependency_traces(make_graph, monkeypatch, mark_stubs_nonstub):
-    from src.tools import TOOLS
     if mark_stubs_nonstub:
         # Exercise every rendered line without claiming real tax math; flags change only in this test.
         for name, (fn, _) in list(TOOLS.items()):
             monkeypatch.setitem(TOOLS, name, (fn, False))
+    else:
+        monkeypatch.setitem(TOOLS, "taxable_social_security", (lambda **_: Decimal("0"), True))
     state = make_graph().invoke({"case_path": SKELETON_CASE}, {"configurable": {"thread_id": "compact-skeleton"}})
     for line in state["lines"].values():
         if line.depends_on:

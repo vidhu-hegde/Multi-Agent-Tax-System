@@ -13,6 +13,13 @@ def validate_resolution_corrections(
     if action == "stop":
         return {}
 
+    if reason == "tool_input_invalid":
+        raise ValueError(
+            "This calculation-input ticket cannot be continued. "
+            "Stop the session, correct the source data, "
+            "and start a new return."
+        )
+
     if reason == "1099r_taxable_not_determined":
         if (
             not isinstance(corrections, dict)

@@ -5,6 +5,8 @@ continue) or a dict {"action": "continue" | "stop", "note": str, "resolved_by": 
 Conflicting state writes additionally require a one-based "choice". A document that could not be read
 (evidence "needs_document_values") requires "values": the fields typed from the document. The CLI accepts
 JSON for both. Plain "continue" is not enough for either, so nothing is chosen or left out silently.
+An out_of_scope ticket can be continued only with a written reason in "note" (policy.md#scope): SilverFile
+does not prepare that return, so going on is a staff override that must say why.
 """
 
 import json
@@ -26,6 +28,15 @@ from src.schemas import (
 from src.state import SilverFileState
 
 
+# Escalations that "continue" may pass only with a written reason. Box 2b is handled with a corrected amount.
+REASON_REQUIRED = {"out_of_scope"}
+_NOT_A_REASON = {"", "continue", "c", "ok", "okay", "yes", "y", "go on", "carry on", "fine"}
+
+
+def has_written_reason(note) -> bool:
+    return str(note or "").strip().lower().rstrip(".!") not in _NOT_A_REASON
+
+
 def normalize_resolution(answer) -> dict:
     if isinstance(answer, dict):
         return {"action": "continue", **answer}
@@ -44,6 +55,7 @@ def human(state: SilverFileState) -> dict:
     for ticket in open_tickets:
         channel = ticket.evidence.get("state_write")
         needs_values = bool(ticket.evidence.get("needs_document_values"))
+        needs_reason = ticket.reason in REASON_REQUIRED
         prompt = {
             "ticket_id": ticket.ticket_id,
             "reason": ticket.reason,
@@ -51,7 +63,14 @@ def human(state: SilverFileState) -> dict:
             "evidence": ticket.evidence,
             "how_to_resolve": "Reply 'continue' (with an optional note) to carry on, or 'stop' to end the session.",
         }
-        if ticket.reason == "1099r_taxable_not_determined":
+        if ticket.reason == "tool_input_invalid":
+            prompt["how_to_resolve"] = (
+                "The tax calculation rejected an input. "
+                "The rejected value was not retained. "
+                "Reply 'stop', correct the source data, "
+                "and start a new return."
+            )
+        elif ticket.reason == "1099r_taxable_not_determined":
             prompt["how_to_resolve"] = (
                 'Reply with {"action":"continue",'
                 '"corrections":{"taxable_amount":"5500"}} '
@@ -63,6 +82,11 @@ def human(state: SilverFileState) -> dict:
                 'Reply with {"action":"continue","choice":1} '
                 "to select a candidate (numbered from 1), "
                 "or stop."
+            )
+        if needs_reason:
+            prompt["how_to_resolve"] = (
+                "This is outside what SilverFile prepares. Reply 'stop' to end the session, or continue only with "
+                "a written reason, for example 'Client confirms the 1099-NEC was issued in error'."
             )
         if needs_values:
             example = ", ".join(f'"{name}": ...' for name in ticket.evidence["required_fields"])
@@ -95,8 +119,13 @@ def human(state: SilverFileState) -> dict:
                 resolution.pop("corrections", None)
 
             choice = resolution.get("choice")
-            if resolution.get("action") == "stop" or not (channel or needs_values):
+            if resolution.get("action") == "stop" or not (channel or needs_values or needs_reason):
                 break
+            if needs_reason:
+                if has_written_reason(resolution.get("note")):
+                    break
+                prompt = {**prompt, "detail": "Write why the session can continue, or stop the session."}
+                continue
             if needs_values:
                 document_id = ticket.evidence["document_id"]
                 values = resolution.get("values")

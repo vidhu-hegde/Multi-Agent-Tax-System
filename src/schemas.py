@@ -282,6 +282,7 @@ EscalationReason = Literal[
     "exploitation_concern",
     "review_limit",
     "loop_guard",
+    "tool_input_invalid",
     "uncertain",
 ]
 

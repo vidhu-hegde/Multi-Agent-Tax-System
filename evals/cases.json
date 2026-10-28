@@ -108,6 +108,39 @@
       }
     },
     {
+      "id": "out-of-scope-needs-a-reason",
+      "owner": "Vidhatri",
+      "area": "hitl",
+      "description": "A 1099-NEC is out of scope. Staff first reply plain 'continue', which is refused and asked again; then they continue with a written reason, which is recorded.",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "add_documents": [
+        {
+          "document_id": "nec-1",
+          "form_type": "other",
+          "description": "1099-NEC for consulting work"
+        }
+      ],
+      "staff": [
+        {
+          "reason": "out_of_scope",
+          "action": "continue"
+        },
+        {
+          "reason": "out_of_scope",
+          "action": "continue",
+          "note": "Client confirms the 1099-NEC was issued in error",
+          "resolved_by": "staff-2"
+        }
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [
+          "out_of_scope",
+          "out_of_scope"
+        ]
+      }
+    },
+    {
       "id": "hitl-1099r-box-2b",
       "owner": "Vidhatri",
       "area": "hitl",

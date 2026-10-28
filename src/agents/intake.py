@@ -266,10 +266,7 @@ QUESTIONS = [
 # Remove each gate only alongside its downstream integration and end-to-end tests.
 # taxpayer_claimed_dependent, spouse_itemizes and dual_status_alien are consumed by Rules
 # (policy.md#standard-deduction-exceptions) and escalate as out_of_scope there.
-# mfs_lived_with_spouse: a "yes" means a $0 Social Security base amount (policy.md#taxable-social-security).
-# It pauses here until the tax_math tool consumes it, so the $25,000 base is never used silently.
 PENDING_DOWNSTREAM_FIELDS = (
-    "mfs_lived_with_spouse",
     "dependent_count",
     "schedule2_total_tax",
     "schedule3_nonrefundable_credits",
