@@ -131,7 +131,7 @@ The 42-item guardrail development set passes after tuning; it cannot estimate ac
 
 The contribution table follows the team roles in the README and the implementation recorded in the linked pull requests.
 
-Dependent details can be collected, but dependent output and credits remain incomplete; those workflows pause. Line 17 is unsupported. QCD, line 25c/other direct-input coverage and the limited adjustment set are not fully specified or implemented. A staff continue action does not add support for these cases.
+Dependent details can be collected, but dependent output and credits remain incomplete; those workflows pause. QCD, line 25c/other direct-input coverage and the limited adjustment set are not fully specified or implemented. A staff continue action does not add support for these cases.
 
 The system escalates itemized deductions, business/rental income, Schedule D gains, digital assets, foreign items, amended/prior-year or state returns, and uncertain 1099-R taxable amounts under the assignment's scope. It also stops for advice requests, unresolved document conflicts, ambiguous filing status and exploitation concerns. Staff must use the reason-specific resolution contract. Language rules have finite coverage and can over-flag ordinary help.
 

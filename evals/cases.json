@@ -90,6 +90,30 @@
       }
     },
     {
+      "id": "schedule2-line-3-adds-to-tax",
+      "owner": "Vidhatri",
+      "area": "computation",
+      "description": "The clean-run taxpayer also has $200 on Schedule 2, line 3 (for example alternative minimum tax), typed in at Intake. No escalation; line 17 is added to the tax on line 18 before credits, and the refund falls from $2,455.50 to $2,255.50.",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "answers": {
+        "schedule2_line3_tax": "200"
+      },
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [],
+        "lines": {
+          "16": "644.50",
+          "17": "200",
+          "18": "844.50",
+          "22": "844.50",
+          "24": "844.50",
+          "33": "3100",
+          "34": "2255.50",
+          "37": "0"
+        }
+      }
+    },
+    {
       "id": "hitl-out-of-scope-document",
       "owner": "Vidhatri",
       "area": "hitl",

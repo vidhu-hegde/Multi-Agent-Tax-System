@@ -106,9 +106,10 @@ def computation(state: SilverFileState) -> dict:
     total_of("14", ["12e", "13b"])
     derive("15", "subtract_floor_zero", ["11a", "14"], a=amount("11a"), b=amount("14"))
     derive("16", "tax_from_schedule", ["15"], filing_status=filing_status, taxable_income=amount("15"))
-    # Schedules 2 and 3 come in as typed totals. Line 17 (Schedule 2, line 3) and line 19 (dependent
-    # credits) are not supported, so lines 18 and 21 each have one part.
-    total_of("18", ["16"])
+    # Schedules 2 and 3 come in as typed totals. Line 19 (dependent credits) is not supported, so line 21
+    # has one part.
+    from_answer("17", "schedule2_line3_tax")
+    total_of("18", ["16", "17"])
     from_answer("20", "schedule3_nonrefundable_credits")
     total_of("21", ["20"])
     derive("22", "subtract_floor_zero", ["18", "21"], a=amount("18"), b=amount("21"))

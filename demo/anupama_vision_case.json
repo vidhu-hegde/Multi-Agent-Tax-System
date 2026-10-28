@@ -11,6 +11,7 @@
     "taxpayer_claimed_dependent": false,
     "dual_status_alien": false,
     "dependent_count": 0,
+    "schedule2_line3_tax": "0",
     "schedule2_total_tax": "0",
     "schedule3_nonrefundable_credits": "0",
     "schedule3_other_payments": "0"

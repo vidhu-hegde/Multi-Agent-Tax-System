@@ -200,7 +200,7 @@ def test_1099r_box_2b_escalates_and_resolves(make_graph, make_case):
 
 
 def test_interactive_intake_asks_one_question_at_a_time(make_graph):
-    replies = iter(["widowed", "single", "none", "1950-02-03", "no", "no", "no", "none", "0", "0", "0", "0", "0", "250"])
+    replies = iter(["widowed", "single", "none", "1950-02-03", "no", "no", "no", "none", "0", "0", "0", "0", "0", "0", "250"])
     asked = []
     result = run.drive(make_graph(), "t", {}, ask=lambda _: next(replies), say=asked.append)
 
@@ -225,7 +225,7 @@ def test_session_resumes_from_sqlite_after_restart(settings, make_graph):
         assert waiting_on["field"] == "taxpayer_dob"
         assert "date of birth" in waiting_on["prompt"]
         assert "So far:" not in waiting_on
-        replies = iter(["1950-02-03", "no", "no", "no", "none", "0", "0", "0", "0", "0", "0"])
+        replies = iter(["1950-02-03", "no", "no", "no", "none", "0", "0", "0", "0", "0", "0", "0"])
         result = run.drive(graph, "resume", None, ask=lambda _: next(replies), say=lambda _: None)
 
     assert result["status"] == "draft_ready"
@@ -277,7 +277,7 @@ def test_conflicting_ticket_resolutions_pause_and_allow_stop(make_graph):
 # A dependent still pauses for staff; a Schedule 2 total now flows straight into line 23.
 @pytest.mark.parametrize("count,schedule2,escalations", [("1", "0", 1), ("0", "120", 0)])
 def test_nonzero_interactive_intake_finishes_after_one_staff_approval(make_graph, count, schedule2, escalations):
-    replies = ["single", "none", "1950-02-03", "no", "no", "no", "none", count, "0", schedule2, "0", "0", "0"]
+    replies = ["single", "none", "1950-02-03", "no", "no", "no", "none", count, "0", "0", schedule2, "0", "0", "0"]
     if count == "1":
         replies.extend(["Synthetic Child", "child", "901-12-3456"])
     replies.append("continue")

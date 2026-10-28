@@ -43,7 +43,7 @@ No Docker? See [Running without Docker](#running-without-docker).
 | A clean run with your own data | [Make up your own return](#make-up-your-own-return) |
 | Dashboard: returns in progress and submitted, HITL resolved by clicking | [Staff dashboard](#staff-dashboard) and the [demo dashboard](#demo-dashboard) |
 | Docker | [Quick start](#quick-start-docker) and the [Docker reference](#docker-reference) |
-| Tests and offline evals | [Tests and evals](#tests-and-evals): 678 tests, 25 of 25 eval cases |
+| Tests and offline evals | [Tests and evals](#tests-and-evals): 688 tests, 26 of 26 eval cases |
 
 ---
 
