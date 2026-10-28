@@ -96,7 +96,14 @@ def test_continue_resolves_the_ticket_and_the_return_finishes(dashboard, case_fi
     sessions, client = dashboard
     start(sessions, "box-2b", case_file(r1_2b=True))
 
-    response = post(client, "box-2b", "1099r_taxable_not_determined:r-1", action="continue", note="Checked with client")
+    response = post(
+        client,
+        "box-2b",
+        "1099r_taxable_not_determined:r-1",
+        action="continue",
+        note="Checked with client",
+        taxable_amount="5,500.00",
+    )
     assert response.status_code == 303
     assert response.headers["location"].startswith("/sessions/box-2b?done=")
     assert "staff_id=staff-7" in response.headers["set-cookie"]
@@ -104,7 +111,85 @@ def test_continue_resolves_the_ticket_and_the_return_finishes(dashboard, case_fi
     assert sessions.summary("box-2b").status == "draft_ready"
     ticket = sessions.state("box-2b")["escalations"]["1099r_taxable_not_determined:r-1"]
     assert ticket.resolved_by == "staff-7" and ticket.resolution["note"] == "Checked with client"
+    record = sessions.state("box-2b")["documents"]["r-1"]
+    assert record.taxable_amount == Decimal("5500.00")
+    assert record.taxable_not_determined is False
     assert "Draft Form 1040-SR" in client.get("/sessions/box-2b/draft").text
+
+
+def test_1099r_correction_errors_do_not_echo_typed_values(dashboard, case_file):
+    sessions, client = dashboard
+    start(sessions, "box-2b-invalid", case_file(r1_2b=True))
+    ticket_id = "1099r_taxable_not_determined:r-1"
+
+    page = client.get("/sessions/box-2b-invalid").text
+    assert 'name="taxable_amount"' in page
+    assert "Taxable amount (box 2a)" in page
+
+    missing = post(
+        client,
+        "box-2b-invalid",
+        ticket_id,
+        action="continue",
+    )
+    assert missing.status_code == 400
+    assert sessions.summary("box-2b-invalid").awaiting_ticket_id == ticket_id
+
+    typed_value = "98765bad"
+    invalid = post(
+        client,
+        "box-2b-invalid",
+        ticket_id,
+        action="continue",
+        taxable_amount=typed_value,
+    )
+    assert invalid.status_code == 400
+
+    alert = invalid.text.split('role="alert">')[1].split("</div>")[0]
+    assert "finite, nonnegative number" in alert
+    assert typed_value not in alert
+    assert sessions.summary("box-2b-invalid").awaiting_ticket_id == ticket_id
+
+    too_large = post(
+        client,
+        "box-2b-invalid",
+        ticket_id,
+        action="continue",
+        taxable_amount="6001",
+    )
+    assert too_large.status_code == 400
+    assert "gross distribution" in too_large.text
+    assert sessions.summary("box-2b-invalid").awaiting_ticket_id == ticket_id
+
+    recovered = post(
+        client,
+        "box-2b-invalid",
+        ticket_id,
+        action="continue",
+        taxable_amount="5500",
+    )
+    assert recovered.status_code == 303
+    assert sessions.summary("box-2b-invalid").status == "draft_ready"
+
+
+def test_1099r_too_large_correction_can_still_be_stopped(dashboard, case_file):
+    sessions, client = dashboard
+    thread_id = "box-2b-invalid-then-stop"
+    ticket_id = "1099r_taxable_not_determined:r-1"
+    start(sessions, thread_id, case_file(r1_2b=True))
+
+    refused = post(
+        client,
+        thread_id,
+        ticket_id,
+        action="continue",
+        taxable_amount="6001",
+    )
+    assert refused.status_code == 400
+
+    stopped = post(client, thread_id, ticket_id, action="stop")
+    assert stopped.status_code == 303
+    assert sessions.summary(thread_id).status == "stopped"
 
 
 def test_stop_ends_the_session(dashboard, case_file):
@@ -139,10 +224,80 @@ def test_a_staff_id_is_required(dashboard, case_file):
 def test_a_ticket_already_resolved_is_refused(dashboard, case_file):
     sessions, client = dashboard
     start(sessions, "box-2b", case_file(r1_2b=True))
-    post(client, "box-2b", "1099r_taxable_not_determined:r-1", action="continue")
+    first = post(
+        client,
+        "box-2b",
+        "1099r_taxable_not_determined:r-1",
+        action="continue",
+        taxable_amount="5500",
+    )
+    assert first.status_code == 303
     second = post(client, "box-2b", "1099r_taxable_not_determined:r-1", action="stop")  # a second staff member
     assert second.status_code == 409 and "resolved it already" in second.text
     assert sessions.summary("box-2b").status == "draft_ready"
+
+
+def test_tool_input_ticket_is_stop_only_on_dashboard(
+    dashboard,
+    case_file,
+):
+    from src.schemas import EscalationTicket
+
+    sessions, client = dashboard
+    thread_id = "tool-input-error"
+    start(sessions, thread_id, case_file())
+
+    ticket = EscalationTicket(
+        ticket_id=(
+            "tool_input_invalid:computation:"
+            "tax_from_schedule:taxable_income"
+        ),
+        reason="tool_input_invalid",
+        raised_by="computation",
+        detail=(
+            "Tax calculation tool tax_math.tax_from_schedule "
+            "rejected invalid field(s): taxable_income. "
+            "The rejected value was not retained."
+        ),
+        evidence={
+            "tool": "tax_math.tax_from_schedule",
+            "invalid_fields": ["taxable_income"],
+        },
+    )
+
+    sessions.graph.invoke(
+        {
+            "escalations": {
+                ticket.ticket_id: ticket,
+            }
+        },
+        config(thread_id),
+    )
+
+    page = client.get(f"/sessions/{thread_id}").text
+    assert "Tax calculation input needs correction" in page
+    assert "The rejected value was not retained" in page
+    assert 'value="continue"' not in page
+    assert 'value="stop"' in page
+
+    refused = post(
+        client,
+        thread_id,
+        ticket.ticket_id,
+        action="continue",
+    )
+    assert refused.status_code == 400
+    assert "cannot be continued" in refused.text
+    assert sessions.summary(thread_id).awaiting_ticket_id == ticket.ticket_id
+
+    stopped = post(
+        client,
+        thread_id,
+        ticket.ticket_id,
+        action="stop",
+    )
+    assert stopped.status_code == 303
+    assert sessions.summary(thread_id).status == "stopped"
 
 
 def test_form_posts_from_another_site_are_refused(dashboard, case_file):

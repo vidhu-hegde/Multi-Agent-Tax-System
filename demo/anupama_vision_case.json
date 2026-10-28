@@ -1,5 +1,5 @@
 {
-  "description": "Anupama vision demonstration: synthetic W-2 image plus direct-entry 1099/SSA records. Requires local Claude credentials; tax calculations remain stubs.",
+  "description": "Anupama vision demonstration: synthetic W-2 image plus direct-entry 1099/SSA records. Requires local Claude credentials; tax calculations use the integrated 2025 tax_math rules.",
   "answers": {
     "filing_status": "single",
     "taxpayer_dob": "1957-05-01",

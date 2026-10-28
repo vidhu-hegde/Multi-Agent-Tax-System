@@ -18,7 +18,12 @@ from src.agents.extraction import StaffEntryError, staff_entered_record
 from src.agents.human import REASON_REQUIRED, has_written_reason
 from src.config import Settings, load_settings
 from src.memory import open_checkpointer
+from src.resolution import (
+    validate_1099r_correction_target,
+    validate_resolution_corrections,
+)
 from src.schemas import EscalationTicket
+from src.security import redact_ssns, validate_staff_identifier
 
 STATUSES = ("in_progress", "waiting_on_taxpayer", "waiting_on_human", "draft_ready", "stopped")
 
@@ -39,6 +44,18 @@ class SessionSummary:
 
 def _is_escalation(value) -> bool:
     return isinstance(value, dict) and "ticket_id" in value
+
+
+def _question_text(value) -> str:
+    """Return taxpayer-facing text without exposing internal metadata."""
+
+    if (
+        isinstance(value, dict)
+        and value.get("type") == "intake_question"
+    ):
+        return str(value["prompt"])
+
+    return str(value)
 
 
 class Sessions:
@@ -85,7 +102,11 @@ class Sessions:
             updated_at=snapshot.created_at,
             open_tickets=[t for t in values.get("escalations", {}).values() if t.status == "open"],
             awaiting_ticket_id=escalation["ticket_id"] if escalation else None,
-            pending_question=str(question) if question is not None else None,
+            pending_question=(
+                _question_text(question)
+                if question is not None
+                else None
+            ),
         )
 
     def list_sessions(self, status: str | None = None) -> list[SessionSummary]:
@@ -97,8 +118,15 @@ class Sessions:
         return [(s.thread_id, t) for s in self.list_sessions() for t in s.open_tickets]
 
     def resolve(
-        self, thread_id: str, ticket_id: str, action: str = "continue", note: str = "", resolved_by: str = "staff",
-        choice: int | None = None, values: dict | None = None,
+        self,
+        thread_id: str,
+        ticket_id: str,
+        action: str = "continue",
+        note: str = "",
+        resolved_by: str = "staff",
+        choice: int | None = None,
+        corrections: dict | None = None,
+        values: dict | None = None,
     ) -> SessionSummary:
         """Record a staff decision on the ticket the session is paused on, then let the graph continue.
 
@@ -117,22 +145,68 @@ class Sessions:
             )
             if paused_on is None:
                 raise StaleEscalation(f"Session {thread_id} is not waiting on ticket {ticket_id}.")
+
+            validated_corrections = validate_resolution_corrections(
+                paused_on.value["reason"],
+                action,
+                corrections,
+            )
             evidence = paused_on.value.get("evidence", {})
+
+            if (
+                paused_on.value.get("reason") == "1099r_taxable_not_determined"
+                and action == "continue"
+            ):
+                document_id = evidence.get("document_id")
+                validate_1099r_correction_target(
+                    validated_corrections,
+                    snapshot.values.get("documents", {}).get(document_id),
+                )
+
             if evidence.get("state_write") and action == "continue":
                 if type(choice) is not int or not 1 <= choice <= len(evidence["candidates"]):
-                    raise ValueError("Select a conflicting record with choice (numbered from 1), or stop.")
-            if paused_on.value.get("reason") in REASON_REQUIRED and action == "continue" and not has_written_reason(note):
-                raise ValueError("This is out of scope: write why the session can continue (--note), or stop.")
+                    raise ValueError(
+                        "Select a conflicting record with choice "
+                        "(numbered from 1), or stop."
+                    )
+
+            if (
+                    paused_on.value.get("reason") in REASON_REQUIRED
+                    and action == "continue"
+                    and not has_written_reason(note)
+            ):
+                raise ValueError(
+                    "This is out of scope: write why the session "
+                    "can continue (--note), or stop."
+                )
+
+            safe_resolved_by = validate_staff_identifier(resolved_by)
+
             if evidence.get("needs_document_values") and action == "continue":
                 if not isinstance(values, dict):
-                    raise ValueError("Type the document's values (see required_fields), or stop.")
+                    raise ValueError(
+                        "Type the document's values "
+                        "(see required_fields), or stop."
+                    )
                 try:
-                    staff_entered_record(evidence["document_id"], evidence["form_type"], values, resolved_by)
+                    staff_entered_record(
+                        evidence["document_id"],
+                        evidence["form_type"],
+                        values,
+                        safe_resolved_by,
+                    )
                 except StaffEntryError as exc:
                     raise ValueError(str(exc)) from None
-            decision = {"action": action, "note": note, "resolved_by": resolved_by}
+
+            decision = {
+                "action": action,
+                "note": redact_ssns(note),
+                "resolved_by": safe_resolved_by,
+            }
             if choice is not None:
                 decision["choice"] = choice
+            if validated_corrections:
+                decision["corrections"] = validated_corrections
             if values is not None:
                 decision["values"] = values
             self.graph.invoke(Command(resume={paused_on.id: decision}), self._config(thread_id))

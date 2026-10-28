@@ -60,7 +60,9 @@ def test_resume_recap_is_shown_once(make_graph):
 
     run.drive(graph, "resume-recap", None, ask=ask, say=shown.append)
     assert shown[0].startswith("So far: filing status: single.")
-    assert "So far:" not in "".join(shown[1:])
+    question = result["__interrupt__"][0].value
+    assert question["type"] == "intake_question"
+    assert "So far:" not in question["prompt"]
 
 
 def test_cli_new_session_uses_safe_id(settings, monkeypatch):

@@ -75,12 +75,32 @@
     </fieldset>
     {% endif %}
 
+    {% if awaiting.reason == "1099r_taxable_not_determined" %}
+    <fieldset>
+      <legend>Confirmed taxable amount</legend>
+      <p class="hint">
+        Enter the verified taxable amount from box 2a or supporting records.
+        It cannot exceed the gross distribution in box 1.
+      </p>
+      <label for="taxable_amount">Taxable amount (box 2a)</label>
+      <input
+        type="text"
+        id="taxable_amount"
+        name="taxable_amount"
+        value="{{ form.get('taxable_amount', '') }}"
+        inputmode="decimal"
+        autocomplete="off"
+        required>
+    </fieldset>
+    {% endif %}
     <label for="note">{% if reason_required %}Reason for continuing <span class="hint">required to continue; not needed to stop</span>{% else %}Note <span class="hint">optional, kept on the ticket</span>{% endif %}</label>
     <textarea id="note" name="note">{{ form.get("note", "") }}</textarea>
     <label for="staff_id">Your staff ID</label>
     <input type="text" id="staff_id" name="staff_id" value="{{ staff_id }}" required autocomplete="off" style="max-width:16rem">
     <div class="actions">
+      {% if not stop_only %}
       <button class="primary" type="submit" name="action" value="continue">Continue the return</button>
+      {% endif %}
       <button class="secondary" type="submit" name="action" value="stop" formnovalidate>Stop the session</button>
     </div>
   </form>

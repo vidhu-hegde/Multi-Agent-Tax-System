@@ -144,7 +144,7 @@
       "id": "hitl-1099r-box-2b",
       "owner": "Vidhatri",
       "area": "hitl",
-      "description": "The IRA 1099-R has box 2b checked (taxable amount not determined), which always escalates. Staff continue.",
+      "description": "The IRA 1099-R has box 2b checked (taxable amount not determined), which always escalates. Staff supplies a verified taxable amount.",
       "case_file": "data/fixtures/skeleton_case.json",
       "document_values": {
         "r-1": {
@@ -155,7 +155,10 @@
         {
           "reason": "1099r_taxable_not_determined",
           "action": "continue",
-          "note": "Volunteer will review the 1099-R"
+          "corrections": {
+            "taxable_amount": "5500"
+          },
+          "note": "Volunteer verified the taxable amount from supporting records"
         }
       ],
       "expect": {

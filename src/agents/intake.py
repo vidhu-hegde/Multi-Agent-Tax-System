@@ -19,8 +19,9 @@ from pydantic import TypeAdapter
 from src.escalation import escalate
 from src.evidence import invalidate_evidence, retract_inventory
 from src.guardrails import classify_reply, explain
-from src.memory import invoke_model, redact_ssns
+from src.memory import invoke_model
 from src.schemas import Dependent, DocumentRef, FormType, IntakeAnswer, RevisionRequest, SSN
+from src.security import redact_ssns
 from src.state import SilverFileState, current_answers
 
 FILING_STATUSES = {
@@ -121,6 +122,24 @@ def field_reply(raw, parse):
         except (ValueError, TypeError):
             pass
     return redact_ssns(raw)
+
+
+def question_payload(field, prompt, parse):
+    """Expose trusted context needed to protect a reply before persistence."""
+
+    if parse is parse_test_ssn:
+        input_type = "test_ssn"
+    elif parse in (parse_money, parse_money_or_unknown):
+        input_type = "money"
+    else:
+        input_type = "text"
+
+    return {
+        "type": "intake_question",
+        "field": field,
+        "input_type": input_type,
+        "prompt": prompt,
+    }
 
 
 def parse_inventory(raw):
@@ -441,7 +460,7 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
         if not from_case:
             prompt = question
             while True:
-                reply = interrupt(prompt)
+                reply = interrupt(question_payload(field, prompt, parse))
                 model_called = False
                 safe = redact_ssns(reply)
                 # Safety disclosures apply to the whole turn, even while another field

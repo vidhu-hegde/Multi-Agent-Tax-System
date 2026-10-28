@@ -12,7 +12,7 @@ import inspect
 import os
 import threading
 from concurrent.futures import TimeoutError as FutureTimeout
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
@@ -33,10 +33,36 @@ class TaxMathUnavailable(RuntimeError):
     """TAX_MATH_MCP_URL is set but the server there could not answer. Not a ValueError: it is not bad input."""
 
 
+class ToolInputError(ValueError):
+    """A sanitized tool failure containing field names, never rejected values."""
+
+    def __init__(self, tool: str, fields: tuple[str, ...]):
+        self.tool = tool
+        self.fields = fields
+        named = ", ".join(fields) if fields else "input"
+        super().__init__(f"tax_math.{tool} rejected invalid field(s): {named}")
+
+
+def _invalid_fields(message: str, inputs: dict, expected_fields=()) -> tuple[str, ...]:
+    """Identify likely fields without retaining the rejected value or raw error."""
+
+    normalized = message.lower().replace("_", " ")
+    candidates = set(inputs) | set(expected_fields)
+    matched = tuple(sorted(
+        name for name in candidates
+        if name.lower().replace("_", " ") in normalized
+    ))
+    return matched or tuple(sorted(inputs))
+
+
 def call_tool(name: str, **inputs) -> tuple[Decimal, Provenance]:
     fn, is_stub = TOOLS[name]
     url = mcp_url()
-    result = _exact(name, fn, inputs, url).quantize(CENT, rounding=ROUND_HALF_UP)
+    try:
+        result = _exact(name, fn, inputs, url).quantize(CENT, rounding=ROUND_HALF_UP)
+    except (ValueError, InvalidOperation) as exc:
+        fields = _invalid_fields(str(exc), inputs, inspect.signature(fn).parameters)
+        raise ToolInputError(name, fields) from None
     return result, Provenance(kind="tool", source=f"tax_math.{name}", value=result, inputs=inputs, stub=is_stub,
                               via=url or None)
 

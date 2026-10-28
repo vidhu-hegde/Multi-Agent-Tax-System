@@ -4,16 +4,38 @@ Money is always Decimal (never float). Every amount on the draft is a LineValue,
 cannot exist without at least one Provenance record explaining where the amount came from.
 """
 
-import re
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+from threading import Lock
 from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from src.security import (
+    SSNValidationError,
+    TEST_SSN_PATTERN,
+    validate_test_ssn,
+)
+
+
+_timestamp_lock = Lock()
+_last_timestamp = datetime.min.replace(tzinfo=timezone.utc)
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    """Return a process-local UTC timestamp that is strictly increasing.
+
+    Some platforms can return the same wall-clock value for several rapid
+    calls. SilverFile uses timestamps to identify and order immutable events,
+    so ties would make a legitimate correction look like a conflicting replay.
+    """
+    global _last_timestamp
+
+    with _timestamp_lock:
+        current = datetime.now(timezone.utc)
+        if current <= _last_timestamp:
+            current = _last_timestamp + timedelta(microseconds=1)
+        _last_timestamp = current
+        return current
 
 
 class Contract(BaseModel):
@@ -21,7 +43,8 @@ class Contract(BaseModel):
 
 
 # Only IRS test-range SSNs (900-999 prefix) are accepted, so a real SSN can never be entered.
-SSN_PATTERN = r"^9\d{2}-\d{2}-\d{4}$"
+# Backward-compatible schema name; the security module is authoritative.
+SSN_PATTERN = TEST_SSN_PATTERN
 SSN = Annotated[str, StringConstraints(pattern=SSN_PATTERN)]
 EIN = Annotated[str, StringConstraints(pattern=r"^\d{2}-\d{7}$")]
 Money = Annotated[Decimal, Field(ge=0)]
@@ -173,9 +196,15 @@ class W2Record(_Record):
             data = dict(data)
             ssn = data.pop("employee_ssn")
             if ssn is not None:
-                if not re.fullmatch(SSN_PATTERN, str(ssn)):
-                    raise ValueError("the W-2 shows an SSN outside the 900-999 test range; only test SSNs are accepted")
-                data["employee_ssn_last4"] = str(ssn)[-4:]
+                try:
+                    validated_ssn = validate_test_ssn(ssn)
+                except SSNValidationError as exc:
+                    raise ValueError(
+                        "the W-2 shows an SSN outside the 900-999 test range; "
+                        "only test SSNs are accepted"
+                    ) from exc
+
+                data["employee_ssn_last4"] = validated_ssn[-4:]
         return data
 
 
@@ -254,6 +283,7 @@ EscalationReason = Literal[
     "exploitation_concern",
     "review_limit",
     "loop_guard",
+    "tool_input_invalid",
     "uncertain",
 ]
 

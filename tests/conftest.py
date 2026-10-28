@@ -20,6 +20,13 @@ from src.memory import serializer  # noqa: E402
 SKELETON_CASE = "data/fixtures/skeleton_case.json"
 
 
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "production_stubs: run with real placeholder tax tools so Review must fail closed",
+    )
+
+
 @pytest.fixture
 def settings(tmp_path):
     return replace(load_settings(), db_path=tmp_path / "silverfile.sqlite")

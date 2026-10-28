@@ -182,8 +182,7 @@ def test_contracts_survive_checkpoint_and_json_roundtrips():
         assert type(record).model_validate_json(record.model_dump_json()).model_dump_json() == record.model_dump_json()
 
 
-def test_manual_provenance_and_tool_inputs_reach_derived_line_and_html(make_graph, monkeypatch):
-    monkeypatch.setitem(TOOLS, "taxable_social_security", (lambda **_: Decimal("0"), True))
+def test_manual_provenance_and_tool_inputs_reach_derived_line_and_html(make_graph):
     graph = make_graph()
     state = graph.invoke({"case_path": SKELETON_CASE}, {"configurable": {"thread_id": "audit"}})
     source = state["documents"]["w2-1"].source
@@ -199,7 +198,8 @@ def test_manual_provenance_and_tool_inputs_reach_derived_line_and_html(make_grap
     assert '$18,000.00' in html
     assert 'direct user input' in html and 'recorded_at' in html and 'case file' in html
     assert 'tax_math.sum' in html and '&quot;values&quot;' in html
-    assert 'id="line-9"' not in html
+    # Tests use verified (non-stub) tax tools by default, so the line is displayable.
+    assert '<details id="line-9">' in html
     assert '<details id="line-1z">' in html and '<summary title=' in html
 
 
@@ -224,7 +224,11 @@ def test_typed_intake_revision_targets_named_field(make_graph):
     graph.invoke({"case_path": SKELETON_CASE}, cfg)
     request = RevisionRequest(target="intake", field="estimated_payments", reason="verify")
     waiting = graph.invoke({"revision_requests": [request]}, cfg)
-    assert "estimated tax" in waiting["__interrupt__"][0].value
+    prompt = waiting["__interrupt__"][0].value
+    assert prompt["type"] == "intake_question"
+    assert prompt["field"] == "estimated_payments"
+    assert prompt["input_type"] == "money"
+    assert "estimated tax" in prompt["prompt"]
     done = graph.invoke(Command(resume="2500"), cfg)
     assert done["lines"]["26"].amount == Decimal("2500")
     assert not done["revision_requests"]
@@ -446,6 +450,7 @@ def test_layered_diamond_audit_size_grows_with_nodes_not_paths():
     assert len(large) < 2.5 * len(small)
 
 
+@pytest.mark.production_stubs
 @pytest.mark.parametrize("mark_stubs_nonstub", [False, True])
 def test_skeleton_uses_local_provenance_and_deduplicated_dependency_traces(make_graph, monkeypatch, mark_stubs_nonstub):
     if mark_stubs_nonstub:

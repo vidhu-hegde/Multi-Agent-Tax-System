@@ -51,6 +51,7 @@ REASON_LABELS = {
     "review_limit": "Review could not settle the draft",
     "loop_guard": "Workflow kept repeating",
     "uncertain": "Needs a volunteer's help",
+    "tool_input_invalid": "Tax calculation input needs correction",
 }
 FIELD_LABELS = {
     "employer_name": "Employer name (box c)",
@@ -83,6 +84,12 @@ STAFF_GUIDANCE = {
     "out_of_scope": "SilverFile does not prepare this return. Stop the session, or continue only with a written reason "
                     "(for example, a false alarm).",
     "advice_request": "SilverFile never gives tax advice. Note what was asked so a volunteer can follow up.",
+    "tool_input_invalid": (
+        "The tax calculation rejected an input. "
+        "The rejected value was not retained. "
+        "Stop the session, correct the source data, "
+        "and start a new return."
+    ),
 }
 
 
@@ -230,6 +237,10 @@ def create_app(sessions: Sessions | None = None, settings=None) -> FastAPI:
             images={r.document_id for r in state.get("document_inventory", []) if document_image(state, r.document_id)},
             fields=entry_fields(awaiting) if awaiting and awaiting.evidence.get("needs_document_values") else [],
             reason_required=bool(awaiting and awaiting.reason in REASON_REQUIRED),
+            stop_only=bool(
+                awaiting
+                and awaiting.reason == "tool_input_invalid"
+            ),
             guidance=STAFF_GUIDANCE.get(awaiting.reason) if awaiting else None,
             box12_rows=BOX12_ROWS, error=error, form=form or {},
             staff_id=(form or {}).get("staff_id") or request.cookies.get("staff_id", ""),
@@ -252,12 +263,32 @@ def create_app(sessions: Sessions | None = None, settings=None) -> FastAPI:
             return session_page(request, thread_id, 400, "Enter your staff ID so the decision is recorded.", form)
         ticket = store.state(thread_id).get("escalations", {}).get(ticket_id)
         choice = form.get("choice")
+
         values = None
         if ticket is not None and ticket.evidence.get("needs_document_values") and action == "continue":
             values = typed_values(form, entry_fields(ticket))
+
+        corrections = None
+        if (
+                ticket is not None
+                and ticket.reason == "1099r_taxable_not_determined"
+                and action == "continue"
+        ):
+            corrections = {
+                "taxable_amount": amount(form.get("taxable_amount", ""))
+            }
+
         try:
-            store.resolve(thread_id, ticket_id, action, note=form.get("note", "").strip(), resolved_by=staff_id,
-                          choice=int(choice) if choice and choice.isdigit() else None, values=values)
+            store.resolve(
+                thread_id,
+                ticket_id,
+                action,
+                note=form.get("note", "").strip(),
+                resolved_by=staff_id,
+                choice=int(choice) if choice and choice.isdigit() else None,
+                corrections=corrections,
+                values=values,
+            )
         except StaleEscalation as exc:
             return session_page(request, thread_id, 409, f"{exc} Someone may have resolved it already.")
         except ValueError as exc:
