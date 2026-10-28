@@ -104,6 +104,36 @@ a thread on a free port and checks every tool and every rule error against the i
 inside a running loop, concurrent calls, the unreachable case (run.py and the dashboard refuse to start) and
 a whole graph run.
 
+## Docker
+
+`Dockerfile` builds one image (`python:3.11-slim-bookworm`, `requirements.txt` only, about 850 MB, mostly the
+pip layer). `docker-compose.yml` runs it three ways: `tax-math` (the MCP server), `dashboard` (port 8000,
+published on the host's 127.0.0.1 only) and `app` (`run.py`, evals, tests; `cli` profile, so `up` does not
+start it). The README's "Getting started with Docker" has the commands.
+
+- **Secrets.** `.dockerignore` keeps `.env` out of the build context; compose passes it at run time with
+  `env_file` (optional, so the offline paths need none). A build with a fake key in `.env` left no trace of it
+  in the image or in `docker history`.
+- **Addresses.** Compose sets `TAX_MATH_MCP_URL=http://tax-math:8001/mcp` and `SILVERFILE_DB_PATH` in
+  `environment`, which wins over `.env` (whose `localhost` and `data/` values are for running outside Docker).
+  tax-math listens on `0.0.0.0` (`TAX_MATH_MCP_HOST`): on 127.0.0.1 the SDK's Host-header check refuses
+  `Host: tax-math:8001` with 421. On 0.0.0.0 the SDK does no Host check; port 8001 is not published, so only
+  the compose network reaches it. The dashboard binds 0.0.0.0 with its existing `--host` flag; no code changed.
+- **Readiness.** tax-math's healthcheck is a plain TCP connect (no curl in the image, and `GET /mcp` opens a
+  stream that never closes). app and dashboard wait for it (`service_healthy`), and their own
+  `check_server()` then confirms the MCP tools answer.
+- **Persistence.** The `state` volume holds `/app/state/silverfile.sqlite`, shared by app and dashboard. The
+  `output` volume holds `/app/output` (the demo database, `demo_cases/`, which demo sessions re-read, and HTML
+  drafts). Nothing is mounted over `/app/data`, which holds policy.md and the fixtures. Named volumes live in
+  Docker's Linux VM, where SQLite locking is reliable; do not bind-mount the database to a macOS folder.
+- **Permissions.** The code is owned by root and read-only to the app, which runs as `silverfile` (uid 1000);
+  only `/app/state` and `/app/output` are writable. A named volume takes its owner from the image the first
+  time it is mounted. Run the tests with `-p no:cacheprovider` (pytest cannot write `.pytest_cache`).
+- **Verified (2026-10-28, Docker 29.9.2, Compose v5.6.1):** tax-math healthy, dashboard 200, port 8001
+  unreachable from the host; evals 16 of 16 through tax-math (1,872 MCP requests, 4 per tool call); 532 tests
+  in the container; the demo restart check (resolve over HTTP, `down`, `up -d`, `0 new returns`, ticket still
+  resolved).
+
 ## Review → revise bound
 
 Review increments `review_passes` on every run and returns `RevisionRequest`s; it never edits lines.
