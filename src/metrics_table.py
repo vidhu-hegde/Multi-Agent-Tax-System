@@ -39,11 +39,17 @@ def growth(label: str, items: list[dict]) -> str:
     return f"{label}: {first:,} → {last:,} input tokens ({last - first:+,}, {change})"
 
 
+# ON blue, OFF orange: Mermaid's default palette draws the first line so pale it barely shows.
+CHART_COLORS = ("#1f5f8b", "#c2410c")
+
+
 def chart(on: dict, off: dict) -> str:
     """Both series as a Mermaid line chart. Mermaid's xychart has no legend, so the caption names the lines."""
     series = [[row["input_tokens"] for row in run["items"]] for run in (on, off)]
+    palette = ", ".join(CHART_COLORS)
     return "\n".join([
         "```mermaid",
+        f'%%{{init: {{"themeVariables": {{"xyChart": {{"plotColorPalette": "{palette}"}}}}}}}}%%',
         "xychart-beta",
         '    title "Input tokens per sequential item"',
         f'    x-axis "Sequential item" [{", ".join(str(i) for i in range(1, ITEMS + 1))}]',
@@ -51,7 +57,7 @@ def chart(on: dict, off: dict) -> str:
         *(f"    line [{', '.join(map(str, tokens))}]" for tokens in series),
         "```",
         "",
-        "Lines in order: strategy ON first, then strategy OFF.",
+        "Blue: strategy ON. Orange: strategy OFF.",
     ])
 
 
@@ -67,6 +73,7 @@ def table(on: dict, off: dict) -> str:
         *rows,
         "",
         f"First to last item. {growth('ON', on['items'])}; {growth('OFF', off['items'])}.",
+        "",
         f"Model {on['model']}. ON thread {on['thread_id']} ({on['measured_at']}); "
         f"OFF thread {off['thread_id']} ({off['measured_at']}).",
         "",

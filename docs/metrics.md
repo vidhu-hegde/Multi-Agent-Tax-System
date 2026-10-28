@@ -22,9 +22,11 @@ The raw results are committed in [`docs/metrics/`](metrics/).
 | 10 | 620 | 3,170 | ON correct, OFF correct |
 
 First to last item. ON: 672 → 620 input tokens (-52, -8%); OFF: 672 → 3,170 input tokens (+2,498, +372%).
+
 Model claude-sonnet-5-5. ON thread return-c18e-7675-063d-4787-90f2-cc24-f7d0-5e7d (2026-10-28T22:56:59.247018+00:00); OFF thread return-78c5-173f-e306-48fa-a3b7-de6b-904e-4d34 (2026-10-28T22:57:57.373162+00:00).
 
 ```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#1f5f8b, #c2410c"}}}}%%
 xychart-beta
     title "Input tokens per sequential item"
     x-axis "Sequential item" [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -33,7 +35,7 @@ xychart-beta
     line [672, 966, 1277, 1543, 1826, 2133, 2389, 2646, 2917, 3170]
 ```
 
-Lines in order: strategy ON first (flat), then strategy OFF (rising).
+Blue: strategy ON (flat). Orange: strategy OFF (rising).
 
 ON varies a little between items because the exchanges differ in length, not because it grows: item 10 cost less
 than item 1.
