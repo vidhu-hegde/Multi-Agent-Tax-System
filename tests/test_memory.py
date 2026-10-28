@@ -171,8 +171,14 @@ def test_benchmark_cli_writes_comparable_runs_without_sampling_parameters(settin
         def __init__(self, **kwargs):
             assert not {"temperature", "top_p", "top_k"} & kwargs.keys()
             assert kwargs["max_retries"] == 0
+            assert kwargs["model"] == "offline-provider-double"
+            self.calls = 0
 
         def invoke(self, messages):
+            self.calls += 1
+            assert f"Item {self.calls}." in messages[-1].content
+            assert '"filing_status": "single"' in messages[0].content
+            assert len(messages) == (2 if enabled else 2 * self.calls)
             count = 100 + len(messages)
             return AIMessage(content='{"reason":"uncertain"}', usage_metadata={
                 "input_tokens": count, "output_tokens": 1, "total_tokens": count + 1,
@@ -196,3 +202,42 @@ def test_benchmark_cli_writes_comparable_runs_without_sampling_parameters(settin
     assert [row["input_tokens"] for row in result["items"]] == (
         [102] * 10 if enabled else list(range(102, 122, 2))
     )
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+@pytest.mark.parametrize("failure", ["wrong_outcome", "missing_usage", "malformed_output", "unsupported_reason"])
+def test_benchmark_cli_rejects_invalid_evidence(settings, monkeypatch, tmp_path, enabled, failure):
+    import json
+    from dataclasses import replace
+    from langchain_core.messages import AIMessage
+    import langchain_anthropic
+    import src.config
+
+    class OfflineProvider:
+        def __init__(self, **kwargs):
+            pass
+
+        def invoke(self, messages):
+            content = {
+                "malformed_output": "not valid JSON",
+                "unsupported_reason": '{"reason":"invented_reason"}',
+            }.get(failure, '{"reason":null}')
+            return AIMessage(content=content, usage_metadata=None if failure == "missing_usage" else {
+                "input_tokens": 10, "output_tokens": 1, "total_tokens": 11,
+            })
+
+    monkeypatch.setattr(langchain_anthropic, "ChatAnthropic", OfflineProvider)
+    monkeypatch.setattr(src.config, "load_settings", lambda: replace(settings, anthropic_api_key="offline-double"))
+    output = tmp_path / "invalid-evidence.json"
+    args = ["--batch", "--thread-id", "invalid-evidence", "--output", str(output)]
+    if not enabled:
+        args.append("--no-context-strategy")
+    if failure == "missing_usage":
+        with pytest.raises(ValueError, match="actual input-token usage"):
+            memory.main(args)
+        assert not output.exists()
+    else:
+        with pytest.raises(SystemExit, match="Outcome validation failed"):
+            memory.main(args)
+        rows = json.loads(output.read_text())["items"]
+        assert len(rows) == 10 and all(not row["correct"] for row in rows)

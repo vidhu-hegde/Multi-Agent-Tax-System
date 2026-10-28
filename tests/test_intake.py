@@ -228,6 +228,7 @@ def test_malformed_model_output_escalates_without_repeating_unsafe_generated_tex
     reason, update = intake_module.classify_with_model(Provider(), {}, "unclear reply")
     assert reason == "uncertain"
     assert update["messages"][-1].content == '{"reason": "uncertain"}'
+    assert update["messages"][-1].response_metadata["silverfile_classification_valid"] is False
 
 
 def test_repeated_model_escalation_is_committed_before_next_interrupt(make_graph):

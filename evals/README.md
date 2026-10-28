@@ -35,6 +35,8 @@ Add an object to `cases` in `cases.json`. Set `owner` to your name and `area` to
 | `lines` | Amounts on the draft, e.g. `{"1z": "18000.00"}` (compared as numbers) |
 | `hops` | The orchestrator's route, e.g. `["intake", "extraction", ...]` |
 | `state` | Exact values of other state fields, e.g. `{"review_passes": 3}` |
+| `answers` | Confirmed field values serialized to JSON, e.g. `{"estimated_payments": "1000"}`; missing fields fail even when the expected value is `null` |
+| `escalation_evidence` | Exact values for named evidence fields on the pending staff interrupt, e.g. `{"fields": ["schedule2_total_tax"]}` |
 
 A case fails if a reply or staff decision is left unused, if the session asks a question with no
 scripted reply, or if an escalation arrives that the next staff decision didn't expect.
@@ -67,7 +69,9 @@ the W-2 read from its image (wages $18,000, withholding $1,500 on lines 1z and 2
 
 Eight Iris-owned cases cover corrected adjustments, go-back, repetition/drift, scope disclosure at a
 payment question, and the four dependent/Schedule 2/3 readiness gates. A gate case passes by retaining
-the input and pausing for staff; it does not establish complete dependent/schedule output.
+the confirmed typed input and pausing for that field's downstream integration; it does not establish
+complete dependent/schedule output. Fault-injection tests in `tests/test_iris_integration.py` verify
+that dropping the input or substituting an unrelated uncertainty ticket makes each gate eval fail.
 
 Actual restart evidence lives in the existing pytest workflow because the JSON runner uses an
 in-memory saver and cannot prove process restarts:

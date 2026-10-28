@@ -25,6 +25,7 @@ from src.state import current_answers, merge_answers, merge_dicts
 class ContextBenchmarkState(TypedDict, total=False):
     context_item: str
     context_reason: EscalationReason | None
+    context_classification_valid: bool
     messages: Annotated[list[AnyMessage], add_messages]
     answers: Annotated[list[IntakeAnswer], merge_answers]
     input_token_usage: Annotated[dict[str, int], merge_dicts]
@@ -147,7 +148,8 @@ def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=T
 
     def classify_item(state):
         reason, update = classify_with_model(model, state, state["context_item"], use_context_strategy)
-        return {**update, "context_reason": reason}
+        valid = update["messages"][-1].response_metadata["silverfile_classification_valid"]
+        return {**update, "context_reason": reason, "context_classification_valid": valid}
 
     builder = StateGraph(ContextBenchmarkState)
     builder.add_node("intake_model", classify_item)
@@ -170,7 +172,7 @@ def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=T
                 "item": item,
                 "input_tokens": sum(new_calls.values()),
                 "model_calls": len(new_calls),
-                "correct": result["context_reason"] == "uncertain",
+                "correct": result["context_classification_valid"] and result["context_reason"] == "uncertain",
             }
         )
         previous_usage = usage

@@ -430,6 +430,11 @@
           "10": "100",
           "26": "1000",
           "33": "3100"
+        },
+        "answers": {
+          "adjustments": "100",
+          "estimated_payments": "1000",
+          "filing_status": "single"
         }
       }
     },
@@ -455,6 +460,11 @@
           "26": "1000",
           "1z": "18000",
           "25d": "2100"
+        },
+        "answers": {
+          "adjustments": "100",
+          "estimated_payments": "1000",
+          "filing_status": "single"
         }
       }
     },
@@ -478,6 +488,11 @@
         "lines": {
           "26": "1000",
           "1z": "18000"
+        },
+        "answers": {
+          "filing_status": "single",
+          "estimated_payments": "1000",
+          "adjustments": "0"
         }
       }
     },
@@ -502,6 +517,24 @@
         ],
         "state": {
           "intake_complete": false
+        },
+        "answers": {
+          "dependent_count": 1,
+          "dependent_1_name": "Synthetic Child",
+          "dependent_1_relationship": "child",
+          "dependent_1_ssn": "901-12-3456",
+          "dependents": [
+            {
+              "name": "Synthetic Child",
+              "ssn": "901-12-3456",
+              "relationship": "child"
+            }
+          ]
+        },
+        "escalation_evidence": {
+          "fields": [
+            "dependent_count"
+          ]
         }
       }
     },
@@ -546,6 +579,14 @@
         ],
         "state": {
           "intake_complete": false
+        },
+        "answers": {
+          "schedule2_total_tax": "120"
+        },
+        "escalation_evidence": {
+          "fields": [
+            "schedule2_total_tax"
+          ]
         }
       }
     },
@@ -565,6 +606,14 @@
         ],
         "state": {
           "intake_complete": false
+        },
+        "answers": {
+          "schedule3_nonrefundable_credits": "10"
+        },
+        "escalation_evidence": {
+          "fields": [
+            "schedule3_nonrefundable_credits"
+          ]
         }
       }
     },
@@ -584,6 +633,14 @@
         ],
         "state": {
           "intake_complete": false
+        },
+        "answers": {
+          "schedule3_other_payments": "30"
+        },
+        "escalation_evidence": {
+          "fields": [
+            "schedule3_other_payments"
+          ]
         }
       }
     }
