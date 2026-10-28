@@ -10,7 +10,9 @@ from langgraph.types import Command
 
 from src.dashboard.app import create_app, mask
 from src.dashboard.demo import DEMO_RETURNS, seed
+import src.tools as tools
 from src.sessions import open_sessions
+from src.tools import TaxMathUnavailable
 from tests.conftest import SKELETON_CASE
 
 W2_FORM = {
@@ -105,6 +107,43 @@ def test_continue_resolves_the_ticket_and_the_return_finishes(dashboard, case_fi
     ticket = sessions.state("box-2b")["escalations"]["1099r_taxable_not_determined:r-1"]
     assert ticket.resolved_by == "staff-7" and ticket.resolution["note"] == "Checked with client"
     assert "Draft Form 1040-SR" in client.get("/sessions/box-2b/draft").text
+
+
+def test_a_tax_math_outage_after_a_decision_can_be_resumed(dashboard, case_file, monkeypatch):
+    sessions, client = dashboard
+    start(sessions, "box-2b", case_file(r1_2b=True))
+
+    def down(*args):
+        raise TaxMathUnavailable("The tax_math MCP server at http://tax-math:8001/mcp is unreachable.")
+
+    monkeypatch.setattr(tools, "_exact", down)
+    response = post(client, "box-2b", "1099r_taxable_not_determined:r-1", action="continue", note="Checked")
+    assert response.status_code == 503
+    assert "stopped partway" in response.text and "is unreachable" in response.text
+    assert 'action="/sessions/box-2b/resume"' in response.text
+    summary = sessions.summary("box-2b")
+    assert summary.status == "in_progress" and summary.stalled_at
+    assert sessions.state("box-2b")["escalations"]["1099r_taxable_not_determined:r-1"].status == "resolved"
+    assert "Stopped partway: open it to resume" in client.get("/").text
+
+    assert client.post("/sessions/box-2b/resume", follow_redirects=False).status_code == 503  # still down
+
+    monkeypatch.undo()
+    response = client.post("/sessions/box-2b/resume", follow_redirects=False)
+    assert response.status_code == 303 and response.headers["location"] == "/sessions/box-2b?resumed=1"
+    assert sessions.summary("box-2b").status == "draft_ready"
+    assert "Resumed the return." in client.get(response.headers["location"]).text
+
+
+def test_resume_is_refused_for_a_return_that_did_not_stop_partway(dashboard, case_file):
+    sessions, client = dashboard
+    start(sessions, "box-2b", case_file(r1_2b=True))
+    page = client.get("/sessions/box-2b").text
+    assert "/resume" not in page
+    response = client.post("/sessions/box-2b/resume", follow_redirects=False)
+    assert response.status_code == 409 and "nothing to resume" in response.text
+    assert sessions.summary("box-2b").status == "waiting_on_human"
+    assert client.post("/sessions/box-2b/resume", headers={"origin": "http://evil.example"}).status_code == 403
 
 
 def test_stop_ends_the_session(dashboard, case_file):

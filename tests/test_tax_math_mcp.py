@@ -160,6 +160,15 @@ def test_dashboard_refuses_to_start_when_the_server_is_down(monkeypatch):
             pass
 
 
+def test_dashboard_demo_exits_before_seeding_when_the_server_is_down(monkeypatch):
+    import src.dashboard.__main__ as dashboard_main
+
+    monkeypatch.setattr(tools, "_url", f"http://127.0.0.1:{free_port()}{PATH}")
+    monkeypatch.setattr(dashboard_main, "seed", lambda *args: pytest.fail("seeded with the server down"))
+    with pytest.raises(SystemExit, match="unreachable"):
+        dashboard_main.main(["--demo"])
+
+
 def test_run_py_exits_when_the_server_is_down(monkeypatch):
     monkeypatch.setattr(tools, "_url", f"http://127.0.0.1:{free_port()}{PATH}")
     monkeypatch.setattr(run, "load_settings", lambda: replace(load_settings(), anthropic_api_key="test-key"))
