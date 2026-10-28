@@ -139,6 +139,19 @@ python run.py --case data/fixtures/skeleton_case.json    # run a case file
 python run.py --thread-id <session id>                   # resume a saved session
 ```
 
+### Staff dashboard
+
+```bash
+python -m src.dashboard           # http://127.0.0.1:8000, the same sessions as run.py
+python -m src.dashboard --demo    # a separate demo database with returns in every state
+```
+
+The dashboard shows the queue of escalations waiting on staff and every return's status. For each
+escalation it shows the evidence, and for an unreadable W-2 it also shows the uploaded image. Staff
+continue (with a note, a chosen record, or the values typed from the document) or stop the session,
+and can open each draft with the source of every amount. `--demo` seeds `output/demo.sqlite` from the
+eval cases, offline, and never touches the real database.
+
 ### Staff commands
 
 The same actions the dashboard offers, from the terminal:

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Returns · SilverFile staff{% endblock %}
+{% block content %}
+<h1>Returns</h1>
+
+<section class="panel" aria-labelledby="queue-title">
+  <h2 id="queue-title" style="margin-top:0">Needs a decision{% if queue %} ({{ queue|length }}){% endif %}</h2>
+  {% if queue %}
+  <p class="muted">Oldest first. A return works through its tickets one at a time; the first one it is paused on is marked “now”.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Return</th><th>Escalation</th><th class="opt">Raised by</th><th class="opt">Raised</th></tr></thead>
+    <tbody>
+    {% for thread_id, ticket in queue %}
+      <tr>
+        <td><a href="/sessions/{{ thread_id|urlencode }}" class="mono">{{ thread_id }}</a></td>
+        <td>{{ reason_labels.get(ticket.reason, ticket.reason) }}
+          {% if awaiting.get(thread_id) == ticket.ticket_id %}<span class="badge waiting_on_human">now</span>{% endif %}
+          <div class="muted mono tid">{{ ticket.ticket_id }}</div></td>
+        <td class="opt">{{ ticket.raised_by }}</td>
+        <td class="opt">{{ when(ticket.created_at) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  <p>Nothing is waiting on staff.</p>
+  {% endif %}
+</section>
+
+<h2>All returns</h2>
+<nav class="filters" aria-label="Filter by status">
+  <a href="/" {% if not status %}aria-current="true"{% endif %}>All ({{ counts.values()|sum }})</a>
+  {% for s in statuses %}
+  <a href="/?status={{ s }}" {% if status == s %}aria-current="true"{% endif %}>{{ status_labels[s] }} ({{ counts[s] }})</a>
+  {% endfor %}
+</nav>
+{% if sessions %}
+<div class="panel scroll"><table>
+  <thead><tr><th>Return</th><th>Status</th><th class="opt">Open tickets</th><th class="opt">Last updated</th></tr></thead>
+  <tbody>
+  {% for s in sessions %}
+    <tr>
+      <td><a href="/sessions/{{ s.thread_id|urlencode }}" class="mono">{{ s.thread_id }}</a></td>
+      <td><span class="badge {{ s.status }}">{{ status_labels[s.status] }}</span></td>
+      <td class="opt">{{ s.open_tickets|length }}</td>
+      <td class="opt">{{ when(s.updated_at) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% else %}
+<p class="panel">No returns{% if status %} with this status{% endif %} yet. Start one with <span class="mono">python run.py</span>.</p>
+{% endif %}
+{% endblock %}

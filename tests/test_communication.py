@@ -44,6 +44,7 @@ def test_vision_transcribes_fixture_contract_and_sends_the_actual_image(settings
     record = make_extraction(settings, provider)({"doc": ref})["documents"][ref.document_id]
     expected = W2Record(document_id=ref.document_id, source=record.source, **fields)
     assert record == expected
+    assert not {"temperature", "top_p", "top_k"} & provider.calls[0].keys()  # the API rejects sampling parameters
     image = provider.calls[0]["messages"][0]["content"][0]["source"]
     assert image["media_type"] == "image/jpeg"
     assert base64.b64decode(image["data"]) == Path(ref.image_path).read_bytes()

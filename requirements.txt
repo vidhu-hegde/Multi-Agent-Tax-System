@@ -16,8 +16,12 @@ python-dotenv>=1.2,<2
 pillow>=13,<14
 pymupdf>=2.0,<3  # data/generate_fixtures.py: fills and renders the sample W-2s
 
-# Dashboard
-streamlit>=1.66,<2
+# Dashboard (python -m src.dashboard)
+fastapi>=0.160,<1
+uvicorn>=0.50,<1
+jinja2>=3.1,<4
+python-multipart>=0.0.20,<1  # HTML form posts
 
 # Tests
 pytest>=9.1,<10
+httpx>=0.28,<1  # FastAPI TestClient
