@@ -14,18 +14,22 @@ from langchain_core.messages import AIMessage
 import run
 import src.config
 from src.config import load_settings
+from src.memory import load_context_items
 from src.metrics_table import HEADER, main as metrics_table
+
+EXPECTED = {t["reply"]: t["expected"] for item in load_context_items()["items"] for t in item["turns"]}
 
 
 class FakeClaude:
-    """Answers every item `uncertain` and reports 50 + 2 tokens per message it was sent."""
+    """Answers each turn's expected label and reports 50 + 2 tokens per message it was sent."""
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
     def invoke(self, messages):
         count = 50 + 2 * len(messages)
-        return AIMessage(content='{"reason":"uncertain"}',
+        reason = EXPECTED[json.loads(messages[-1].content)["reply"]]
+        return AIMessage(content=json.dumps({"reason": reason}),
                          usage_metadata={"input_tokens": count, "output_tokens": 5, "total_tokens": count + 5})
 
 
@@ -49,7 +53,7 @@ def test_run_py_batch_runs_the_context_benchmark_both_ways(offline_benchmark):
     assert on["thread_id"] != off["thread_id"]
     for result in (on, off):
         assert [row["item"] for row in result["items"]] == list(range(1, 11))
-        assert all(row["model_calls"] == 1 and row["correct"] for row in result["items"])
+        assert all(row["model_calls"] == 3 and row["correct"] for row in result["items"])
     # ON sends a fixed context every item; OFF adds the earlier dialogue, so --no-context-strategy reached it.
     assert len({row["input_tokens"] for row in on["items"]}) == 1
     tokens = [row["input_tokens"] for row in off["items"]]

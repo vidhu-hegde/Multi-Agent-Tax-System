@@ -1,8 +1,18 @@
 """Memory boundaries: opaque workflow identity, selective disclosure and restart persistence."""
 
+import json
+
 import pytest
 
 from src import memory
+
+# The benchmark file, in run order; offline providers below answer each turn's expected label.
+CONTEXT_TURNS = [turn for item in memory.load_context_items()["items"] for turn in item["turns"]]
+EXPECTED = {turn["reply"]: turn["expected"] for turn in CONTEXT_TURNS}
+
+
+def expected_answer(messages):
+    return json.dumps({"reason": EXPECTED[json.loads(messages[-1].content)["reply"]]})
 
 
 def question_text(value):
@@ -158,7 +168,7 @@ def test_benchmark_runs_ten_sequential_items_in_separate_persistent_threads(sett
             # Synthetic usage values test plumbing only; these are not measurements.
             count = 50 + len(messages)
             return AIMessage(
-                content='{"reason":"uncertain"}',
+                content=expected_answer(messages),
                 usage_metadata={"input_tokens": count, "output_tokens": 5, "total_tokens": count + 5},
             )
 
@@ -166,9 +176,10 @@ def test_benchmark_runs_ten_sequential_items_in_separate_persistent_threads(sett
         on = memory.run_context_benchmark(Provider(), saver, "strategy-on", True)
         off = memory.run_context_benchmark(Provider(), saver, "strategy-off", False)
         assert len(on) == len(off) == 10
-        assert all(row["correct"] and row["model_calls"] == 1 for row in on + off)
-        assert [r["input_tokens"] for r in on] == [52] * 10
-        assert [r["input_tokens"] for r in off] == list(range(52, 72, 2))
+        assert all(row["correct"] and row["model_calls"] == 3 for row in on + off)
+        # ON: 2 messages per call, 3 calls per item. OFF: call k sends 2k messages, so item i = 144 + 18i.
+        assert [r["input_tokens"] for r in on] == [156] * 10
+        assert [r["input_tokens"] for r in off] == list(range(162, 325, 18))
         assert len(list(saver.list(memory.thread_config("strategy-on")))) > 10
         with pytest.raises(ValueError, match="fresh thread"):
             memory.run_context_benchmark(Provider(), saver, "strategy-on", True)
@@ -194,11 +205,12 @@ def test_benchmark_cli_writes_comparable_runs_without_sampling_parameters(settin
 
         def invoke(self, messages):
             self.calls += 1
-            assert f"Item {self.calls}." in messages[-1].content
+            turn = CONTEXT_TURNS[self.calls - 1]
+            assert json.loads(messages[-1].content) == {"question": turn["question"], "reply": turn["reply"]}
             assert '"filing_status": "single"' in messages[0].content
             assert len(messages) == (2 if enabled else 2 * self.calls)
             count = 100 + len(messages)
-            return AIMessage(content='{"reason":"uncertain"}', usage_metadata={
+            return AIMessage(content=expected_answer(messages), usage_metadata={
                 "input_tokens": count, "output_tokens": 1, "total_tokens": count + 1,
             })
 
@@ -216,9 +228,9 @@ def test_benchmark_cli_writes_comparable_runs_without_sampling_parameters(settin
     assert result["model"] == "offline-provider-double"
     assert result["thread_id"] == f"cli-strategy-{enabled}"
     assert [row["item"] for row in result["items"]] == list(range(1, 11))
-    assert all(row["correct"] and row["model_calls"] == 1 for row in result["items"])
+    assert all(row["correct"] and row["model_calls"] == 3 for row in result["items"])
     assert [row["input_tokens"] for row in result["items"]] == (
-        [102] * 10 if enabled else list(range(102, 122, 2))
+        [306] * 10 if enabled else list(range(312, 475, 18))
     )
 
 
@@ -259,3 +271,6 @@ def test_benchmark_cli_rejects_invalid_evidence(settings, monkeypatch, tmp_path,
             memory.main(args)
         rows = json.loads(output.read_text())["items"]
         assert len(rows) == 10 and all(not row["correct"] for row in rows)
+        if failure == "wrong_outcome":
+            # A fixed null is right for the 15 re-ask turns, but every item has a turn that needs a label.
+            assert sum(turn["correct"] for row in rows for turn in row["turns"]) == 15

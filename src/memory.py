@@ -10,6 +10,7 @@ import re
 import sqlite3
 import uuid
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Annotated, TypedDict
 
 from langchain_core.messages import AnyMessage, HumanMessage, SystemMessage
@@ -17,7 +18,7 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph.message import add_messages
 
-from src.config import Settings
+from src.config import ROOT, Settings
 from src.schemas import Contract, EscalationReason, IntakeAnswer
 from src.state import current_answers, merge_answers, merge_dicts
 from src.security import redact_ssns
@@ -121,14 +122,38 @@ def open_checkpointer(settings: Settings):
         conn.close()
 
 
-def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=True):
-    """Ten sequential synthetic Intake items in one fresh, persisted thread.
+CONTEXT_ITEMS = ROOT / "evals" / "context_items.json"
+CONTEXT_TURNS_PER_ITEM = 3
 
-    This evaluation graph calls the same classifier as make_intake(). It does not
-    replace the team's return graph or simulate completed tax returns/invoices.
+
+def load_context_items(path=CONTEXT_ITEMS) -> dict:
+    """The benchmark's ten items of three unclear Intake replies, each with its one expected label."""
+    from src.agents.intake import ESCALATION_DETAIL
+
+    data = json.loads(Path(path).read_text())
+    items = data["items"]
+    if len(items) != 10 or any(len(item["turns"]) != CONTEXT_TURNS_PER_ITEM for item in items):
+        raise ValueError(f"{path} must hold 10 items of {CONTEXT_TURNS_PER_ITEM} turns")
+    for item in items:
+        for turn in item["turns"]:
+            if turn["expected"] not in (*ESCALATION_DETAIL, None):
+                raise ValueError(f"{item['id']}: unknown expected label {turn['expected']!r}")
+    return data
+
+
+def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=True, items_path=CONTEXT_ITEMS):
+    """The ten items of evals/context_items.json, three turns each, in order in one fresh, persisted thread.
+
+    Each turn is one classifier call with the input production Intake sends, {"question", "reply"}. ON and
+    OFF read the same file and the same fixed seed answers. A turn is correct when the model's output is
+    valid and matches its expected label; an item is correct when all three turns are. This evaluation
+    graph calls the same classifier as make_intake(). It does not replace the team's return graph or
+    simulate completed tax returns/invoices.
     """
     from langgraph.graph import END, START, StateGraph
     from src.agents.intake import classify_with_model
+
+    data = load_context_items(items_path)
 
     config = thread_config(thread_id)
     if checkpointer.get_tuple(config) is not None:
@@ -146,29 +171,40 @@ def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=T
     graph = builder.compile(checkpointer=checkpointer)
     rows = []
     previous_usage = {}
-    for item in range(1, 11):
-        payload = {
-            "context_item": f"This question is beyond me; I need a volunteer to explain the wording. Item {item}."
-        }
-        if item == 1:
-            payload["answers"] = [IntakeAnswer(field="filing_status", value="single", entered_by="synthetic benchmark")]
-        result = graph.invoke(payload, config)
-        usage = result["input_token_usage"]
-        new_calls = {key: value for key, value in usage.items() if key not in previous_usage}
-        rows.append(
-            {
-                "item": item,
+    seeds = [IntakeAnswer(field=field, value=value, entered_by="synthetic benchmark")
+             for field, value in data["seed_answers"].items()]
+    for number, item in enumerate(data["items"], start=1):
+        turns = []
+        for turn in item["turns"]:
+            payload = {"context_item": json.dumps({"question": turn["question"], "reply": turn["reply"]})}
+            if seeds:
+                payload["answers"], seeds = seeds, []  # once, before the first turn; never changed after
+            result = graph.invoke(payload, config)
+            usage = result["input_token_usage"]
+            new_calls = {key: value for key, value in usage.items() if key not in previous_usage}
+            previous_usage = usage
+            turns.append({
+                "reply": turn["reply"],
+                "expected": turn["expected"],
+                "reason": result["context_reason"],
+                "valid": result["context_classification_valid"],
                 "input_tokens": sum(new_calls.values()),
                 "model_calls": len(new_calls),
-                "correct": result["context_classification_valid"] and result["context_reason"] == "uncertain",
-            }
-        )
-        previous_usage = usage
+                "correct": result["context_classification_valid"] and result["context_reason"] == turn["expected"],
+            })
+        rows.append({
+            "item": number,
+            "id": item["id"],
+            "input_tokens": sum(t["input_tokens"] for t in turns),
+            "model_calls": sum(t["model_calls"] for t in turns),
+            "correct": all(t["correct"] for t in turns),
+            "turns": turns,
+        })
     return rows
 
 
 def main(argv=None):
-    """Iris-owned benchmark entry point until the run.py owner connects its --batch hook."""
+    """Iris-owned benchmark entry point."""
     import argparse
     from datetime import datetime, timezone
     from pathlib import Path
