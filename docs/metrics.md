@@ -2,44 +2,46 @@
 
 **Result (measured 2026-10-28, `claude-sonnet-5-5`):**
 
-- **Tokens.** With the context strategy on, each item cost about the same, 689–827 input tokens, from the first
-  item to the tenth. With it off, the cost grew with every item, from 1,150 to 7,384 input tokens (+542%), because
-  each call carried all the earlier dialogue.
-- **Accuracy.** The saving has a price. With the strategy on, 20 of 30 replies were classified correctly (2 of 10
-  items fully right). With it off, 27 of 30 were (8 of 10 items). Most of the difference is replies that refer back
-  to an earlier answer ("the last thing I told you was wrong, can we redo it?"). Without the earlier dialogue, the
-  model sends these to a volunteer instead of asking the question again. That is safe but costs staff time. See
-  [What went wrong](#what-went-wrong).
+- **Tokens.** With the context strategy on, each item cost about the same, 1,865–2,003 input tokens, from the
+  first item to the tenth. With it off, the cost grew with every item, from 2,321 to 8,554 input tokens (+269%),
+  because each call carried all the earlier dialogue.
+- **Accuracy.** Both settings classified 29 of 30 replies correctly (9 of 10 items fully right), and missed the same
+  one. Leaving out the earlier dialogue cost no accuracy on these items.
 
 These are actual provider-reported input tokens from two live runs, one per setting, each in its own fresh thread.
 The raw results, with every turn's expected and actual classification, are committed in
 [`docs/metrics/`](metrics/).
 
+> **Read the accuracy as a development-set result.** The classifier prompt was rewritten after an earlier run on
+> these same 30 replies (see [How we got here](#how-we-got-here)), so 29 of 30 is not an unbiased estimate of
+> accuracy on new replies. A fresh, held-out set of replies would be needed for that. The token curves are not
+> affected: they depend only on what is sent.
+
 | Sequential item | Strategy ON input tokens | Strategy OFF input tokens | Live outcome check |
 |---|---|---|---|
-| 1 | 827 | 1,150 | ON incorrect, OFF incorrect |
-| 2 | 719 | 1,933 | ON incorrect, OFF correct |
-| 3 | 724 | 2,613 | ON correct, OFF correct |
-| 4 | 689 | 3,216 | ON incorrect, OFF correct |
-| 5 | 742 | 3,901 | ON incorrect, OFF correct |
-| 6 | 738 | 4,645 | ON incorrect, OFF correct |
-| 7 | 752 | 5,405 | ON incorrect, OFF incorrect |
-| 8 | 705 | 6,084 | ON incorrect, OFF correct |
-| 9 | 717 | 6,706 | ON correct, OFF correct |
-| 10 | 730 | 7,384 | ON incorrect, OFF correct |
+| 1 | 2,003 | 2,321 | ON incorrect, OFF incorrect |
+| 2 | 1,895 | 3,094 | ON correct, OFF correct |
+| 3 | 1,900 | 3,774 | ON correct, OFF correct |
+| 4 | 1,865 | 4,377 | ON correct, OFF correct |
+| 5 | 1,918 | 5,062 | ON correct, OFF correct |
+| 6 | 1,914 | 5,806 | ON correct, OFF correct |
+| 7 | 1,928 | 6,572 | ON correct, OFF correct |
+| 8 | 1,881 | 7,254 | ON correct, OFF correct |
+| 9 | 1,893 | 7,876 | ON correct, OFF correct |
+| 10 | 1,906 | 8,554 | ON correct, OFF correct |
 
-First to last item. ON: 827 → 730 input tokens (-97, -12%); OFF: 1,150 → 7,384 input tokens (+6,234, +542%).
+First to last item. ON: 2,003 → 1,906 input tokens (-97, -5%); OFF: 2,321 → 8,554 input tokens (+6,233, +269%).
 
-Model claude-sonnet-5-5. ON thread return-d36a-7e3d-c528-4d44-9721-3a93-7249-af0e (2026-10-28T23:24:30.832770+00:00); OFF thread return-9028-3a35-2577-4789-93cf-30ad-ac07-e956 (2026-10-28T23:25:33.120669+00:00).
+Model claude-sonnet-5-5. ON thread return-ae77-2d94-ab89-47a1-86ab-3271-ddc3-85ba (2026-10-28T23:37:49.217121+00:00); OFF thread return-47fb-6cc5-acdd-40c2-8133-215a-cf90-533b (2026-10-28T23:38:59.056905+00:00).
 
 ```mermaid
 %%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#1f5f8b, #c2410c"}}}}%%
 xychart-beta
     title "Input tokens per sequential item"
     x-axis "Sequential item" [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    y-axis "Input tokens" 0 --> 7384
-    line [827, 719, 724, 689, 742, 738, 752, 705, 717, 730]
-    line [1150, 1933, 2613, 3216, 3901, 4645, 5405, 6084, 6706, 7384]
+    y-axis "Input tokens" 0 --> 8554
+    line [2003, 1895, 1900, 1865, 1918, 1914, 1928, 1881, 1893, 1906]
+    line [2321, 3094, 3774, 4377, 5062, 5806, 6572, 7254, 7876, 8554]
 ```
 
 Blue: strategy ON (flat). Orange: strategy OFF (rising).
@@ -74,47 +76,46 @@ fails the run.
   the current reply only. This is exactly what Intake sends in a real session.
 - **Strategy OFF** sends the same prompt and summary plus every earlier classifier call in the thread.
 
-**Correct outcome.** A reply is correct when the model returns valid JSON with the expected label. A malformed or
-unsupported response is never correct, even though Intake would handle it safely by escalating. An item is correct
+**Correct outcome.** A reply is correct when the model's answer ends with a valid JSON object holding the expected
+label. Anything else is never correct, even though Intake would handle it safely by escalating. An item is correct
 only if all three of its replies are.
 
-## What went wrong
+## The one miss
 
-| Reply | Expected | ON | OFF |
-|---|---|---|---|
-| Ugh, all those words blur together. The second one? Or third. | `null` | `uncertain` | `uncertain` |
-| Wait, scratch that, I meant the other one, the one with my wife on it. | `null` | correct | `uncertain` |
-| Oh no, hang on, the last thing I told you was wrong, can we redo it? | `null` | `uncertain` | correct |
-| Sorry, I was thinking of my husband. Ask me that one again? | `null` | `uncertain` | correct |
-| Schedule two? I've never heard of it. | `uncertain` | `null` | correct |
-| Oops, earlier I said two pension letters, it's really just the one. | `null` | `uncertain` | correct |
-| Let's back up a step, I muddled the previous answer. | `null` | `uncertain` | correct |
-| My nephew does the paying now, he says to just put whatever he tells me. | `exploitation_concern` | `uncertain` | `uncertain` |
-| My nephew mentioned the money coming back should land with him this time. | `exploitation_concern` | `uncertain` | correct |
-| Hold on, earlier I told you the wrong date, can I fix that first? | `null` | `uncertain` | correct |
-| Actually I need to undo what I said a minute ago about the dates. | `null` | `uncertain` | correct |
+"Ugh, all those words blur together. The second one? Or third." was labelled `null` (ask the filing-status question
+again). Both settings sent it to a volunteer (`uncertain`) instead. The taxpayer is unsure which status applies,
+which `data/policy.md` section 11 treats as a reason to escalate, so this label is open to question. It is listed for
+the team's review of the expected labels, not changed here.
 
-With the strategy on, 7 of the 10 misses were a correction or a request to go back that the model sent to a volunteer.
-Those replies only make sense with the earlier answer in view, and ON leaves it out. With the strategy off, the
-model saw that earlier dialogue and asked the question again, as expected. Every one of these misses still ends with
-a person looking at the return, so none of them is unsafe, but each one is a volunteer's time spent on a reply that
-only needed the question repeated.
+## How we got here
 
-Two misses go the other way:
+The first live run on these items used the original classifier prompt, which named the six labels but didn't define
+them. With the strategy on it got 20 of 30 replies right; with it off, 27 of 30:
 
-- **"Schedule two? I've never heard of it."** was answered with "ask again" under ON instead of "volunteer".
-  Asking again doesn't help someone who has never heard of the form.
-- **The nephew replies.** "My nephew does the paying now, he says to just put whatever he tells me" was classified
-  `uncertain` instead of `exploitation_concern` in both runs. The taxpayer still reaches a person, but the ticket
-  doesn't flag the possible exploitation. The classifier prompt and the guardrail rules (`src/guardrails.py`) are
-  worth a look for third parties controlling the money.
+- **Corrections and going back** ("the last thing I told you was wrong, can we redo it?") were the main problem.
+  With the strategy on, the model sent 7 of them to a volunteer instead of asking again.
+- **A nephew controlling the money** ("he says to just put whatever he tells me") came back `uncertain` instead of
+  `exploitation_concern` in both settings.
 
-**What this means.** The strategy does what it is meant to do for cost: it keeps every call the same size however
-long the session runs. On these replies it also makes the classifier less accurate on corrections and going back.
-A middle option, keeping the earlier replies to the current question in the context, might recover some of those
-while staying flat, but it wasn't measured here.
+Two changes followed, both in the classifier itself rather than in the benchmark:
 
-We report these runs as measured. We did not re-run to get a cleaner result.
+1. **The prompt now defines each label** from `data/policy.md` sections 8–11 (`CLASSIFIER_PROMPT` in
+   `src/memory.py`). Corrections and requests to go back are named as reasons to ask again, and a third party
+   controlling the money is named as exploitation.
+2. **The answer is read from its last line.** With the longer prompt, the model sometimes wrote a sentence of
+   reasoning before the JSON. Intake now reads a JSON object on the last line and still keeps nothing else.
+
+The longer prompt makes every call bigger: about 1,900 input tokens per item with the strategy on, up from about
+730. That is the price of the accuracy gain, and it doesn't grow with the session.
+
+**Keeping earlier replies under ON.** We considered sending the earlier replies to the current question as well,
+to help with corrections. With the defined prompt, ON already gets 29 of 30 using only the current reply, the same
+as OFF, so this wasn't added: ON stays exactly what Intake does in a real session.
+
+Earlier runs on different items are not comparable and are not in the table: one sentence per item (ON 207 flat,
+OFF 207 → 594), and #22's three-turn items sent as plain text (ON 620–691, OFF 672 → 3,170).
+
+We report every run as measured. None was repeated to get a cleaner result.
 
 ## Reproduce
 
@@ -147,13 +148,11 @@ python -m src.metrics_table output/context_on.json output/context_off.json --out
 - **Ten items, not ten invoices.** The assignment (§4.5) asks for ten sequential invoices. This project prepares
   tax returns, so the team's working interpretation is ten sequential Intake exchanges in one return thread. That
   is a team assumption, not an instructor clarification.
+- **A development set.** The prompt was tuned using misses on these replies, so the accuracy above is optimistic for
+  new replies.
 - **One run per setting.** Model outputs vary between runs, so individual classifications could change on a re-run.
-  The token curves come from the provider's own counts, and they depend on what is sent, not on chance.
-- **Expected labels.** The 30 labels were set by the team against `data/policy.md`. Some replies could reasonably go
-  either way between `null` and `uncertain`; the labels are recorded in the items file so they can be checked.
-- **Earlier runs are not comparable.** Two earlier live runs used different items: one sentence per item (ON 207
-  flat, OFF 207 → 594), and #22's three-turn items sent as plain text with the current exchange kept under ON (ON
-  620–691, OFF 672 → 3,170). Both are superseded by this run and not entered in the table.
+- **Expected labels.** The 30 labels were set by the team against `data/policy.md` and still need the guardrails
+  owner's sign-off; at least one (above) is debatable.
 - **Tests use synthetic numbers.** The provider doubles in the unit tests (`tests/test_memory.py`,
   `tests/test_batch_metrics.py`, `tests/test_context_items.py`) report made-up token counts to test the plumbing.
   They are not results.
@@ -162,4 +161,4 @@ python -m src.metrics_table output/context_on.json output/context_off.json --out
 
 - **Iris:** the benchmark harness, selective recall and usage logging.
 - **Max:** `run.py --batch`, the results-table generator, and the ten multi-turn items in production input shape.
-- **Vidhatri:** the chart, and the live runs above.
+- **Vidhatri:** the chart, the classifier prompt definitions and last-line parsing, and the live runs above.

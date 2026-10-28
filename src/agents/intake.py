@@ -297,7 +297,8 @@ def classify_with_model(model, state, text, use_context_strategy=True):
         content = "".join(block.get("text", "") for block in content if isinstance(block, dict))
     valid = False
     try:
-        payload = json.loads(content)
+        # The model sometimes writes a sentence of reasoning first; only a JSON object on the last line counts.
+        payload = json.loads(content.strip().splitlines()[-1] if content.strip() else content)
         reason = payload["reason"]
         valid = reason in (*ESCALATION_DETAIL, None)
         if not valid:

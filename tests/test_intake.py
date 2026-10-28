@@ -223,6 +223,26 @@ def test_requested_dependent_ssn_accepts_structured_reply(make_graph, tmp_path):
     assert current_answers(result)["dependents"].value[0].ssn == "901-12-3456"
 
 
+@pytest.mark.parametrize("content,reason,valid", [
+    ('The reply asks to go back, which Intake handles.\n\n{"reason": null}', None, True),
+    ('{"reason": "advice_request"}', "advice_request", True),
+    ('{"reason": null} because it is muddled', "uncertain", False),  # the JSON must be the whole last line
+    ('Sure.\n{"reason": "invented"}', "uncertain", False),
+])
+def test_classifier_reads_the_json_on_the_last_line_and_keeps_nothing_else(content, reason, valid):
+    from langchain_core.messages import AIMessage
+
+    class Provider:
+        def invoke(self, messages):
+            return AIMessage(content=content,
+                             usage_metadata={"input_tokens": 17, "output_tokens": 8, "total_tokens": 25})
+
+    got, update = intake_module.classify_with_model(Provider(), {}, "unclear reply")
+    assert got == reason
+    assert update["messages"][-1].content == json.dumps({"reason": reason})
+    assert update["messages"][-1].response_metadata["silverfile_classification_valid"] is valid
+
+
 def test_malformed_model_output_escalates_without_repeating_unsafe_generated_text():
     from langchain_core.messages import AIMessage
 
