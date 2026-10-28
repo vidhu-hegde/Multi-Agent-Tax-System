@@ -1,18 +1,19 @@
 # Iris Agent Memory / Intake completion and coordination report
 
-## Current independent audit — 2026-10-28
+## Current independent audit (2026-10-28)
 
-The assignment and all ten Iris checklist items were checked against source, the complete diff and
-fresh offline execution. Earlier agent documents were treated as claims. This section supersedes
-both prior reports below. It is an evidence assessment, not a grade prediction or personal approval
-of a generated disclosure.
+The audit checked the assignment and all ten Iris checklist items against source, the full diff and
+fresh offline runs. The results below supersede the two earlier reports. Iris still needs to approve
+the generated disclosure personally; test results do not establish a grade.
 
 ### Branch, attribution and remote review
 
-The starting tree was clean on `codex/iris-offline-verification`, at `5902794`. `git fetch origin
+The audit started with a clean tree on `codex/iris-offline-verification`, at `5902794`. `git fetch origin
 --prune` left `origin/main` at `5c441003e7ba8d59b6ede46568915ec7437bf1d0`. The original local commits
-`760483f`, `f7e2545`, and `5902794` are preserved. No main checkout/edit/merge, push, PR creation,
-GitHub comment or teammate message was performed.
+`760483f`, `f7e2545`, and `5902794` are preserved. The audit made no changes to main and did not
+push, open a PR or contact teammates. The later review-preparation step reuses `Iris-agent-memory`
+as Iris's only local and remote branch. It fast-forwards that branch to the audited commits and
+removes the redundant local branch name; all commits remain in history.
 
 PR #6 contains the earlier Iris implementation. Shared contracts/evidence/rendering (#7), graph and
 staff interfaces (#8/#12/#13), guardrails (#9), tax rules (#10) and cents rounding (#14) are already
@@ -23,59 +24,59 @@ assertions. It does not modify teammate orchestration, schemas, computation, pol
 
 The GitHub connector could not access this repository; authenticated local `gh` supplied read-only
 PR metadata. Latest open Security PR #11 is at `c6aafeb82dd6d5f25735275633f8473bb7d9652e`; GitHub
-reports **MERGEABLE / CLEAN**, not the old conflict status. Its newest commit merges #14's rounding.
+reports MERGEABLE / CLEAN. Its newest commit merges #14's rounding.
 There are no additional Intake/memory changes between the previously inspected `4a11024` and that
-head. Its description/test count is older than its code. It remains unmerged and was not imported or
-executed here. Qiyan still owns integration and verification.
+head. Its description and test count are older than its code. It remains unmerged. The compatibility
+check in [IRIS_PR_REVIEW_PACKET.md](IRIS_PR_REVIEW_PACKET.md) uses a temporary combined tree; it
+does not change either working branch. Qiyan still owns integration and verification.
 
 ### Prioritized findings and disposition
 
-1. **P1, checkpoint data loss — fixed in the incoming follow-up and independently reproduced.**
+1. P1: the partial-import guard saves progress before the next question.
    Removing the three-line guard in `src/agents/intake.py` makes the real-process test fail because
    saved `adjustments` is missing. Restoring it passes. Imported inventory/answers are committed
    before the first interactive interrupt. Five process launches verify recap, history, isolation,
    archived old line 26 and new source identity/time. Assertions now also check the adjustment's
    downstream worksheet, income, taxable income, tax and refund against literal expected amounts.
-2. **P2, benchmark false positives — fixed by this audit.** `classify_with_model()` safely maps bad
+2. P2: invalid classifier output no longer counts as correct. `classify_with_model()` safely maps bad
    JSON/unknown reasons to `uncertain`; the harness previously counted that as correct on every item.
    Four new ON/OFF regression instances failed before the fix. Validity is now recorded as a boolean
    in sanitized response metadata; `correct` requires valid output and the expected reason. Safe
    taxpayer handoff is retained. Both CLI modes reject wrong outcomes, invalid output and missing
    usage. Happy-path doubles inspect item order, context size, session summary and model configuration.
-3. **P2, readiness-eval assertions — fixed by this audit.** The four shared gate cases formerly
+3. P2: readiness evals now check the saved answers and handoff fields. The four shared gate cases formerly
    checked only a generic uncertainty pause. New `expect.answers` and `expect.escalation_evidence`
    checks require retained confirmed values and the relevant missing-consumer fields. Eight injected
    data-loss/wrong-ticket variants fail with these assertions; disabling the assertions makes all
    eight broken variants pass. Correction/drift cases also check confirmed values. The staff test
    now accepts the next real answer after recovery and verifies progress to DOB.
-4. **P2, stale documentation — corrected.** Current status no longer repeats #11's obsolete conflict
+4. P2: the current documentation has been corrected. Current status no longer repeats #11's obsolete conflict
    claim or limits runtime changes to three lines. Report/disclosure/demo and PR text distinguish
    fresh checks, prior history, generated drafts and external measurements.
 
 ### Cross-owner findings retained for team review
 
-- **P1, required in-scope outputs remain incomplete (Anupama/Max, coordinated by Vidhatri).**
+- P1: required in-scope outputs remain incomplete (Anupama/Max, coordinated by Vidhatri).
   `PENDING_DOWNSTREAM_FIELDS` and Computation show that dependent output and nonzero Schedule 2/3
   consumers are absent. A staff `continue` permits a draft that still ignores those fields; the
-  four gate cases deliberately stop before that. This is a software limitation, not a legitimate
-  tax-scope exclusion or proof of a correct dependent/schedule return. Keep it explicit in submission
+  four gate cases deliberately stop before that. These fields are in scope, and the missing consumers remain a software limitation. Keep it explicit in submission
   material; replace pause expectations with correct-output cases only when owner integration lands.
-- **P1, independent Review and security integration (Qiyan/Vidhatri).** On a copied clean state,
+- P1: Review and security still need integration (Qiyan/Vidhatri). On a copied clean state,
   increasing lines 16 and 24 by $1 and reducing line 34 by $1 leaves
   `src/agents/review.py::find_problems()` returning zero problems: the current checks recompute
   totals but do not independently validate every tax result or source. PR #11 contains additional
-  review/ingress protections, but this audit does not claim they are integrated or tested. Intake
-  redaction cannot prove raw resume checkpoints/traces are PII-free. Do not infer that guarantee
+  review/ingress protections. Those changes remain outside this branch; the temporary compatibility
+  run is recorded in the PR packet. Intake redaction cannot prove raw resume checkpoints/traces are PII-free. Do not infer that guarantee
   from the W-2 schema or a passing suite.
-- **Vidhatri/Max:** `run_batch` still exits unimplemented; the default graph does not wire model-backed
+- Vidhatri/Max: `run_batch` still exits unimplemented; the default graph does not wire model-backed
   Intake or apply its strategy switch. Full-path usage aggregation must include extraction calls.
-  **Team member with credits:** perform live ON/OFF runs after integration and agreement on the
+  Team member with credits: perform live ON/OFF runs after integration and agreement on the
   professor's invoice/item ambiguity; record actual per-item counts and curve in `docs/metrics.md`.
   No tokens were requested and no live API calls were made. Synthetic usage is not measurement evidence.
-- **Max:** actual MCP transport is absent (`src/tools.py` calls local functions); Docker persistent
-  volume/container restart is not established by Python-process tests. **Anupama/Juee/Max:** QCD,
+- Max: actual MCP transport is absent (`src/tools.py` calls local functions); Docker persistent
+  volume/container restart is not established by Python-process tests. Anupama/Juee/Max: QCD,
   line 25c/other direct-input contracts and the team's limited-adjustment wording need decisions.
-  **Juee:** prior field-sensitive false alarms remain owner decisions, not new Iris policy work.
+  Juee: prior field-sensitive false alarms remain owner decisions, not new Iris policy work.
 
 ### Ten-item Iris completion assessment
 
@@ -90,9 +91,9 @@ executed here. Qiyan still owns integration and verification.
 | 7 Uncertainty recovery | **Done for tested paths** | Typed ticket, staff identity/note, reopened SQLite and successful next answer (`test_iris_integration.py`). | Team: demonstrate staff UI; Qiyan: ingress/security integration. |
 | 8 Context strategy | **Partial; live evaluation external** | Actual classifier boundary, separate persisted ON/OFF threads, ten items, provider usage and failure validation tested offline. | Vidhatri/Max: normal/batch wiring and all-call accounting; team member with credits: live table/curve and outcomes. |
 | 9 Focused tests | **Done for this follow-up** | 532 suite tests, 24 shared evals; negative controls expose checkpoint loss, invalid classifier scoring and weak gate assertions. | Not proof of live accuracy, full tax correctness or full credit. |
-| 10 Docs/accessibility/disclosure | **Partial** | Report, disclosure draft, handoff, metrics and demo proofread; six design choices mapped; browser/sequence checks reproduced. | Iris: personally approve disclosure/report and record segment; team: consolidate roles/report/disclosures and 5–10 minute video. |
+| 10 Docs/accessibility/disclosure | **Partial** | Report, disclosure draft, handoff, metrics and demo proofread; six design choices mapped; browser/sequence checks reproduced. | Iris: personally approve disclosure/report and record segment; team: consolidate roles/report/disclosures and 5-to-10 minute video. |
 
-### Fresh verification and Draft PR disposition
+### Verification and PR readiness
 
 - `origin/main` exported to a temporary directory: **504 passed, 7 warnings**. Initial follow-up before
   audit edits: **516 passed, 7 warnings**. Final suite: **532 passed, 7 warnings** (PyMuPDF/SWIG).
@@ -105,10 +106,12 @@ executed here. Qiyan still owns integration and verification.
   database. Separate subprocess tests establish actual process restarts. No video or screen-reader
   certification was produced.
 - `git diff --check` and `git diff origin/main...HEAD --check`: clean. No requirements changed.
+- Review preparation: the restart test now uses `format_interrupt()` to check the displayed prompt
+  with both string interrupts and #11's typed questions. The temporary combined snapshot passes
+  574 tests with seven warnings. See the PR packet for the tested head and overlapping files.
 
-The feasible Iris code and proofreading work is complete for a **Draft PR**. This is not final team
-submission readiness. Human review and recording remain Iris actions; the dependencies above cannot
-be closed by more offline tests. Ready-to-paste PR title/description and the professor-rubric evidence
+Iris's code and proofreading work is ready for a Draft PR. She still needs to review the generated
+text personally and record her segment. The team dependencies above also remain open. Ready-to-paste PR title/description and the professor-rubric evidence
 map are in [IRIS_PR_REVIEW_PACKET.md](IRIS_PR_REVIEW_PACKET.md). Generated disclosure/report text still
 requires Iris's personal review; this audit does not represent it as approved.
 

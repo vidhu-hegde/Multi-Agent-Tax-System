@@ -1,6 +1,6 @@
 # Context-window evaluation — Iris contribution
 
-Independent offline audit **2026-10-28**: no live measurement was requested or made. Iris has no API credits
+The 2026-10-28 audit ran offline. No live measurement was requested or made. Iris has no API credits
 available; live execution requires a team member with access. The remaining Iris offline harness/CLI
 checks pass, including both strategy flags and PR #13's removal of sampling parameters. Both modes
 also reject missing usage, incorrect reasons, malformed JSON and unsupported classifications. Synthetic
@@ -64,15 +64,14 @@ not an expected savings percentage. If the curve is not materially flatter, repo
 
 Professor §4.5 refers to ten **invoices** and to a nonexistent invoice scenario in §4.2, while this
 project prepares tax returns. The current harness uses ten sequential **synthetic Intake classifier
-items**, not ten invoices or ten completed returns. That is a clearly labelled evaluation choice,
-not a resolution of the assignment ambiguity. Iris/the team must confirm the intended evaluation unit
+items**, not ten invoices or ten completed returns. The team still needs to resolve that difference in the assignment wording. Iris/the team must confirm the intended evaluation unit
 with the instructor or record an explicit team assumption before calling §4.5 complete.
 
 `src/graph.py:run_batch` is still the team's stub. `build_graph(use_context_strategy=...)` currently
 does not configure models. Vidhatri/Max need to wire the existing `make_intake` factory and connect the
 batch hook; the integration example is in `IMPLEMENTATION_NOTES.md`. Extraction now makes live W-2
 vision calls (#7/#13), so the historical statement that no other agent calls a model no longer applies.
-Its provider usage is not aggregated by this Intake-only harness. The owners must use the same
+This Intake-only harness does not aggregate its provider usage. The owners must use the same
 boundary (or equivalent usage logging) so measurements eventually sum **all** model calls for the
 agreed item. Vidhatri's live W-2 results in `evals/README.md` are extraction evidence, not the required
 context ON/OFF experiment.

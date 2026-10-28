@@ -250,12 +250,12 @@ input fields, so an extraction test can compare its output directly.
 
 ## Iris: memory and state
 
-Intake now commits every accepted interactive answer before the next question. Case-file imports may
+Intake saves each accepted interactive answer before asking the next question. Case-file imports may
 commit several validated fields together. They return a checkpoint update before interrupting for a
 missing interactive answer, so a partial case's imported values survive restart and appear in the
 resume recap. `answers` uses `merge_answers`: `(field, answered_at,
-entered_by)` identifies an event. Events are ordered by confirmation time before collapsing repeated
-effective values; replay of an old suppressed answer cannot undo a newer correction. Contradictory
+entered_by)` identifies an event. The reducer orders events by confirmation time before collapsing repeated
+effective values, so replaying an old suppressed answer cannot undo a newer correction. Contradictory
 values at the same confirmation time fail explicitly. `current_answers()` uses the same ordering,
 including for legacy checkpoints whose history was written in arrival order.
 Intake is the single answer writer; this history is not a commutative multi-writer CRDT.
@@ -269,9 +269,9 @@ The CLI displays the candidates and accepts `{"action":"continue","choice":1}` o
 Staff API callers use `sessions.resolve(..., choice=1)`; staff CLI callers add `--choice 1`.
 
 `thread_config()` generates opaque return ids and rejects SSN-shaped supplied ids. The SQLite saver
-enforces that boundary for existing entry points too. One id identifies one return workflow, not an SSN
-or a person across tax years. `SILVERFILE_DB_PATH` remains configurable. The tests start **three separate
-Python processes** with one database and return id, then a separate return id, verifying answers,
+enforces that boundary for existing entry points too. Each id identifies a single return workflow. It carries no SSN and does not identify a person across
+tax years. `SILVERFILE_DB_PATH` remains configurable. The tests start three separate
+Python processes with one database and return id, then a separate return id, verifying answers,
 recap, pending question, retry idempotency and isolation. A different SQLite connection alone is not
 our process-restart evidence. The DB is ignored by Git; no real taxpayer data was used.
 
@@ -296,8 +296,7 @@ The integrated `src/evidence.py` contract from #7 archives prior documents/lines
 removed or replaced inventory records, increments an evidence epoch and clears stale results before
 fresh Rules/Computation/Review. Changed evidence gets fresh rule-ticket identities, preserving prior
 approvals as history without applying them to the new occurrence. Competing writes still require
-explicit staff selection. These interfaces are available; the old retraction/versioning blocker is
-resolved for the supported paths.
+explicit staff selection. These interfaces handle retraction and versioning for the supported paths.
 
 Nonzero inputs awaiting downstream integration create one uncertainty ticket for their fingerprint.
 Staff `continue` lets Intake finish without re-asking the same field; `stop` ends the workflow.
@@ -306,8 +305,8 @@ Schedule 2/3 calculations: the escalation explicitly discloses that those inputs
 
 ## Iris: accessibility and dignity
 
-These are working dialogue choices with automated evidence. The live demo instructions are in
-`demo/iris_memory_accessibility.md`. A recorded 5–10 minute team video has **not** been produced here.
+The tests below exercise the dialogue choices. Use `demo/iris_memory_accessibility.md` to record
+them in the required 5-to-10-minute team video; that recording remains to be made.
 
 | Brief §4.3 choice | Behavior | Verification |
 |---|---|---|
@@ -318,10 +317,9 @@ These are working dialogue choices with automated evidence. The live demo instru
 | Resumability | The CLI shows a recap once, on the first question after resuming. Ordinary questions and retries omit it. Other frontends should use the same resume boundary. | `test_resume_recap_is_shown_once`, process-restart tests |
 | Honest uncertainty | "I'm not sure; let me flag this for a volunteer" creates the existing typed ticket, and the existing human node interrupts. Staff resolution returns to the unfinished question. | `test_uncertainty_pause_survives_restart_and_staff_resolution`, existing escalation tests |
 
-**PII boundary requiring Qiyan/Max coordination:** Intake sanitizes unsolicited SSNs before storing
+Intake sanitizes unsolicited SSNs before storing
 its answers, tickets or model context, including the baseline. LangGraph can persist the original
-`Command(resume=...)` payload before the node runs. This work does **not** establish that raw resume
-payloads or external traces are free of PII. Qiyan must provide validation/redaction before those
+`Command(resume=...)` payload before the node runs. Raw resume payloads and external traces still need protection. Qiyan must provide validation/redaction before those
 commands are created; Max must connect it to the UI/CLI. Requested fake dependent SSNs remain in typed
 records because the assignment requires them. Encryption, authentication and retention are not claimed.
 
@@ -333,7 +331,8 @@ sends the same summary plus accumulated classifier dialogue. Both redact SSNs. T
 escalation classification only; invalid output becomes `uncertain`, and arbitrary generated prose is
 not passed to the taxpayer. A boolean `silverfile_classification_valid` in response metadata
 distinguishes valid output from the safety fallback. Benchmark correctness requires a valid expected
-classification; malformed JSON and unsupported reasons cannot earn a correct outcome. A completed model call is committed before another interrupt to prevent
+classification; malformed JSON and unsupported reasons fail that check. Intake commits a completed
+model call before the next interrupt to prevent
 normal resume replay from billing the same call again. A crash between provider response and checkpoint
 commit still has an at-least-once delivery risk; no exactly-once remote-call guarantee is claimed.
 
@@ -341,8 +340,8 @@ Actual `AIMessage.usage_metadata.input_tokens` is recorded by call id in `input_
 usage raises an error; text length is never substituted. The benchmark sums all new call entries per
 item, verifies outcomes, and persists ten sequential items in a single fresh thread for each run.
 It calls the same classifier as Intake, using synthetic unclear replies. Its small evaluation graph
-uses its own `ContextBenchmarkState`; `context_item`, `context_reason` and `context_classification_valid` are absent from
-`SilverFileState`. See `docs/metrics.md` for commands and blockers.
+uses its own `ContextBenchmarkState`. Its fields `context_item`, `context_reason` and
+`context_classification_valid` are absent from `SilverFileState`. See `docs/metrics.md` for commands and blockers.
 
 The default `run.py` graph still uses deterministic Intake. Vidhatri/Max can opt into the tested model
 path without replacing the graph:
@@ -361,7 +360,8 @@ graph = build_graph(settings, checkpointer,
 wire this factory and the existing `run.py --batch` hook. The Iris-owned measurement entry point is
 `python -m src.memory --batch [--no-context-strategy]`. Live measurements were blocked by the missing
 API key in the historical attempt. Live execution now remains an external team dependency because
-Iris has no credits; no further key/token request or live call was made. No production-wide token reduction or completed invoice evaluation is claimed.
+Iris has no credits. No further key/token request or live call was made. Production-wide token
+reduction and the completed invoice evaluation remain unmeasured.
 
 New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`). Nonzero Schedule
 2/3 totals and a positive dependent count pause for a volunteer. Staff continue lets Intake finish
