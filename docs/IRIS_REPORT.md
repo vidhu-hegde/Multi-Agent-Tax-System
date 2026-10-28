@@ -1,8 +1,8 @@
 # Report contribution: Agent Memory and accessible Intake (Iris)
 
-Draft for Iris's final proofreading, reviewed against merged `main` at `5c44100` and the offline
-follow-up on `codex/iris-offline-verification`. This is material for the team's report, not a claim
-that the full report or recorded demo is complete. Evidence and dependencies are in
+Draft for Iris's personal review, independently audited on **2026-10-28** against merged `main` at
+`5c44100` and the offline follow-up on `codex/iris-offline-verification`. This is material for the
+team's report, not a claim that the full report or recorded demo is complete. Evidence and dependencies are in
 [IRIS_HANDOFF.md](IRIS_HANDOFF.md).
 
 ## Memory and state
@@ -57,18 +57,23 @@ The existing harness processes ten sequential synthetic Intake items in one pers
 run, with separate fresh threads for ON/OFF and an expected-outcome check for every item.
 
 Offline tests verify the context boundary, usage propagation, separate threads, both benchmark CLI
-modes and rejection of unsupported sampling parameters. Test-double token values are synthetic
-plumbing checks. **No live token measurements or materially flatter measured curve are claimed.**
+modes and rejection of unsupported sampling parameters. The audit also found and fixed a false-positive
+outcome check: malformed or unsupported model output still safely flags a volunteer, but now counts
+as an incorrect benchmark classification. Wrong outcomes and missing usage fail the CLI. Test-double
+token values are synthetic plumbing checks. **No live token measurements or materially flatter measured curve are claimed.**
 Normal graph/batch integration, complete accounting of other model calls and the assignment's
 ambiguous invoice/item unit require team coordination. A team member with available credits must
 perform live execution; Iris's exhausted API allowance is not an unfinished coding task.
 
 ## Verification and remaining limits
 
-The merged baseline passed 504 tests. The follow-up passes **516 tests**, with the same seven existing
-PyMuPDF/SWIG warnings, and **24/24 shared offline eval cases**, including eight Iris-owned additions.
-The partial-import regression failed before the fix and passed afterward. The new restart/correction
-test uses five separate Python processes with SQLite; a separate staff-recovery test reopens the
+Fresh execution of the merged baseline passed **504 tests**; the incoming follow-up passed **516**.
+After this audit, **532 tests pass**, with the same seven PyMuPDF/SWIG warnings, and **24/24 shared
+offline eval cases** pass, including eight Iris-owned additions. The four readiness cases now assert
+retained confirmed values and the relevant handoff fields; fault injection verifies they reject data
+loss and unrelated pauses. The partial-import regression independently failed with its guard removed
+and passed after restoration. Invalid-output benchmark regressions also failed before their fix.
+The new restart/correction test uses five separate Python processes with SQLite; a separate staff-recovery test reopens the
 database/graph through the production session interface. All inputs are synthetic and no live model
 request was made.
 
@@ -78,4 +83,6 @@ the brief's limited adjustment set need the relevant schema/policy owners. Real 
 merged, but the actual MCP transport is still Max's work. Docker volume/restart verification is also
 external to this contribution. Qiyan's ingress and checkpoint protections are in unmerged PR #11;
 Intake-level redaction alone cannot establish that raw resume payloads or external traces are free
-of PII. The report must retain these limits when describing overall system completion.
+of PII. A read-only fault probe also showed that current Review accepts a coherent $1 corruption of
+tax/total tax/refund; its total checks do not prove every tax result or source is correct. Qiyan and
+Vidhatri own closing that gap. The report must retain these limits when describing overall completion.

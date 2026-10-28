@@ -1,8 +1,9 @@
 # Context-window evaluation — Iris contribution
 
-Offline review **2026-10-27**: no live measurement was requested or made. Iris has no API credits
+Independent offline audit **2026-10-28**: no live measurement was requested or made. Iris has no API credits
 available; live execution requires a team member with access. The remaining Iris offline harness/CLI
-checks pass, including both strategy flags and PR #13's removal of sampling parameters. Synthetic
+checks pass, including both strategy flags and PR #13's removal of sampling parameters. Both modes
+also reject missing usage, incorrect reasons, malformed JSON and unsupported classifications. Synthetic
 usage remains confined to tests. The historical missing-key attempts below are not new attempts.
 
 Status on **2026-10-25: live measurements blocked**. `ANTHROPIC_API_KEY` is not configured.
@@ -49,9 +50,10 @@ leave a partial thread; rerun with a fresh id. There are no automatic provider r
 
 The classifier is `src.agents.intake.classify_with_model`, also used by `make_intake`. ON sends a fixed
 session summary plus the current item; OFF adds prior classifier dialogue. Each synthetic item asks
-for volunteer help with unclear wording; the expected classification is `uncertain`. Each item currently
-makes one model call. The harness nevertheless sums every new recorded call's actual input usage per
-item. Raw usage is taken from `AIMessage.usage_metadata.input_tokens`, including whatever accounting
+for volunteer help with unclear wording; the expected classification is `uncertain`. A valid
+`uncertain` response is required for a correct outcome. Malformed JSON or an unsupported reason still safely escalates in Intake, but no longer counts as correct in this benchmark. Each item
+currently makes one model call. The harness nevertheless sums every new recorded call's actual input
+usage per item. Raw usage is taken from `AIMessage.usage_metadata.input_tokens`, including whatever accounting
 the configured provider reports. This work does not estimate unreported retry or cache billing.
 
 After successful live runs, transfer the per-item values and outcome results into the table and plot

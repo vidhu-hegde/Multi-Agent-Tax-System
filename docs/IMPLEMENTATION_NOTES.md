@@ -237,7 +237,7 @@ EE, J, L, P, V, Y, and the `retirement_plan` and `third_party_sick_pay` checkbox
 The ground truth for the sample images (`data/fixtures/w2_N_expected.json`) has exactly the `W2Record`
 input fields, so an extraction test can compare its output directly.
 
-## Integration status (reviewed 2026-10-27)
+## Integration status (audited 2026-10-28)
 
 | Piece | Current behaviour | Remaining work |
 |---|---|---|
@@ -331,7 +331,9 @@ records because the assignment requires them. Encryption, authentication and ret
 ON sends the current question/reply and a small allowlisted summary of confirmed session inputs. OFF
 sends the same summary plus accumulated classifier dialogue. Both redact SSNs. The model returns an
 escalation classification only; invalid output becomes `uncertain`, and arbitrary generated prose is
-not passed to the taxpayer. A completed model call is committed before another interrupt to prevent
+not passed to the taxpayer. A boolean `silverfile_classification_valid` in response metadata
+distinguishes valid output from the safety fallback. Benchmark correctness requires a valid expected
+classification; malformed JSON and unsupported reasons cannot earn a correct outcome. A completed model call is committed before another interrupt to prevent
 normal resume replay from billing the same call again. A crash between provider response and checkpoint
 commit still has an at-least-once delivery risk; no exactly-once remote-call guarantee is claimed.
 
@@ -339,7 +341,7 @@ Actual `AIMessage.usage_metadata.input_tokens` is recorded by call id in `input_
 usage raises an error; text length is never substituted. The benchmark sums all new call entries per
 item, verifies outcomes, and persists ten sequential items in a single fresh thread for each run.
 It calls the same classifier as Intake, using synthetic unclear replies. Its small evaluation graph
-uses its own `ContextBenchmarkState`; `context_item` and `context_reason` are absent from
+uses its own `ContextBenchmarkState`; `context_item`, `context_reason` and `context_classification_valid` are absent from
 `SilverFileState`. See `docs/metrics.md` for commands and blockers.
 
 The default `run.py` graph still uses deterministic Intake. Vidhatri/Max can opt into the tested model
@@ -358,7 +360,8 @@ graph = build_graph(settings, checkpointer,
 `build_graph(use_context_strategy=...)` alone currently does not configure any model. Its owner must
 wire this factory and the existing `run.py --batch` hook. The Iris-owned measurement entry point is
 `python -m src.memory --batch [--no-context-strategy]`. Live measurements were blocked by the missing
-API key. No production-wide token reduction or completed invoice evaluation is claimed.
+API key in the historical attempt. Live execution now remains an external team dependency because
+Iris has no credits; no further key/token request or live call was made. No production-wide token reduction or completed invoice evaluation is claimed.
 
 New downstream inputs have an explicit readiness gate (`PENDING_DOWNSTREAM_FIELDS`). Nonzero Schedule
 2/3 totals and a positive dependent count pause for a volunteer. Staff continue lets Intake finish

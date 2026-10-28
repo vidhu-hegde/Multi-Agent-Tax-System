@@ -9,7 +9,8 @@ remain incomplete. A successful demo of memory does not establish a complete tax
 
 The existing `run.py` main requires an API key even for deterministic Intake. This direct invocation
 uses its existing driver and the production graph, avoiding a duplicate UI or graph implementation.
-Run from the repository root. Reuse the same command to resume after Ctrl-C.
+Run from the repository root. For a new rehearsal choose a fresh database filename; retain that
+filename and thread ID for every restart in the rehearsal. Reuse the same command to resume after Ctrl-C.
 
 ```bash
 ANTHROPIC_API_KEY='' SILVERFILE_DB_PATH=output/iris-demo.sqlite .venv/bin/python -c '
@@ -74,7 +75,9 @@ ANTHROPIC_API_KEY='' .venv/bin/python -m evals.run_evals
 Show `test_restart_correction_recomputes_and_preserves_audit_and_isolation`: it checks five separate
 Python processes, a partial-import checkpoint, one recap, corrections, archived old values and another
 return's isolation. The staff-recovery integration test checks the production session interface.
-Show the eight `iris-...` shared cases: 24/24 total cases passed in the offline follow-up.
+Show the eight `iris-...` shared cases: 24/24 total cases passed in the 2026-10-28 audit. The four
+readiness cases assert retained answers and the correct integration handoff; they do not complete
+dependent or nonzero Schedule 2/3 returns.
 
 For the context segment, show `docs/metrics.md`. Say: “The offline harness is verified. A team member
 with model credits still needs to run the measured ON/OFF comparison after the team settles the item
@@ -89,8 +92,12 @@ ANTHROPIC_API_KEY='' .venv/bin/python -m src.render --case data/fixtures/skeleto
 Open `output/iris-offline-draft.html`, Tab to an amount and press Enter/Space to inspect its sources.
 The fixture contains typed synthetic document values, so this shot makes no OCR call. It complements
 the taxpayer-dialogue segment; it is Anupama's renderer over the team's merged graph, not an Iris UI.
-The existing browser smoke check passed for keyboard/click disclosure, visible source metadata and a
+The browser smoke check was rerun on 2026-10-28 and passed for keyboard/click disclosure, visible source metadata and a
 390px layout. It does not establish screen-reader compatibility.
+
+The dialogue sequence above was also exercised offline on 2026-10-28, including corrections and
+staff resolution across SQLite reopenings. Actual process-restart evidence comes from the separate
+subprocess tests. Neither check produces the required recorded team video.
 
 ## Narration and final proofreading
 
