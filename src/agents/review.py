@@ -6,6 +6,7 @@ Never repairs the draft itself.
 """
 
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 from src.schemas import FORM_LINES, RevisionRequest, StateWriteConflict
 from src.state import SilverFileState, current_answers
@@ -123,6 +124,7 @@ def check_source_lines(state: SilverFileState) -> list[RevisionRequest]:
             ))
 
     return problems
+
 
 
 # 2025 Form 1040-SR: the same DOB cutoff as the Rules agent, independently
@@ -301,6 +303,260 @@ def check_tax_rules(state: SilverFileState) -> list[RevisionRequest]:
                     ])
     return problems
 
+# --- Provenance-integrity verification (Security / Review enhancement, step 3) ---
+# Reconstruct the audit trail from trusted typed records and tool contracts. Do
+# not accept a provenance entry just because it has a plausible-looking source.
+DOCUMENT_BOXES = {
+    "1z": "1", "2a": "8", "2b": "1", "3a": "1b", "3b": "1a",
+    "4a": "1", "4b": "2a", "5a": "1", "5b": "2a", "6a": "5",
+    "25a": "2", "25b": {"1099-INT": "4", "1099-DIV": "4", "1099-R": "4", "SSA-1099": "6"},
+}
+DERIVED_DEPENDENCIES = {
+    "6b": ["6a", "2a", "10", *SOCIAL_SECURITY_OTHER_INCOME],
+    "9": [*SOCIAL_SECURITY_OTHER_INCOME, "6b"],
+    "11a": ["9", "10"],
+    "12e": [],
+    "13b": ["11a"],
+    "14": ["12e", "13b"],
+    "15": ["11a", "14"],
+    "16": ["15"],
+    "24": ["16"],
+    "25d": ["25a", "25b"],
+    "33": ["25d", "26"],
+    "34": ["33", "24"],
+    "37": ["24", "33"],
+}
+SUM_DEPENDENCIES = {"9", "14", "24", "25d", "33"}
+SUBTRACT_DEPENDENCIES = {
+    "11a": "subtract", "15": "subtract_floor_zero",
+    "34": "subtract_floor_zero", "37": "subtract_floor_zero",
+}
+RULE_PROVENANCE = {
+    "6b": "social_security_base",
+    "12e": "age_blind_boxes",
+    "13b": "senior_deduction_count",
+}
+
+
+def _same_evidence(actual, expected):
+    """Compare typed/JSON-round-tripped evidence without floating-point math.
+
+    JSON checkpoints may turn Decimals into strings. Numeric strings are only
+    tolerated when the expected value is numeric, not for booleans or IDs.
+    """
+    if isinstance(expected, Decimal):
+        if isinstance(actual, bool) or not isinstance(actual, (Decimal, str, int)):
+            return False
+        try:
+            return Decimal(str(actual)) == expected
+        except InvalidOperation:
+            return False
+    if isinstance(expected, list):
+        return isinstance(actual, list) and len(actual) == len(expected) and all(
+            _same_evidence(a, b) for a, b in zip(actual, expected)
+        )
+    if isinstance(expected, dict):
+        return isinstance(actual, dict) and actual.keys() == expected.keys() and all(
+            _same_evidence(actual[key], value) for key, value in expected.items()
+        )
+    return type(actual) is type(expected) and actual == expected
+
+
+def _selected_document_records(line, documents):
+    """Mirror source selection ORDER (especially 25b) without using draft evidence."""
+    form_types, field, ira_flag = SOURCE_DOCUMENT_LINES[line]
+    records = list(documents.values())
+    if line == "25b":
+        # Computation combines these groups, not the raw upload/inventory order.
+        groups = (("1099-INT", None), ("1099-DIV", None),
+                  ("1099-R", True), ("1099-R", False), ("SSA-1099", None))
+        selected = [r for form_type, ira in groups for r in records
+                    if r.form_type == form_type
+                    and (ira is None or r.ira_sep_simple == ira)
+                    and getattr(r, field) is not None]
+    else:
+        selected = [r for r in records if r.form_type in form_types
+                    and (ira_flag is None or r.ira_sep_simple == ira_flag)
+                    and getattr(r, field) is not None]
+    return selected
+
+
+def _expected_tool_inputs(line, state, lines, answers):
+    """Return trusted tool name and arguments, or None if prerequisite state is missing."""
+    if line in SOURCE_DOCUMENT_LINES:
+        documents = state.get("documents", {})
+        if any(isinstance(r, StateWriteConflict) for r in documents.values()):
+            return None
+        field = SOURCE_DOCUMENT_LINES[line][1]
+        return "sum", {"values": [getattr(r, field) for r in _selected_document_records(line, documents)]}
+    deps = DERIVED_DEPENDENCIES.get(line)
+    if deps is None or any(d not in lines for d in deps):
+        return None
+    if line in SUM_DEPENDENCIES:
+        return "sum", {"values": [lines[d].amount for d in deps]}
+    if line in SUBTRACT_DEPENDENCIES:
+        a, b = deps
+        return SUBTRACT_DEPENDENCIES[line], {"a": lines[a].amount, "b": lines[b].amount}
+    filing = answers.get("filing_status")
+    if filing is None:
+        return None
+    filing_status = filing.value
+    decisions = state.get("rule_decisions", {})
+    if line == "6b":
+        decision = decisions.get("social_security_base")
+        if decision is None or not isinstance(decision.outcome, dict) or "mfs_lived_with_spouse" not in decision.outcome:
+            return None
+        return "taxable_social_security", {
+            "filing_status": filing_status, "benefits": lines["6a"].amount,
+            "other_income": [lines[d].amount for d in SOCIAL_SECURITY_OTHER_INCOME],
+            "tax_exempt_interest": lines["2a"].amount,
+            "adjustments": lines["10"].amount,
+            "lived_with_spouse": decision.outcome["mfs_lived_with_spouse"],
+        }
+    if line == "12e":
+        decision = decisions.get("age_blind_boxes")
+        if decision is None or not isinstance(decision.outcome, dict) or "count" not in decision.outcome:
+            return None
+        return "standard_deduction", {"filing_status": filing_status, "boxes": decision.outcome["count"]}
+    if line == "13b":
+        decision = decisions.get("senior_deduction_count")
+        if decision is None:
+            return None
+        return "senior_deduction", {
+            "filing_status": filing_status, "magi": lines["11a"].amount,
+            "qualifying_people": decision.outcome,
+        }
+    if line == "16":
+        return "tax_from_schedule", {"filing_status": filing_status, "taxable_income": lines["15"].amount}
+    return None
+
+
+def check_provenance_integrity(state: SilverFileState) -> list[RevisionRequest]:
+    """Verify source identities, captured values, computation steps and dependencies.
+
+    Audit never mutates draft data. A mismatch returns only safe, field-level
+    reasons, not original amounts, taxpayer identifiers or document contents.
+    """
+    problems: list[RevisionRequest] = []
+    lines = state.get("lines", {})
+    documents = state.get("documents", {})
+    answers = current_answers(state)
+    decisions = state.get("rule_decisions", {})
+
+    def flag(line, reason, target="computation", field=None):
+        problems.append(RevisionRequest(target=target, line=line, field=field, reason=reason))
+
+    for line, entry in lines.items():
+        steps = entry.provenance
+        doc_steps = [p for p in steps if p.kind == "document"]
+        user_steps = [p for p in steps if p.kind == "user_input"]
+        tool_steps = [p for p in steps if p.kind == "tool"]
+        rule_steps = [p for p in steps if p.kind == "rule"]
+
+        if line in SOURCE_DOCUMENT_LINES:
+            field = SOURCE_DOCUMENT_LINES[line][1]
+            selected = []
+            if not any(isinstance(r, StateWriteConflict) for r in documents.values()):
+                selected = _selected_document_records(line, documents)
+            box = DOCUMENT_BOXES[line]
+            expected = [(
+                r.document_id,
+                f"{r.form_type} {r.document_id}, box {box if isinstance(box, str) else box[r.form_type]}",
+                getattr(r, field), r.source.model_dump(mode="json"),
+                r.source.entered_by, r.source.recorded_at,
+            ) for r in selected]
+            if len(doc_steps) != len(expected):
+                flag(line, "document provenance count does not match source records")
+            seen = set()
+            for item in doc_steps:
+                doc_id = item.inputs.get("document_id")
+                # A provenance link may not be invented, repeated, or borrowed
+                # from another document, form, or tax line.
+                matches = [e for e in expected if e[0] == doc_id]
+                if doc_id in seen or len(matches) != 1:
+                    flag(line, "document provenance contains an unknown or duplicate source reference")
+                    continue
+                seen.add(doc_id)
+                _, name, value, record_source, entered_by, recorded_at = matches[0]
+                if (item.source != name or item.inputs.get("field") != field
+                    or not _same_evidence(item.value, value)
+                    or not _same_evidence(item.inputs.get("record_source"), record_source)
+                    or item.entered_by != entered_by or item.recorded_at != recorded_at):
+                    flag(line, "document provenance conflicts with confirmed source evidence")
+            if user_steps or rule_steps:
+                flag(line, "unexpected evidence type on document-backed line")
+
+        elif line in SOURCE_INTAKE_LINES:
+            field = SOURCE_INTAKE_LINES[line]
+            answer = answers.get(field)
+            if answer is None or len(user_steps) != 1:
+                flag(line, "missing or duplicate intake provenance", "intake", field)
+            else:
+                item = user_steps[0]
+                if (item.source != f"intake: {field}"
+                    or not _same_evidence(item.value, answer.value)
+                    or item.entered_by != answer.entered_by
+                    or item.recorded_at != answer.answered_at):
+                    flag(line, "intake provenance does not match the latest confirmed answer")
+            if doc_steps or rule_steps or tool_steps:
+                flag(line, "unexpected evidence type on intake-backed line")
+
+        elif line in DERIVED_DEPENDENCIES:
+            if doc_steps or user_steps:
+                flag(line, "derived line includes an unexpected direct source")
+            rule_id = RULE_PROVENANCE.get(line)
+            if rule_id is not None:
+                decision = decisions.get(rule_id)
+                if decision is None:
+                    flag(line, "rule decision required to audit provenance is missing", "rules", rule_id)
+                    flag(line, "recompute line after rule decision is restored")
+                elif len(rule_steps) != 1:
+                    # The calculation agent writes the line's provenance, not
+                    # Rules. Repairing Rules alone would leave the draft stale.
+                    flag(line, "missing or duplicated rule provenance")
+                else:
+                    item = rule_steps[0]
+                    if (item.source != decision.rule_id or item.citation != decision.citation
+                        or not _same_evidence(item.value, decision.outcome)):
+                        flag(line, "rule provenance does not match the current policy decision")
+            elif rule_steps:
+                flag(line, "unexpected rule provenance on derived line")
+        else:
+            flag(line, "unrecognized form line cannot be audited")
+            continue
+
+        expected_deps = DERIVED_DEPENDENCIES.get(line, [])
+        if entry.depends_on != expected_deps:
+            flag(line, "line dependency record does not match required calculation inputs")
+
+        # Inputs are independently reconstructed from authoritative state. A
+        # forged self-consistent tool entry must not be enough to pass review.
+        if line in SOURCE_INTAKE_LINES:
+            continue
+        if len(tool_steps) != 1:
+            flag(line, "expected exactly one deterministic tool provenance step")
+            continue
+        expected_tool = _expected_tool_inputs(line, state, lines, answers)
+        if expected_tool is None:
+            flag(line, "cannot reconstruct deterministic tool evidence for this line")
+            continue
+        name, inputs = expected_tool
+        item = tool_steps[0]
+        if item.source != f"tax_math.{name}" or not _same_evidence(item.inputs, inputs):
+            flag(line, "recorded tool identity or arguments differ from confirmed evidence")
+            continue
+        try:
+            recalculated, _ = call_tool(name, **inputs)
+        except (ValueError, TypeError, KeyError):
+            flag(line, "deterministic tool evidence could not be verified")
+            continue
+        if (not _same_evidence(item.value, recalculated)
+            or not _same_evidence(entry.amount, recalculated)):
+            flag(line, "tool result provenance does not match verified calculation")
+
+    return problems
+
+
 def find_problems(state: SilverFileState) -> list[RevisionRequest]:
     lines = state.get("lines", {})
     problems: list[RevisionRequest] = []
@@ -347,6 +603,7 @@ def find_problems(state: SilverFileState) -> list[RevisionRequest]:
 
     problems.extend(check_source_lines(state))
     problems.extend(check_tax_rules(state))
+    problems.extend(check_provenance_integrity(state))
 
     scope = state.get("rule_decisions", {}).get("scope")
     escalations = state.get("escalations", {})

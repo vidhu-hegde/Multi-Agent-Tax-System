@@ -518,3 +518,143 @@ def test_mfs_social_security_uses_correct_residence_case():
     requests = check_tax_rules(state)
     assert any(r.line == "6b" and r.target == "rules" and r.field == "social_security_base" for r in requests)
     assert any(r.line == "6b" and r.target == "computation" for r in requests)
+
+# --- Provenance integrity verification (Security / Review enhancement, step 3) ---
+
+
+def _replace_provenance(state, line, index, **changes):
+    record = state["lines"][line]
+    evidence = list(record.provenance)
+    evidence[index] = evidence[index].model_copy(update=changes)
+    state["lines"][line] = record.model_copy(update={"provenance": evidence})
+
+
+def test_provenance_audit_passes_real_source_and_tool_evidence():
+    from src.agents.review import check_provenance_integrity
+
+    state = _source_state()
+    assert check_provenance_integrity(state) == []
+    assert find_problems(state) == []
+
+
+@pytest.mark.parametrize("alteration", ["unknown_id", "wrong_field", "wrong_amount", "wrong_snapshot",
+                                       "wrong_timestamp", "wrong_source_label"])
+def test_provenance_audit_rejects_forged_document_evidence(alteration):
+    from src.agents.review import check_provenance_integrity
+
+    state = _source_state()
+    source = state["lines"]["1z"].provenance[0]
+    changes = {
+        "unknown_id": {"inputs": {**source.inputs, "document_id": "unknown-document"}},
+        "wrong_field": {"inputs": {**source.inputs, "field": "federal_withheld"}},
+        "wrong_amount": {"value": Decimal("999.00")},
+        "wrong_snapshot": {"inputs": {**source.inputs, "record_source": {"forged": True}}},
+        "wrong_timestamp": {"recorded_at": source.recorded_at.replace(year=2020)},
+        "wrong_source_label": {"source": "W-2 w2-1, box 2"},
+    }[alteration]
+    _replace_provenance(state, "1z", 0, **changes)
+
+    assert any(r.target == "computation" and r.line == "1z"
+               for r in check_provenance_integrity(state))
+    assert review(state)["review_status"] == "failed"
+
+
+def test_provenance_audit_rejects_duplicate_document_source_even_when_total_matches():
+    from src.agents.review import check_provenance_integrity
+
+    state = _source_state()
+    line = state["lines"]["1z"]
+    evidence = [line.provenance[0], line.provenance[0], line.provenance[-1]]
+    state["lines"]["1z"] = line.model_copy(update={"provenance": evidence})
+    assert any(r.line == "1z" and "document provenance" in r.reason
+               for r in check_provenance_integrity(state))
+
+
+@pytest.mark.parametrize("alteration", ["wrong_source", "wrong_value", "wrong_author", "wrong_timestamp"])
+def test_provenance_audit_rejects_forged_intake_evidence(alteration):
+    from src.agents.review import check_provenance_integrity
+
+    state = _source_state()
+    source = state["lines"]["26"].provenance[0]
+    changes = {
+        "wrong_source": {"source": "intake: adjustments"},
+        "wrong_value": {"value": Decimal("500")},
+        "wrong_author": {"entered_by": "forged-staff"},
+        "wrong_timestamp": {"recorded_at": source.recorded_at.replace(year=2020)},
+    }[alteration]
+    _replace_provenance(state, "26", 0, **changes)
+    requests = check_provenance_integrity(state)
+    assert any(r.line == "26" and r.target == "computation" for r in requests)
+
+
+@pytest.mark.parametrize("alteration", ["wrong_tool", "wrong_inputs", "wrong_result", "missing_tool"])
+def test_provenance_audit_rejects_forged_tool_call(alteration):
+    from src.agents.review import check_provenance_integrity
+
+    state = _source_state()
+    item = state["lines"]["9"].provenance[0]
+    if alteration == "missing_tool":
+        state["lines"]["9"] = state["lines"]["9"].model_copy(update={"provenance": []})
+    else:
+        changes = {
+            "wrong_tool": {"source": "tax_math.subtract"},
+            "wrong_inputs": {"inputs": {"values": [Decimal("999")]}},
+            "wrong_result": {"value": Decimal("999")},
+        }[alteration]
+        _replace_provenance(state, "9", 0, **changes)
+    requests = check_provenance_integrity(state)
+    assert any(r.target == "computation" and r.line == "9" for r in requests)
+    assert review(state)["review_status"] == "failed"
+
+
+def test_provenance_audit_rejects_mismatched_rule_citation():
+    from src.agents.review import check_provenance_integrity
+
+    state = _source_state()
+    _replace_provenance(state, "12e", 0, citation="policy.md#forged")
+    requests = check_provenance_integrity(state)
+    assert any(r.target == "computation" and r.line == "12e" for r in requests)
+
+
+def test_provenance_audit_rejects_wrong_dependencies_even_if_amounts_are_correct():
+    from src.agents.review import check_provenance_integrity
+
+    state = _source_state()
+    state["lines"]["16"] = state["lines"]["16"].model_copy(update={"depends_on": ["11a"]})
+    requests = check_provenance_integrity(state)
+    assert any(r.target == "computation" and r.line == "16" and "dependency" in r.reason
+               for r in requests)
+
+
+def test_provenance_audit_read_only_and_revisions_are_sanitized():
+    from src.agents.review import check_provenance_integrity
+
+    state = _source_state()
+    _replace_provenance(state, "1z", 0, value=Decimal("1000000"))
+    before = {k: v.model_dump(mode="json") for k, v in state["lines"].items()}
+    requests = check_provenance_integrity(state)
+    assert requests and all("1000000" not in r.reason for r in requests)
+    assert before == {k: v.model_dump(mode="json") for k, v in state["lines"].items()}
+
+
+def test_provenance_audit_accepts_document_upload_order_different_from_tax_line_order():
+    from src.agents.review import check_provenance_integrity
+
+    state = _source_state()
+    docs = state["documents"]
+    # Computation sorts the 1099 withholding groups into 25b in a distinct
+    # order. Review must not confuse a valid upload order with fabricated data.
+    state["documents"] = {key: docs[key] for key in reversed(list(docs))}
+    state["lines"] = computation(state)["lines"]
+    assert check_provenance_integrity(state) == []
+    assert find_problems(state) == []
+
+
+def test_provenance_audit_missing_rule_decision_schedules_rules_then_recompute():
+    from src.agents.review import check_provenance_integrity
+
+    state = _source_state()
+    del state["rule_decisions"]["senior_deduction_count"]
+    requests = [r for r in check_provenance_integrity(state) if r.line == "13b"]
+    assert requests[0].target == "rules"
+    assert any(r.target == "computation" for r in requests[1:])
