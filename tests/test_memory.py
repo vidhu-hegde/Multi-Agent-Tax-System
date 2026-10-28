@@ -154,3 +154,45 @@ def test_benchmark_runs_ten_sequential_items_in_separate_persistent_threads(sett
         assert len(list(saver.list(memory.thread_config("strategy-on")))) > 10
         with pytest.raises(ValueError, match="fresh thread"):
             memory.run_context_benchmark(Provider(), saver, "strategy-on", True)
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_benchmark_cli_writes_comparable_runs_without_sampling_parameters(settings, monkeypatch, tmp_path, enabled):
+    """Review coverage for PR #13; all usage below is synthetic, not benchmark evidence."""
+    import json
+    from dataclasses import replace
+
+    from langchain_core.messages import AIMessage
+
+    import langchain_anthropic
+    import src.config
+
+    class OfflineProvider:
+        def __init__(self, **kwargs):
+            assert not {"temperature", "top_p", "top_k"} & kwargs.keys()
+            assert kwargs["max_retries"] == 0
+
+        def invoke(self, messages):
+            count = 100 + len(messages)
+            return AIMessage(content='{"reason":"uncertain"}', usage_metadata={
+                "input_tokens": count, "output_tokens": 1, "total_tokens": count + 1,
+            })
+
+    monkeypatch.setattr(langchain_anthropic, "ChatAnthropic", OfflineProvider)
+    monkeypatch.setattr(src.config, "load_settings", lambda: replace(
+        settings, anthropic_api_key="offline-test-double", model="offline-provider-double",
+    ))
+    output = tmp_path / "synthetic-usage.json"
+    args = ["--batch", "--thread-id", f"cli-strategy-{enabled}", "--output", str(output)]
+    if not enabled:
+        args.append("--no-context-strategy")
+    memory.main(args)
+    result = json.loads(output.read_text())
+    assert result["strategy_enabled"] is enabled
+    assert result["model"] == "offline-provider-double"
+    assert result["thread_id"] == f"cli-strategy-{enabled}"
+    assert [row["item"] for row in result["items"]] == list(range(1, 11))
+    assert all(row["correct"] and row["model_calls"] == 1 for row in result["items"])
+    assert [row["input_tokens"] for row in result["items"]] == (
+        [102] * 10 if enabled else list(range(102, 122, 2))
+    )

@@ -409,6 +409,183 @@
           "uncertain"
         ]
       }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-correction-revalidates-adjustments",
+      "description": "While answering payments, correct the previously confirmed adjustments; the reviewed draft uses the correction.",
+      "remove_answers": [
+        "estimated_payments"
+      ],
+      "replies": [
+        "change adjustments to 100",
+        "1000"
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [],
+        "lines": {
+          "10": "100",
+          "26": "1000",
+          "33": "3100"
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-go-back-preserves-other-inputs",
+      "description": "Revisit adjustments from the payments question, confirm a new value, then finish without losing the documents or withholding.",
+      "remove_answers": [
+        "estimated_payments"
+      ],
+      "replies": [
+        "go back to adjustments",
+        "100",
+        "1000"
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [],
+        "lines": {
+          "10": "100",
+          "26": "1000",
+          "1z": "18000",
+          "25d": "2100"
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-drift-and-repeat-keep-progress",
+      "description": "An unrelated reply and a repeated filing-status confirmation retain prior inputs and return to the unfinished payment question.",
+      "remove_answers": [
+        "estimated_payments"
+      ],
+      "replies": [
+        "I was walking my dog earlier",
+        "change filing status to single",
+        "1000"
+      ],
+      "expect": {
+        "status": "draft_ready",
+        "escalations": [],
+        "lines": {
+          "26": "1000",
+          "1z": "18000"
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-dependent-collection-awaits-output",
+      "description": "Collect dependent name, relationship and test SSN in separate turns, then pause on the missing downstream consumer. This is not a completed dependent return.",
+      "answers": {
+        "dependent_count": 1
+      },
+      "replies": [
+        "Synthetic Child",
+        "child",
+        "901-12-3456"
+      ],
+      "expect": {
+        "status": "waiting_on_human",
+        "escalations": [
+          "uncertain"
+        ],
+        "state": {
+          "intake_complete": false
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-scope-disclosure-during-payment",
+      "description": "Foreign-income disclosure at the payment question must reach staff rather than become an invalid-amount retry.",
+      "remove_answers": [
+        "estimated_payments"
+      ],
+      "replies": [
+        "I have foreign income"
+      ],
+      "staff": [
+        {
+          "reason": "out_of_scope",
+          "action": "stop"
+        }
+      ],
+      "expect": {
+        "status": "stopped",
+        "escalations": [
+          "out_of_scope"
+        ]
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-schedule2-total-tax-awaits-consumer",
+      "description": "Preserve a nonzero schedule2_total_tax input and pause for missing downstream integration; no complete calculation is claimed.",
+      "answers": {
+        "schedule2_total_tax": "120"
+      },
+      "expect": {
+        "status": "waiting_on_human",
+        "escalations": [
+          "uncertain"
+        ],
+        "state": {
+          "intake_complete": false
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-schedule3-nonrefundable-credits-awaits-consumer",
+      "description": "Preserve a nonzero schedule3_nonrefundable_credits input and pause for missing downstream integration; no complete calculation is claimed.",
+      "answers": {
+        "schedule3_nonrefundable_credits": "10"
+      },
+      "expect": {
+        "status": "waiting_on_human",
+        "escalations": [
+          "uncertain"
+        ],
+        "state": {
+          "intake_complete": false
+        }
+      }
+    },
+    {
+      "owner": "Iris",
+      "area": "memory-intake",
+      "case_file": "data/fixtures/skeleton_case.json",
+      "id": "iris-schedule3-other-payments-awaits-consumer",
+      "description": "Preserve a nonzero schedule3_other_payments input and pause for missing downstream integration; no complete calculation is claimed.",
+      "answers": {
+        "schedule3_other_payments": "30"
+      },
+      "expect": {
+        "status": "waiting_on_human",
+        "escalations": [
+          "uncertain"
+        ],
+        "state": {
+          "intake_complete": false
+        }
+      }
     }
   ]
 }

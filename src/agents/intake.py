@@ -439,6 +439,9 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
             except (ValueError, TypeError):
                 from_case = False
         if not from_case:
+            if update["answers"]:
+                # Save imported answers before an interrupt can discard this local update.
+                return update
             prompt = question
             while True:
                 reply = interrupt(prompt)
