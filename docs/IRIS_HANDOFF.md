@@ -29,7 +29,8 @@ still incomplete. Line 17 and dependent credits on line 19 are also unsupported.
 - Moved `current_answers` to the eval runner's imports. Folded useful review-packet material into this
   handoff and removed `IRIS_PR_REVIEW_PACKET.md`, as suggested by the reviewer.
 - Updated the report contribution, disclosure draft, metrics coordination and demo instructions.
-  The new five-page team-report draft is a local review artifact and has not been submitted for the team.
+  The [team-report draft](TEAM_REPORT_DRAFT.md) is now included for review, with three Mermaid diagrams.
+  It still requires team approval and final pagination; no PDF was generated.
 
 The follow-up's runtime behavior remains the partial-import checkpoint guard and classifier-validity
 scoring. Computation, graph, Rules, Security, dashboard and deployment changes retain their owners'
@@ -101,8 +102,8 @@ development set; its passing score is not a new-language accuracy estimate.
   This teammate live evidence is separate from Iris's offline checks.
 - **Live token evaluation:** [Vidhatri's #15 comment](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/15#issuecomment-6473238861)
   records ten Intake items per thread as the team's working interpretation, proposes multi-turn
-  refinements and offers her key for the run. Max's `max/batch-metrics` at `4372d4c` prepares batch wiring
-  and a table generator. Leave that unpublished owner work intact. Require actual per-item counts,
+  refinements and offers her key for the run. Max's open [PR #21](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/21), reviewed at `684161c`,
+  prepares batch wiring and a table generator. Leave that owner integration in its PR. Require actual per-item counts,
   outcome checks, raw JSON and a curve in `metrics.md`; provider doubles do not supply them.
 - **Guardrails:** historical probes needing Juee's review were `No, I don't think my son is going to
   claim me`, `Yes, she itemizes`, and `He can't talk right now, I'm his wife`. Treat them as recorded
@@ -127,7 +128,8 @@ Existing disclosure text can be found for Anupama and Iris in `AI_DISCLOSURE.md`
 in this repository. Four statements are available, with differing approval status; two still need to
 come from their authors. A generated draft or source link does not establish personal approval.
 
-The dashboard HITL and Docker stretch implementations are merged. The five-page report still needs
-team approval and publication; the required video still needs recording/assembly. Iris's remaining
+The dashboard HITL and Docker implementations are merged. Open [PR #20](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/20)
+adds the Submitted status required by the dashboard bonus. The [team report draft](TEAM_REPORT_DRAFT.md)
+is included for review and still needs team approval and final pagination; the required video still needs recording/assembly. Iris's remaining
 personal work is proofreading her statements and performing the prepared segment, not buying tokens
 or rebuilding teammates' subsystems.

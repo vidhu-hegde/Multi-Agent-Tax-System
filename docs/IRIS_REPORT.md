@@ -55,7 +55,7 @@ calls or token measurements.
 
 Vidhatri recorded ten Intake items per return thread as the team's working interpretation of the
 brief's ambiguous invoice wording, proposed multi-turn items and offered to run the live comparison.
-Max has prepared batch wiring and a results-table generator on `max/batch-metrics`. Those changes and
+Max has proposed batch wiring and a results-table generator in [PR #21](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/21). Those changes and
 the multi-turn refinement still need integration; the normal graph currently uses deterministic
 Intake. The team must record actual per-item counts, outcomes and a curve in `metrics.md`. This
 classifier-only harness makes no claim to measure W-2 extraction or full-return usage.
@@ -82,3 +82,6 @@ line 17 and other direct-input/QCD contracts remain software or policy limits. S
 recognized SSN shapes and ingress boundaries; they do not establish production authentication,
 encrypted storage or provider-side trace privacy. The final report, individual confirmations and
 5-to-10-minute team recording remain submission work.
+
+The [team report draft](TEAM_REPORT_DRAFT.md) includes this material with team attribution and editable
+Mermaid diagrams. It remains subject to team review and final pagination.
