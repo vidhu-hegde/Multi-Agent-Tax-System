@@ -18,6 +18,7 @@ class Settings:
     max_review_passes: int
     loop_guard_repeats: int
     log_level: str
+    tax_math_mcp_host: str = "127.0.0.1"
 
 
 def load_settings() -> Settings:
@@ -29,8 +30,9 @@ def load_settings() -> Settings:
         anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
         model=os.getenv("SILVERFILE_MODEL", "claude-sonnet-5-5"),
         db_path=db_path,
-        tax_math_mcp_url=os.getenv("TAX_MATH_MCP_URL", "http://localhost:8001/mcp"),
+        tax_math_mcp_url=os.getenv("TAX_MATH_MCP_URL", ""),  # empty: tax_math runs in-process
         max_review_passes=int(os.getenv("SILVERFILE_MAX_REVIEW_PASSES", "3")),
         loop_guard_repeats=int(os.getenv("SILVERFILE_LOOP_GUARD_REPEATS", "3")),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
+        tax_math_mcp_host=os.getenv("TAX_MATH_MCP_HOST", "127.0.0.1"),
     )

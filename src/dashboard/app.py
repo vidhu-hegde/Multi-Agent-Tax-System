@@ -27,6 +27,7 @@ from src.config import ROOT
 from src.render import render_draft
 from src.sessions import STATUSES, Sessions, StaleEscalation, open_sessions
 from src.state import current_answers
+from src.tools import check_server
 
 TEMPLATES = Jinja2Templates(directory=Path(__file__).parent / "templates")
 BOX12_ROWS = 4
@@ -188,6 +189,7 @@ def _same_origin(request: Request) -> bool:
 def create_app(sessions: Sessions | None = None, settings=None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app):
+        check_server()  # with TAX_MATH_MCP_URL set, refuse to start rather than fail on the first resolve
         if sessions is not None:
             app.state.sessions = sessions
             yield

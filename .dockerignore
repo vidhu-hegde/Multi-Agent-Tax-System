@@ -1,36 +1,36 @@
-# Secrets
+# Secrets: never in the image. compose reads .env at run time.
 .env
 .env.*
 !.env.example
 
-# Version control and editors
-.git/
-.idea/
-.vscode/
-
-# Python environments and caches
+# Local environments and history
 .venv/
 venv/
+.git/
+
+# Python caches
 __pycache__/
-**/__pycache__/
 *.py[cod]
-*.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-.coverage
-htmlcov/
 
-# Runtime state and generated output
+# Runtime state and generated output (named volumes in docker-compose.yml)
 *.sqlite
 *.sqlite3
+*.db
+*.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
-*.sqlite-journal
-*.db
 output/
-traces/
 
-# Operating-system files
+# Local traces: keep only the curated demo traces, as .gitignore does
+traces/*
+!traces/demo_*
+
+# Intermediate fixture PDFs, editors, OS
+data/fixtures/w2_*.pdf
 .DS_Store
-Thumbs.db
+.idea/
+.vscode/
+*.swp

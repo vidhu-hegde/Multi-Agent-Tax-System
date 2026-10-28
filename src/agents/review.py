@@ -546,11 +546,12 @@ def check_provenance_integrity(state: SilverFileState) -> list[RevisionRequest]:
             flag(line, "recorded tool identity or arguments differ from confirmed evidence")
             continue
         try:
-            recalculated, _ = call_tool(name, **inputs)
+            recalculated, verified_step = call_tool(name, **inputs)
         except (ValueError, TypeError, KeyError):
             flag(line, "deterministic tool evidence could not be verified")
             continue
-        if (not _same_evidence(item.value, recalculated)
+        if (item.via != verified_step.via
+            or not _same_evidence(item.value, recalculated)
             or not _same_evidence(entry.amount, recalculated)):
             flag(line, "tool result provenance does not match verified calculation")
 

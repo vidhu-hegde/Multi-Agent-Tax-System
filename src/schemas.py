@@ -100,6 +100,7 @@ class Provenance(Contract):
     entered_by: NonEmpty | None = None  # for user input: "taxpayer", "case file", staff id
     recorded_at: datetime = Field(default_factory=_now)
     stub: bool = False  # True while a placeholder stands in for the real tool or agent
+    via: str | None = None  # tool steps: the tax_math MCP server URL, or None when computed in-process
 
 
 class LineValue(Contract):

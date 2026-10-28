@@ -167,7 +167,7 @@ I expanded Review/Audit in four focused steps:
 
 1. **Source-to-line verification:** rebuilds direct-entry lines from current typed document records and confirmed Intake answers, independently of the draft's provenance.
 2. **Independent tax-rule verification:** reconstructs the inputs for Lines 6b, 12e, 13b, and 16 and calls the deterministic tax tools again. Critical age, filing-status, and MFS decisions are also checked against confirmed Intake facts.
-3. **Provenance-integrity verification:** checks document identity, form/box/field, recorded value, source snapshot, attribution, timestamp, rule citation, declared dependencies, tool identity, arguments, and recorded result.
+3. **Provenance-integrity verification:** checks document identity, form/box/field, recorded value, source snapshot, attribution, timestamp, rule citation, declared dependencies, tool identity, MCP/in-process route (`via`), arguments, and recorded result.
 4. **Actionable feedback and recovery testing:** consolidates findings that require the same repair while preserving distinct and cross-agent requests, removes expected monetary amounts from Review reasons, and verifies real Review-to-repair-to-Review workflows through LangGraph.
 
 The completed Review boundary detects:
@@ -221,7 +221,7 @@ Merge chronology, individual conflict resolutions, commit identifiers, intermedi
 With strict LangGraph checkpoint serialization enabled:
 
 ```text
-610 passed
+639 passed
 ```
 
 This includes security, Review/Audit, true LangGraph revision loops, communication, sessions, dashboard, document recovery, guardrails, tax math, cents-rounding, provenance, and checkpoint tests. The focused Review and graph run passed `88` tests, including both recoverable revision workflows.
@@ -229,7 +229,7 @@ This includes security, Review/Audit, true LangGraph revision loops, communicati
 ### Offline end-to-end evaluations
 
 ```text
-16 of 16 cases passed
+16 of 16 cases passed in-process, and 16 of 16 through a live local MCP server
 ```
 
 These evaluations cover:

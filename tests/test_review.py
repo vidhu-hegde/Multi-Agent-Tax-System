@@ -593,7 +593,7 @@ def test_provenance_audit_rejects_forged_intake_evidence(alteration):
     assert any(r.line == "26" and r.target == "computation" for r in requests)
 
 
-@pytest.mark.parametrize("alteration", ["wrong_tool", "wrong_inputs", "wrong_result", "missing_tool"])
+@pytest.mark.parametrize("alteration", ["wrong_tool", "wrong_inputs", "wrong_result", "wrong_via", "missing_tool"])
 def test_provenance_audit_rejects_forged_tool_call(alteration):
     from src.agents.review import check_provenance_integrity
 
@@ -606,6 +606,7 @@ def test_provenance_audit_rejects_forged_tool_call(alteration):
             "wrong_tool": {"source": "tax_math.subtract"},
             "wrong_inputs": {"inputs": {"values": [Decimal("999")]}},
             "wrong_result": {"value": Decimal("999")},
+            "wrong_via": {"via": "http://forged.invalid/mcp"},
         }[alteration]
         _replace_provenance(state, "9", 0, **changes)
     requests = check_provenance_integrity(state)

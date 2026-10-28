@@ -217,6 +217,13 @@ def main(argv=None):
     if not settings.anthropic_api_key:
         sys.exit("ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key.")
 
+    from src.tools import TaxMathUnavailable, check_server
+
+    try:
+        check_server()  # with TAX_MATH_MCP_URL set, fail now rather than partway through a return
+    except TaxMathUnavailable as exc:
+        sys.exit(str(exc))
+
     if args.resolve:
         run_staff_command(args, settings)
         return

@@ -339,7 +339,8 @@ def test_docker_context_excludes_secrets_and_runtime_data():
         "*.sqlite-shm",
         "*.db",
         "output/",
-        "traces/",
+        "traces/*",
+        "!traces/demo_*",
         ".git/",
     }
 
