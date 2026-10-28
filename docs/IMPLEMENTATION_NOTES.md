@@ -64,6 +64,14 @@ Line 6b needs every other income line and line 10, and lines 9 and 11a need 6b. 
 documents are extracted (row 4) before computation runs (row 8), and `computation.py` computes lines in
 dependency order: other income → 10 → 6b → 9 → 11a (`test_social_security_runs_after_other_income`).
 
+## Line 16 and rounding
+
+Line 16 uses the 2025 tax rate schedule because the brief's line table specifies it, not the IRS Tax
+Table. On the clean case (line 15 = $6,445) the Tax Table would give $643 instead of $644.50. Every
+tool result is rounded to cents, half up, once in `call_tool()` (`src/tools.py`); the rule functions in
+`src/tax_math/rules.py` stay exact. This supersedes the whole-dollar recommendation in
+`docs/tax_math_rules_spec.md` section 4.
+
 ## Review → revise bound
 
 Review increments `review_passes` on every run and returns `RevisionRequest`s; it never edits lines.

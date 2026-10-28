@@ -71,13 +71,15 @@ result = min(l17, 0.85 * benefits)                       (18-19)
 
 **Contract gaps to raise with Vidhatri / Juee:**
 
-- The signature has no "MFS lived with spouse" flag. Without it you cannot tell the 0-base case from the
-  $25,000-base case. Either add the input or have Rules escalate that situation.
+- Resolved in #9/#10: Rules records lived_with_spouse, Computation passes it, and an unknown answer with
+  benefits raises ValueError.
 - The worksheet's line 3 also includes lines 7a and 8, which are out of scope here (they escalate).
 - Worksheet line 7 is Schedule 1 lines 11-20, 23, 25 only, not every adjustment (it excludes, for example,
   student loan interest). The agent passes line 10 as `adjustments`; fine for most seniors, but a known edge.
 
 ## 4. tax_from_schedule(filing_status, taxable_income)  -> line 16
+
+> Decided Oct 27: keep the rate schedule (the brief's line table specifies it) and round every tool result to cents, half up, in call_tool(). See IMPLEMENTATION_NOTES.md, 'Line 16 and rounding'.
 
 Rev. Proc. 2024-40, section 2.01 (tax = base + rate * (income - lower bound)):
 
@@ -88,13 +90,7 @@ Rev. Proc. 2024-40, section 2.01 (tax = base + rate * (income - lower bound)):
 | hoh | 0 / 17,000 / 64,850 / 103,350 / 197,300 / 250,500 / 626,350 | 0 / 1,700 / 7,442 / 15,912 / 38,460 / 55,484 / 187,031.50 | same rates |
 | mfs | 0 / 11,925 / 48,475 / 103,350 / 197,300 / 250,525 / 375,800 | 0 / 1,192.50 / 5,578.50 / 17,651 / 40,199 / 57,231 / 101,077.25 | same rates |
 
-**Decision needed (not mine to make): rounding and Tax Table vs schedule.** For taxable income under $100,000,
-the Form 1040 instructions tell filers to use the Tax Table, which (as I understand it, and I did not confirm
-this from the source) computes tax at the midpoint of each $50 row, so it can differ from the exact schedule
-by a few dollars. Your team doc says "tax from rate schedule." Recommendation: implement the schedule, round
-line 16 to whole dollars (half up), and record the choice in `docs/IMPLEMENTATION_NOTES.md`, unless the
-instructor says to match the Tax Table. Review recomputes through the same tool, so the choice must be
-consistent everywhere.
+Resolved Oct 27, see the note at the top of this section.
 
 ## 5. Test vectors
 
@@ -111,22 +107,14 @@ Marked **(IRS)** if the source states the answer, **(derived)** if I computed it
 - tax_from_schedule (derived): (single, 11,925) -> 1,192.50; (single, 50,000) -> 5,914.00; (hoh, 17,000) -> 1,700;
   (mfj, 100,000) -> 11,828; (mfs, 400,000) -> 110,031.25.
 
-## 6. Open questions to close before Friday
+## 6. Resolved questions
 
-1. Rounding / Tax Table vs schedule (section 4).
-2. Add a "lived with spouse" input for MFS, or escalate (section 3).
-3. Did the assignment supply its own `tax_math` reference? If so, it overrides this file.
-4. `data/policy.md` (Juee, PR #9, not merged when checked) was cross-checked against this spec:
-   - Standard deduction: policy base amounts plus per-box additions (single 15,750 + 2,000; HOH 23,625 + 2,000;
-     MFJ/QSS 31,500 + 1,600; MFS 15,750 + 1,600) reproduce every cell of the 1040-SR chart. Consistent. Add a test
-     that base + boxes * extra equals the chart for every cell.
-   - Senior deduction: $6,000 per qualifying person, phase-out 6% of MAGI over $75,000 ($150,000 MFJ), MFS counts 0,
-     MAGI = line 11a. Consistent with section 2.
-   - Social Security: base $25,000 / $32,000, second tier $34,000 / $44,000. Consistent, BUT policy says
-     "$25,000 (single and other statuses)", which is wrong for MFS who lived with their spouse in 2025 (no base
-     amount). The "lived with spouse" gap in section 3 is still open; ask Juee to add it to policy.md section 6.
-   - policy.md says nothing about tax rates or rounding. Check the Kushim brief (section 3.3) and
-     `docs/IMPLEMENTATION_NOTES.md` for what `tax_from_schedule` is supposed to do before deciding (section 4).
+1. Resolved: Rounding / Tax Table vs schedule. Resolved Oct 27, see section 4.
+2. Resolved: "lived with spouse" input for MFS (section 3). Resolved in #9/#10; Intake asks, Computation
+   passes it, and unknown with benefits raises.
+3. Resolved: did the assignment supply its own `tax_math` reference? None was used; numbers verified by
+   Vidhatri against the 2025 sources in #10.
+4. Resolved: cross-check `data/policy.md` against this spec. Merged in #9.
 
 ## Sources
 

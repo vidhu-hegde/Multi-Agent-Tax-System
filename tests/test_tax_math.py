@@ -159,3 +159,22 @@ def test_call_tool_reports_real_tax_rules():
     assert result == D("17750")
     assert provenance.stub is False
     assert provenance.source == "tax_math.standard_deduction"
+
+
+@pytest.mark.parametrize(
+    "name, inputs, exact, rounded",
+    [
+        ("tax_from_schedule", dict(filing_status="single", taxable_income=D("37327.67")), "4240.8204", "4240.82"),
+        ("taxable_social_security",
+         dict(filing_status="single", benefits=D("22013.33"), other_income=[D("24420.17")],
+              tax_exempt_interest=D("80"), adjustments=D("0")), "5780.80975", "5780.81"),
+        # 10% of 10,000.05 is exactly 1,000.005: half up gives .01, half to even would give .00
+        ("tax_from_schedule", dict(filing_status="single", taxable_income=D("10000.05")), "1000.005", "1000.01"),
+    ],
+)
+def test_call_tool_rounds_to_cents_half_up(name, inputs, exact, rounded):
+    fn = {"tax_from_schedule": tax_from_schedule, "taxable_social_security": taxable_social_security}[name]
+    assert fn(**inputs) == D(exact)  # the rule itself stays exact
+    result, provenance = call_tool(name, **inputs)
+    assert result == D(rounded) and str(result) == rounded
+    assert provenance.value == result
