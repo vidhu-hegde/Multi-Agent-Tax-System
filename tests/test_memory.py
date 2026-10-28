@@ -131,6 +131,22 @@ def test_selective_recall_excludes_old_dialogue_and_sensitive_answers():
     assert "901-12-3456" not in str(on) + str(off)
 
 
+def test_selective_recall_keeps_only_the_exchange_in_progress_when_marked():
+    from langchain_core.messages import HumanMessage
+
+    state = {
+        "messages": [HumanMessage(content="earlier-exchange"), HumanMessage(content="this-exchange-turn-1")],
+        "context_window_start": 1,
+    }
+    on = memory.model_context(state, "turn-2", use_context_strategy=True)
+    assert "this-exchange-turn-1" in str(on) and "earlier-exchange" not in str(on)
+    off = memory.model_context(state, "turn-2", use_context_strategy=False)
+    assert "earlier-exchange" in str(off)
+    # Intake never marks an exchange, so ON there still sends only the current reply.
+    del state["context_window_start"]
+    assert [m.content for m in memory.model_context(state, "turn-2", use_context_strategy=True)[1:]] == ["turn-2"]
+
+
 def test_model_boundary_records_provider_usage_and_rejects_missing_measurements():
     from langchain_core.messages import AIMessage
 
@@ -153,12 +169,14 @@ def test_model_boundary_records_provider_usage_and_rejects_missing_measurements(
 def test_benchmark_runs_ten_sequential_items_in_separate_persistent_threads(settings):
     from langchain_core.messages import AIMessage
 
+    from tests.conftest import benchmark_answer
+
     class Provider:
         def invoke(self, messages):
             # Synthetic usage values test plumbing only; these are not measurements.
             count = 50 + len(messages)
             return AIMessage(
-                content='{"reason":"uncertain"}',
+                content=benchmark_answer(messages[-1].content),
                 usage_metadata={"input_tokens": count, "output_tokens": 5, "total_tokens": count + 5},
             )
 
@@ -166,9 +184,12 @@ def test_benchmark_runs_ten_sequential_items_in_separate_persistent_threads(sett
         on = memory.run_context_benchmark(Provider(), saver, "strategy-on", True)
         off = memory.run_context_benchmark(Provider(), saver, "strategy-off", False)
         assert len(on) == len(off) == 10
-        assert all(row["correct"] and row["model_calls"] == 1 for row in on + off)
-        assert [r["input_tokens"] for r in on] == [52] * 10
-        assert [r["input_tokens"] for r in off] == list(range(52, 72, 2))
+        assert all(row["correct"] and row["model_calls"] == 3 for row in on + off)
+        assert all([t["turn"] for t in row["turns"]] == [1, 2, 3] for row in on + off)
+        # ON: each turn sees only its own exchange, so every item costs the same (2, 4, then 6 messages).
+        assert [r["input_tokens"] for r in on] == [52 + 54 + 56] * 10
+        # OFF: every earlier exchange too, so each item costs 3 calls x 6 more messages than the one before.
+        assert [r["input_tokens"] for r in off] == [162 + 18 * i for i in range(10)]
         assert len(list(saver.list(memory.thread_config("strategy-on")))) > 10
         with pytest.raises(ValueError, match="fresh thread"):
             memory.run_context_benchmark(Provider(), saver, "strategy-on", True)
@@ -178,6 +199,8 @@ def test_benchmark_runs_ten_sequential_items_in_separate_persistent_threads(sett
 def test_benchmark_cli_writes_comparable_runs_without_sampling_parameters(settings, monkeypatch, tmp_path, enabled):
     """Review coverage for PR #13; all usage below is synthetic, not benchmark evidence."""
     import json
+
+    from tests.conftest import benchmark_answer
     from dataclasses import replace
 
     from langchain_core.messages import AIMessage
@@ -194,11 +217,11 @@ def test_benchmark_cli_writes_comparable_runs_without_sampling_parameters(settin
 
         def invoke(self, messages):
             self.calls += 1
-            assert f"Item {self.calls}." in messages[-1].content
+            turn = (self.calls - 1) % 3 + 1
             assert '"filing_status": "single"' in messages[0].content
-            assert len(messages) == (2 if enabled else 2 * self.calls)
+            assert len(messages) == (2 * turn if enabled else 2 * self.calls)
             count = 100 + len(messages)
-            return AIMessage(content='{"reason":"uncertain"}', usage_metadata={
+            return AIMessage(content=benchmark_answer(messages[-1].content), usage_metadata={
                 "input_tokens": count, "output_tokens": 1, "total_tokens": count + 1,
             })
 
@@ -216,9 +239,9 @@ def test_benchmark_cli_writes_comparable_runs_without_sampling_parameters(settin
     assert result["model"] == "offline-provider-double"
     assert result["thread_id"] == f"cli-strategy-{enabled}"
     assert [row["item"] for row in result["items"]] == list(range(1, 11))
-    assert all(row["correct"] and row["model_calls"] == 1 for row in result["items"])
+    assert all(row["correct"] and row["model_calls"] == 3 for row in result["items"])
     assert [row["input_tokens"] for row in result["items"]] == (
-        [102] * 10 if enabled else list(range(102, 122, 2))
+        [102 + 104 + 106] * 10 if enabled else [312 + 18 * i for i in range(10)]
     )
 
 

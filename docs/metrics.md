@@ -1,94 +1,131 @@
-# Context-window evaluation — Iris contribution
+# Context-window evaluation
 
-The 2026-10-28 audit ran offline. No live measurement was requested or made. Iris has no API credits
-available; live execution requires a team member with access. The remaining Iris offline harness/CLI
-checks pass, including both strategy flags and PR #13's removal of sampling parameters. Both modes
-also reject missing usage, incorrect reasons, malformed JSON and unsupported classifications. Synthetic
-usage remains confined to tests. The historical missing-key attempts below are not new attempts.
+**Result (measured 2026-10-28, `claude-sonnet-5-5`):** with the context strategy on, each item cost about the
+same, 620–691 input tokens, from the first item to the tenth. With it off, the cost grew with every item, from 672
+to 3,170 input tokens (+372%), because each call carried all the earlier dialogue. Outcomes were the same apart from
+one turn: 29 of 30 turns were classified correctly with the strategy on, and 30 of 30 with it off.
 
-Status on **2026-10-25: live measurements blocked**. `ANTHROPIC_API_KEY` is not configured.
-Both commands below were executed and exited with code 1 and:
-
-> Blocked: ANTHROPIC_API_KEY is not configured; no token measurements were made.
-
-No actual model input-token measurements exist from this work. No flat-curve claim or numeric estimate
-is substituted. The provider doubles in unit tests contain synthetic usage values solely to test the
-measurement plumbing; they are **not** evaluation results.
+These are actual provider-reported input tokens from two live runs, one per setting, each in its own fresh thread.
+The raw results are committed in [`docs/metrics/`](metrics/).
 
 | Sequential item | Strategy ON input tokens | Strategy OFF input tokens | Live outcome check |
 |---|---|---|---|
-| 1 | unavailable | unavailable | not run |
-| 2 | unavailable | unavailable | not run |
-| 3 | unavailable | unavailable | not run |
-| 4 | unavailable | unavailable | not run |
-| 5 | unavailable | unavailable | not run |
-| 6 | unavailable | unavailable | not run |
-| 7 | unavailable | unavailable | not run |
-| 8 | unavailable | unavailable | not run |
-| 9 | unavailable | unavailable | not run |
-| 10 | unavailable | unavailable | not run |
+| 1 | 672 | 672 | ON correct, OFF correct |
+| 2 | 691 | 966 | ON correct, OFF correct |
+| 3 | 681 | 1,277 | ON correct, OFF correct |
+| 4 | 655 | 1,543 | ON correct, OFF correct |
+| 5 | 674 | 1,826 | ON correct, OFF correct |
+| 6 | 675 | 2,133 | ON correct, OFF correct |
+| 7 | 654 | 2,389 | ON correct, OFF correct |
+| 8 | 654 | 2,646 | ON incorrect, OFF correct |
+| 9 | 670 | 2,917 | ON correct, OFF correct |
+| 10 | 620 | 3,170 | ON correct, OFF correct |
 
-## Reproduce once credentials are configured
+First to last item. ON: 672 → 620 input tokens (-52, -8%); OFF: 672 → 3,170 input tokens (+2,498, +372%).
 
-Use the same environment, provider/model and ten synthetic inputs for both runs. Configure
-`ANTHROPIC_API_KEY` and a model accessible to that account using the existing settings. No particular
-model's availability was verified here. Never put a key on a command line or commit it.
+Model claude-sonnet-5-5. ON thread return-c18e-7675-063d-4787-90f2-cc24-f7d0-5e7d (2026-10-28T22:56:59.247018+00:00); OFF thread return-78c5-173f-e306-48fa-a3b7-de6b-904e-4d34 (2026-10-28T22:57:57.373162+00:00).
 
-```bash
-# Strategy ON, then OFF: each writes output/context_{on,off}.json from a new thread (or pass --thread-id <new id>).
-.venv/bin/python run.py --batch
-.venv/bin/python run.py --batch --no-context-strategy
-# The ten result rows and first-to-last growth for the table below; --out copies both raw files to commit.
-.venv/bin/python -m src.metrics_table output/context_on.json output/context_off.json --out docs/metrics
-# run.py --batch calls Iris's entry point, which also runs directly: .venv/bin/python -m src.memory --batch
+```mermaid
+%%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#1f5f8b, #c2410c"}}}}%%
+xychart-beta
+    title "Input tokens per sequential item"
+    x-axis "Sequential item" [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    y-axis "Input tokens" 0 --> 3170
+    line [672, 691, 681, 655, 674, 675, 654, 654, 670, 620]
+    line [672, 966, 1277, 1543, 1826, 2133, 2389, 2646, 2917, 3170]
 ```
 
-Each command uses **one fresh SQLite thread for all ten sequential items**; ON and OFF use different
-threads. A previously used thread id is rejected, so use new ids for reruns. Keep the configured
-`SILVERFILE_DB_PATH` the same. Outputs include the thread id, model, strategy flag, timestamp,
-per-item `input_tokens`, `model_calls` and `correct`. A false outcome saves the measurements but exits
-nonzero. A missing usage report fails instead of estimating tokens. Transport/provider failure can
-leave a partial thread; rerun with a fresh id. There are no automatic provider retries in this CLI.
+Blue: strategy ON (flat). Orange: strategy OFF (rising).
 
-The classifier is `src.agents.intake.classify_with_model`, also used by `make_intake`. ON sends a fixed
-session summary plus the current item; OFF adds prior classifier dialogue. Each synthetic item asks
-for volunteer help with unclear wording; the expected classification is `uncertain`. A valid
-`uncertain` response is required for a correct outcome. Malformed JSON or an unsupported reason still safely escalates in Intake, but no longer counts as correct in this benchmark. Each item
-currently makes one model call. The harness nevertheless sums every new recorded call's actual input
-usage per item. Raw usage is taken from `AIMessage.usage_metadata.input_tokens`, including whatever accounting
-the configured provider reports. This work does not estimate unreported retry or cache billing.
+ON varies a little between items because the exchanges differ in length, not because it grows: item 10 cost less
+than item 1.
 
-After successful live runs, transfer the per-item values and outcome results into the table and plot
-both series against item number. Compare first-to-last growth and outcomes; report the observed curve,
-not an expected savings percentage. If the curve is not materially flatter, report that failure.
+## What was measured
 
-## Limits and coordination
+**The ten items.** Each item is a short Intake exchange of three taxpayer replies, run in order in one return
+thread (`BENCHMARK_ITEMS` in [`src/memory.py`](../src/memory.py)). The first two replies are unclear, a correction,
+or a request to go back ("Wait, I typed my birth year wrong", "Can we go back two questions?"). The third needs a
+specific outcome:
 
-Professor §4.5 refers to ten **invoices** in this tax-return assignment. Vidhatri recorded the team's
-working interpretation on [PR #15](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/15#issuecomment-6473238861): ten sequential Intake items in one return thread, not ten returns sharing an identity.
-She proposed short multi-turn exchanges with unclear replies, corrections and go-back, keeping Iris's
-classifier harness. The current harness still uses one classifier call per item. The multi-turn item
-refinement remains to be integrated; this team assumption is not an instructor clarification.
+| Item | Exchange | Third reply should be classified as |
+|---|---|---|
+| 1 | Unclear question, then asks for a person | `uncertain` (a volunteer) |
+| 2 | Corrects a birth year, then asks when to take IRA money to pay less tax | `advice_request` |
+| 3 | Goes back to the documents question, then mentions selling bitcoin | `out_of_scope` |
+| 4 | Asks for the question another way, then says a son wants the refund in his account | `exploitation_concern` |
+| 5 | Corrects an answer about pension forms, then mentions box 2b "taxable amount not determined" | `1099r_taxable_not_determined` |
+| 6 | Goes back to change the blindness answer, then asks for a volunteer | `uncertain` |
+| 7 | Doesn't follow the wording, then asks whether to file jointly or separately | `advice_request` |
+| 8 | Corrects their income, then mentions renting out an apartment | `out_of_scope` |
+| 9 | Goes back two questions, then says a caregiver demands the refund | `exploitation_concern` |
+| 10 | "What?", then asks for someone from Kushim to call | `uncertain` |
 
-`python run.py --batch [--no-context-strategy]` runs this context benchmark (it calls the `src.memory`
-entry point; [PR #21](https://github.com/vidhu-hegde/Multi-Agent-Tax-System/pull/21)), and
-`python -m src.metrics_table` turns the two result files into the table above and copies the raw JSON
-to `docs/metrics/`. No measured result JSONs are committed yet; the Reproduce section has the commands to
-obtain and retain them. Vidhatri offered to perform
-the live ON/OFF run after integration. Iris does not need to obtain more credits.
+**One model call per reply.** Each reply goes to Intake's classifier (`classify_with_model` in
+`src/agents/intake.py`, the same function the Intake agent uses), so every item makes three calls. An item's
+input tokens are the sum over its three calls, taken from the provider's `usage_metadata.input_tokens`. Nothing is
+estimated: a call without reported usage fails the run.
 
-For the agreed classifier-only items, record every classifier call per item; a multi-turn item must
-sum its new call IDs. If an item includes image extraction, its usage must also be instrumented and
-included. The current harness does not call or account for W-2 extraction and makes no full-return
-usage claim. The normal return graph still uses deterministic Intake; its unused strategy parameter
-must not be presented as production-wide context reduction. The existing W-2 live checks are separate
-extraction evidence, not context-window measurements.
+**The two settings.**
 
-After integration, use the owner-provided `python run.py --batch [--no-context-strategy]` commands.
-The direct `src.memory` commands above remain available now. Retain the actual raw result JSONs in
-a tracked evidence directory, add the ten rows and a two-series curve, and report outcome validity,
-first-to-last growth, model, fresh thread IDs and dates. Do not fill the table from test doubles.
+- **Strategy ON** sends the classifier prompt, a short summary of confirmed answers (here, the filing status), and
+  only the exchange in progress: the current reply plus the item's earlier replies. Earlier exchanges are left out.
+- **Strategy OFF** sends the same prompt and summary plus every earlier classifier call in the thread.
 
-The offline suite verifies selective exclusion of older context, PII minimization, provider usage
-propagation, missing-usage failure, validated outcomes and ten sequential items in two distinct
-persisted threads. Those tests verify implementation behavior; they do not supply live measurements.
+In the real Intake flow, a reply is classified on its own, so ON there sends only the current reply. The benchmark
+keeps the item's earlier turns so that a follow-up like "The one about my documents, I mean" is judged in context.
+
+**Correct outcome.** An item counts as correct only if all three of its replies are. For the first two replies,
+either asking the question again (`null`) or sending the taxpayer to a volunteer (`uncertain`) is correct. The third
+reply must get its one expected classification. A malformed or unsupported response is never correct, even though
+Intake would handle it safely by escalating.
+
+## The one incorrect outcome
+
+With the strategy on, item 8's last reply, "I also rent out the apartment over my garage", was classified as
+`uncertain` instead of `out_of_scope`. With the strategy off, the same reply was classified correctly. The taxpayer
+would still reach a volunteer, so the result is safe, but the category is wrong. Rental income is out of scope
+(Schedule E, `data/policy.md`). In the real Intake flow the guardrail word list in `src/guardrails.py` runs before
+the model. It used to match "rent out my apartment" but not "rent out the apartment", so it missed this sentence
+too. It now matches "rent out" in any form, so this disclosure is caught before the model is asked.
+
+We report this run as measured. We did not re-run to get a cleaner result.
+
+## Reproduce
+
+Needs `ANTHROPIC_API_KEY` in `.env`. Each run makes 30 model calls.
+
+```bash
+# Strategy ON, then OFF. Each writes output/context_{on,off}.json from a new thread.
+SILVERFILE_DB_PATH=output/benchmark.sqlite python run.py --batch
+SILVERFILE_DB_PATH=output/benchmark.sqlite python run.py --batch --no-context-strategy
+# The ten rows, the growth line and the chart above; --out copies both raw files into docs/metrics/.
+python -m src.metrics_table output/context_on.json output/context_off.json --out docs/metrics
+```
+
+- **Fresh threads.** Each run uses one new thread for all ten items, and ON and OFF use different threads. A thread
+  id that was used before is refused, so pass a new `--thread-id` to repeat a run.
+- **A separate database** (`SILVERFILE_DB_PATH`) keeps the benchmark threads out of the staff dashboard.
+- **Failed outcomes.** A run with an incorrect outcome still saves its results, then exits nonzero. Each item's
+  `turns` list shows the classification for every reply.
+- **No hidden retries.** There are no automatic provider retries, and nothing is estimated. Cache and retry billing
+  that the provider doesn't report are not counted.
+
+`python -m src.memory --batch [--no-context-strategy]` runs the same benchmark directly.
+
+## Limits
+
+- **Intake's classifier only.** This measures the Intake classifier, the part of the system that holds a
+  conversation. It does not measure W-2 extraction, and makes no claim about the cost of a whole return.
+- **Ten items, not ten invoices.** The assignment (§4.5) asks for ten sequential invoices. This project prepares
+  tax returns, so the team's working interpretation is ten sequential Intake exchanges in one return thread. That
+  is a team assumption, not an instructor clarification.
+- **One run per setting.** Model outputs vary between runs, so the single incorrect outcome could go either way on
+  a re-run. The token curves come from the provider's own counts, and they depend on what is sent, not on chance.
+- **Tests use synthetic numbers.** The provider doubles in the unit tests (`tests/test_memory.py`,
+  `tests/test_batch_metrics.py`) report made-up token counts to test the plumbing. They are not results.
+
+## Who did what
+
+- **Iris:** the benchmark harness, selective recall and usage logging.
+- **Max:** `run.py --batch` and the results-table generator.
+- **Vidhatri:** the multi-turn items, the chart, and the live runs above.

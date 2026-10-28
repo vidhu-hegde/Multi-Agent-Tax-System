@@ -1,0 +1,238 @@
+{
+  "thread_id": "return-78c5-173f-e306-48fa-a3b7-de6b-904e-4d34",
+  "strategy_enabled": false,
+  "model": "claude-sonnet-5-5",
+  "measured_at": "2026-10-28T22:57:57.373162+00:00",
+  "items": [
+    {
+      "item": 1,
+      "input_tokens": 672,
+      "model_calls": 3,
+      "correct": true,
+      "turns": [
+        {
+          "turn": 1,
+          "reason": null,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "reason": "uncertain",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "item": 2,
+      "input_tokens": 966,
+      "model_calls": 3,
+      "correct": true,
+      "turns": [
+        {
+          "turn": 1,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "reason": "advice_request",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "item": 3,
+      "input_tokens": 1277,
+      "model_calls": 3,
+      "correct": true,
+      "turns": [
+        {
+          "turn": 1,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "reason": "out_of_scope",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "item": 4,
+      "input_tokens": 1543,
+      "model_calls": 3,
+      "correct": true,
+      "turns": [
+        {
+          "turn": 1,
+          "reason": null,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "reason": null,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "reason": "exploitation_concern",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "item": 5,
+      "input_tokens": 1826,
+      "model_calls": 3,
+      "correct": true,
+      "turns": [
+        {
+          "turn": 1,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "reason": "1099r_taxable_not_determined",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "item": 6,
+      "input_tokens": 2133,
+      "model_calls": 3,
+      "correct": true,
+      "turns": [
+        {
+          "turn": 1,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "reason": "uncertain",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "item": 7,
+      "input_tokens": 2389,
+      "model_calls": 3,
+      "correct": true,
+      "turns": [
+        {
+          "turn": 1,
+          "reason": null,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "reason": null,
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "reason": "advice_request",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "item": 8,
+      "input_tokens": 2646,
+      "model_calls": 3,
+      "correct": true,
+      "turns": [
+        {
+          "turn": 1,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "reason": "out_of_scope",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "item": 9,
+      "input_tokens": 2917,
+      "model_calls": 3,
+      "correct": true,
+      "turns": [
+        {
+          "turn": 1,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "reason": "exploitation_concern",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "item": 10,
+      "input_tokens": 3170,
+      "model_calls": 3,
+      "correct": true,
+      "turns": [
+        {
+          "turn": 1,
+          "reason": null,
+          "correct": true
+        },
+        {
+          "turn": 2,
+          "reason": "uncertain",
+          "correct": true
+        },
+        {
+          "turn": 3,
+          "reason": "uncertain",
+          "correct": true
+        }
+      ]
+    }
+  ]
+}

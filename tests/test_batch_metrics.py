@@ -15,17 +15,18 @@ import run
 import src.config
 from src.config import load_settings
 from src.metrics_table import HEADER, main as metrics_table
+from tests.conftest import benchmark_answer
 
 
 class FakeClaude:
-    """Answers every item `uncertain` and reports 50 + 2 tokens per message it was sent."""
+    """Answers every turn as expected and reports 50 + 2 tokens per message it was sent."""
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
 
     def invoke(self, messages):
         count = 50 + 2 * len(messages)
-        return AIMessage(content='{"reason":"uncertain"}',
+        return AIMessage(content=benchmark_answer(messages[-1].content),
                          usage_metadata={"input_tokens": count, "output_tokens": 5, "total_tokens": count + 5})
 
 
@@ -49,7 +50,7 @@ def test_run_py_batch_runs_the_context_benchmark_both_ways(offline_benchmark):
     assert on["thread_id"] != off["thread_id"]
     for result in (on, off):
         assert [row["item"] for row in result["items"]] == list(range(1, 11))
-        assert all(row["model_calls"] == 1 and row["correct"] for row in result["items"])
+        assert all(row["model_calls"] == 3 and row["correct"] for row in result["items"])
     # ON sends a fixed context every item; OFF adds the earlier dialogue, so --no-context-strategy reached it.
     assert len({row["input_tokens"] for row in on["items"]}) == 1
     tokens = [row["input_tokens"] for row in off["items"]]
@@ -98,7 +99,13 @@ def test_table_rows_outcomes_and_growth(result_files, capsys, tmp_path):
     assert len([line for line in lines if line.startswith("| ") and line[2].isdigit()]) == 10
     assert lines[13] == ("First to last item. ON: 100 → 100 input tokens (+0, +0%); "
                          "OFF: 100 → 1,450 input tokens (+1,350, +1350%).")
-    assert lines[14].startswith("Model claude-test. ON thread t-on")
+    assert lines[15].startswith("Model claude-test. ON thread t-on")
+    chart = lines[lines.index("```mermaid"):]
+    assert '"plotColorPalette": "#1f5f8b, #c2410c"' in chart[1]
+    assert chart[2] == "xychart-beta"
+    assert '    y-axis "Input tokens" 0 --> 1450' in chart
+    assert chart[6:8] == ["    line [100, 100, 100, 100, 100, 100, 100, 100, 100, 100]",
+                          "    line [100, 250, 400, 550, 700, 850, 1000, 1150, 1300, 1450]"]
     for name in ("context_on.json", "context_off.json"):
         assert (tmp_path / "docs/metrics" / name).read_text() == (tmp_path / name).read_text()
 
