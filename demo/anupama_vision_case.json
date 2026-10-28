@@ -1,0 +1,56 @@
+{
+  "description": "Anupama vision demonstration: synthetic W-2 image plus direct-entry 1099/SSA records. Requires local Claude credentials; tax calculations remain stubs.",
+  "answers": {
+    "filing_status": "single",
+    "taxpayer_dob": "1957-05-01",
+    "taxpayer_blind": false,
+    "stated_wages": "18000",
+    "adjustments": "0",
+    "estimated_payments": "1000",
+    "spouse_died_year": null,
+    "taxpayer_claimed_dependent": false,
+    "dual_status_alien": false,
+    "dependent_count": 0,
+    "schedule2_total_tax": "0",
+    "schedule3_nonrefundable_credits": "0",
+    "schedule3_other_payments": "0"
+  },
+  "documents": [
+    {
+      "document_id": "w2-1",
+      "form_type": "W-2",
+      "image_path": "demo/w2_image_1.jpg"
+    },
+    {
+      "document_id": "int-1",
+      "form_type": "1099-INT",
+      "values": {
+        "payer_name": "Tompkins Savings",
+        "interest": "420",
+        "tax_exempt_interest": "80"
+      },
+      "entered_by": "Anupama (synthetic demo)"
+    },
+    {
+      "document_id": "r-1",
+      "form_type": "1099-R",
+      "values": {
+        "payer_name": "Cayuga IRA Trust",
+        "gross_distribution": "6000",
+        "taxable_amount": "6000",
+        "distribution_code": "7",
+        "ira_sep_simple": true,
+        "federal_withheld": "600"
+      },
+      "entered_by": "Anupama (synthetic demo)"
+    },
+    {
+      "document_id": "ssa-1",
+      "form_type": "SSA-1099",
+      "values": {
+        "net_benefits": "22000"
+      },
+      "entered_by": "Anupama (synthetic demo)"
+    }
+  ]
+}

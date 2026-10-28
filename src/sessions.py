@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from langgraph.types import Command
 
+from src.agents.extraction import StaffEntryError, staff_entered_record
 from src.config import Settings, load_settings
 from src.memory import open_checkpointer
 from src.resolution import validate_resolution_corrections
@@ -113,16 +114,20 @@ class Sessions:
         return [(s.thread_id, t) for s in self.list_sessions() for t in s.open_tickets]
 
     def resolve(
-            self,
-            thread_id: str,
-            ticket_id: str,
-            action: str = "continue",
-            note: str = "",
-            resolved_by: str = "staff",
-            choice: int | None = None,
-            corrections: dict | None = None,
+        self,
+        thread_id: str,
+        ticket_id: str,
+        action: str = "continue",
+        note: str = "",
+        resolved_by: str = "staff",
+        choice: int | None = None,
+        corrections: dict | None = None,
+        values: dict | None = None,
     ) -> SessionSummary:
         """Record a staff decision on the ticket the session is paused on, then let the graph continue.
+
+        For a document that could not be read (evidence "needs_document_values"), continuing requires
+        `values`: the fields typed from the document (see evidence "required_fields").
 
         Returns the new summary: the session may finish, pause on its next ticket, or wait on the taxpayer.
         """
@@ -142,10 +147,40 @@ class Sessions:
                 corrections,
             )
             evidence = paused_on.value.get("evidence", {})
-            if evidence.get("state_write") and action == "continue":
-                if type(choice) is not int or not 1 <= choice <= len(evidence["candidates"]):
-                    raise ValueError("Select a conflicting record with choice (numbered from 1), or stop.")
-            safe_resolved_by = validate_staff_identifier(resolved_by)
+            if (
+                    evidence.get("state_write")
+                    and action == "continue"
+            ):
+                if (
+                        type(choice) is not int
+                        or not 1 <= choice <= len(evidence["candidates"])
+                ):
+                    raise ValueError(
+                        "Select a conflicting record with choice "
+                        "(numbered from 1), or stop."
+                    )
+            safe_resolved_by = validate_staff_identifier(
+                resolved_by
+            )
+
+            if (
+                    evidence.get("needs_document_values")
+                    and action == "continue"
+            ):
+                if not isinstance(values, dict):
+                    raise ValueError(
+                        "Type the document's values "
+                        "(see required_fields), or stop."
+                    )
+                try:
+                    staff_entered_record(
+                        evidence["document_id"],
+                        evidence["form_type"],
+                        values,
+                        safe_resolved_by,
+                    )
+                except StaffEntryError as exc:
+                    raise ValueError(str(exc)) from None
 
             decision = {
                 "action": action,
@@ -154,9 +189,10 @@ class Sessions:
             }
             if choice is not None:
                 decision["choice"] = choice
-
             if validated_corrections:
                 decision["corrections"] = validated_corrections
+            if values is not None:
+                decision["values"] = values
             self.graph.invoke(Command(resume={paused_on.id: decision}), self._config(thread_id))
         return self.summary(thread_id)
 

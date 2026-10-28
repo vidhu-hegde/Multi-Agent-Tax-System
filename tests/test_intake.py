@@ -87,7 +87,9 @@ def test_correction_requests_owner_revalidation_without_changing_old_lines(make_
     done = graph.invoke(Command(resume="2000"), config())
     assert done["lines"]["26"].amount == Decimal("2000")
     assert done["review_status"] == "passed"
-    assert any(h.to_agent == "rules" and "revision" in h.reason for h in done["handoffs"])
+    assert any(h.to_agent == "rules" for h in done["handoffs"])
+    assert done["evidence_epoch"] == 1
+    assert done["evidence_history"][0].lines["26"].amount == Decimal("1000")
 
 
 def test_dependent_and_inventory_use_shared_contracts():
@@ -159,11 +161,11 @@ def test_inventory_change_after_extraction_does_not_silently_reuse_stale_documen
     graph.invoke({"case_path": SKELETON_CASE}, config())
     graph.invoke({"intake_complete": False, "intake_revisit": "document_inventory"}, config())
     result = graph.invoke(Command(resume="none"), config())
-    ticket = question(result)
-    assert ticket["reason"] == "uncertain"
-    assert result["status"] == "waiting_on_human"
-    assert len(result["document_inventory"]) == 4
-    assert ticket["evidence"]["field"] == "document_inventory"
+    assert result["status"] == "draft_ready"
+    assert result["document_inventory"] == []
+    assert result["documents"] == {}
+    assert result["lines"]["1z"].amount == Decimal("0")
+    assert result["evidence_history"][0].documents["w2-1"].wages == Decimal("18000")
 
 
 def test_model_classifier_uses_selective_context_and_pauses_through_existing_human_hook(make_graph):
@@ -268,9 +270,8 @@ def test_repeated_model_escalation_is_committed_before_next_interrupt(make_graph
         ("schedule2_total_tax", "25"),
         ("schedule3_nonrefundable_credits", "10"),
         ("schedule3_other_payments", "30"),
-        ("taxpayer_claimed_dependent", True),
-        ("dual_status_alien", True),
-        ("spouse_itemizes", True),
+        # taxpayer_claimed_dependent, dual_status_alien and spouse_itemizes are now consumed by Rules and
+        # escalate as out_of_scope: see tests/test_guardrails.py::test_chart_exceptions_escalate_as_out_of_scope
         ("dependent_count", 1),
     ],
 )
@@ -279,8 +280,6 @@ def test_unintegrated_downstream_inputs_pause_instead_of_being_silently_ignored(
 
     case = json.loads(open(SKELETON_CASE).read())
     case["answers"][field] = value
-    if field == "spouse_itemizes":
-        case["answers"]["filing_status"] = "mfs"
     if field == "dependent_count":
         case["answers"].update(
             dependent_1_name="Synthetic Child", dependent_1_relationship="child", dependent_1_ssn="901-12-3456"

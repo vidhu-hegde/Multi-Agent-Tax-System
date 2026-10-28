@@ -17,9 +17,11 @@ from langgraph.types import interrupt
 from pydantic import TypeAdapter
 
 from src.escalation import escalate
+from src.evidence import invalidate_evidence, retract_inventory
+from src.guardrails import classify_reply, explain
 from src.memory import invoke_model
-from src.security import redact_ssns
 from src.schemas import Dependent, DocumentRef, FormType, IntakeAnswer, RevisionRequest, SSN
+from src.security import redact_ssns
 from src.state import SilverFileState, current_answers
 
 FILING_STATUSES = {
@@ -168,6 +170,11 @@ def _has_w2(known, inventory):
     return any(ref.form_type == "W-2" for ref in inventory)
 
 
+def _mfs_with_social_security(known, inventory):
+    """policy.md#taxable-social-security: only MFS filers with an SSA-1099 need the lived-with-spouse answer."""
+    return known["filing_status"].value == "mfs" and any(ref.form_type == "SSA-1099" for ref in inventory)
+
+
 # One field per question. These are inputs, never eligibility conclusions.
 QUESTIONS = [
     (
@@ -210,6 +217,12 @@ QUESTIONS = [
         parse_inventory,
         None,
     ),
+    (
+        "mfs_lived_with_spouse",
+        "Did you live with your spouse at any time during 2025? Please type yes or no, or say you're not sure.",
+        parse_yes_no,
+        _mfs_with_social_security,
+    ),
     ("dependent_count", "How many dependents will you list on this return? Type 0 if none.", parse_count, None),
     (
         "stated_wages",
@@ -251,10 +264,12 @@ QUESTIONS = [
 
 # These inputs are collected here but their owner modules do not consume them yet.
 # Remove each gate only alongside its downstream integration and end-to-end tests.
+# taxpayer_claimed_dependent, spouse_itemizes and dual_status_alien are consumed by Rules
+# (policy.md#standard-deduction-exceptions) and escalate as out_of_scope there.
+# mfs_lived_with_spouse: a "yes" means a $0 Social Security base amount (policy.md#taxable-social-security).
+# It pauses here until the tax_math tool consumes it, so the $25,000 base is never used silently.
 PENDING_DOWNSTREAM_FIELDS = (
-    "taxpayer_claimed_dependent",
-    "spouse_itemizes",
-    "dual_status_alien",
+    "mfs_lived_with_spouse",
     "dependent_count",
     "schedule2_total_tax",
     "schedule3_nonrefundable_credits",
@@ -264,68 +279,8 @@ PENDING_DOWNSTREAM_FIELDS = (
 # Existing Computation from_answer() bindings, not new message-schema fields.
 INTAKE_LINE_FIELDS = {"10": "adjustments", "26": "estimated_payments"}
 
-ADVICE_PHRASES = [
-    "should i",
-    "would i pay less",
-    "can i deduct",
-    "is it better",
-    "roth",
-    "lower my tax",
-    "save on tax",
-    "file separately",
-    "pay less tax",
-]
-EXPLOITATION_PHRASES = [
-    "send the refund",
-    "refund to his",
-    "refund to her",
-    "refund to their",
-    "refund to my son",
-    "refund to my daughter",
-    "not my account",
-    "whose account",
-    "answering for",
-    "on her behalf",
-    "on his behalf",
-    "told me to say",
-    "said i have to",
-]
-UNCERTAIN_PHRASES = ["not sure", "unsure", "don't know", "dont know", "no idea", "can't remember", "cannot remember"]
-
-# Disclosure vocabulary from assignment §3.3, routed through the shared out_of_scope
-# catalogue entry. This notices what the person says; Rules still decides eligibility.
-SCOPE_DISCLOSURES = re.compile(
-    r"\b(?:foreign (?:income|(?:bank )?accounts?)|digital assets?|1099[- ]?NEC|"
-    r"self[- ]employment(?: income)?|business income|rental income|capital gains|"
-    r"schedule [ACDE]|itemi[sz]ed deductions?|amended (?:tax )?returns?|"
-    r"prior[- ]year (?:tax )?returns?|state (?:tax )?returns?)\b",
-    re.I,
-)
-
-
-def scope_disclosure(text: str) -> bool:
-    for match in SCOPE_DISCLOSURES.finditer(text):
-        prefix = text[: match.start()]
-        if not re.search(r"\b(?:no|without|(?:do not|don't|did not|didn't) have)(?: any)?\s*$", prefix, re.I):
-            return True
-    return False
-
-
-def classify_reply(text: str) -> str | None:
-    lowered = str(text).lower()
-    if any(p in lowered for p in EXPLOITATION_PHRASES):
-        return "exploitation_concern"
-    if any(p in lowered for p in ADVICE_PHRASES):
-        return "advice_request"
-    if "taxable amount not determined" in lowered or (
-        re.search(r"\b1099[- ]?r\b", lowered) and re.search(r"\bbox\s*2b\s+(?:is\s+)?checked\b", lowered)
-    ):
-        return "1099r_taxable_not_determined"
-    if scope_disclosure(lowered):
-        return "out_of_scope"
-    if any(p in lowered for p in UNCERTAIN_PHRASES):
-        return "uncertain"
-    return None
+# Guardrail vocabulary and checks live in src/guardrails.py (owner: Juee; policy: data/policy.md).
+# Intake calls classify_reply() on every turn before accepting an answer.
 
 
 def classify_with_model(model, state, text, use_context_strategy=True):
@@ -433,7 +388,7 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
     revision = next((r for r in requests if r.target == "intake"), None)
     revision_field = None
     if revision is not None:
-        revision_field = INTAKE_LINE_FIELDS.get(revision.line) or revisit
+        revision_field = revision.field or INTAKE_LINE_FIELDS.get(revision.line) or revisit
         if revision_field not in {q[0] for q in questions}:
             payload = redact_ssns(revision.model_dump(mode="json"))
             key = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:12]
@@ -572,6 +527,14 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
                             return update
                         prompt = "I've already passed that on to a member of staff. " + question
                         continue
+                    # Tell staff which guardrail rule fired (policy.md), so a false alarm is easy to spot.
+                    matched = explain(str(safe))
+                    if matched.reason != reason:
+                        matched = explain(str(raw))
+                    if matched.reason == reason:
+                        guardrail_rule = matched.rule
+                    else:
+                        guardrail_rule = "model_classifier" if model_called else "field_check"
                     update.update(
                         escalate(
                             reason,
@@ -582,6 +545,7 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
                                 "question": question,
                                 "reply": safe,
                                 "said_to_taxpayer": SAID_TO_TAXPAYER[reason],
+                                "guardrail_rule": guardrail_rule,
                             },
                         )
                     )
@@ -593,18 +557,7 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
             and previous.value != value
             and state.get("documents")
         ):
-            # The graph has no retraction interface for extracted records yet. Do not compute
-            # against a mixture of the new inventory and old records while awaiting that hook.
-            update.update(
-                escalate(
-                    "uncertain",
-                    raised_by="intake",
-                    key="inventory-retraction",
-                    detail="Changing extracted documents needs staff coordination before this return can continue.",
-                    evidence={"field": field, "said_to_taxpayer": SAID_TO_TAXPAYER["uncertain"]},
-                )
-            )
-            return update
+            update.update(retract_inventory(state, value))
         answer = IntakeAnswer(
             field=field,
             value=value,
@@ -621,6 +574,8 @@ def _intake(state: SilverFileState, model=None, use_context_strategy=True) -> di
             inventory = value
             update["document_inventory"] = value
         if previous is not None and previous.value != value:
+            if "evidence_epoch" not in update:
+                update.update(invalidate_evidence(state))
             # Use the existing routing contract; do not replace the orchestrator or compute locally.
             requests = list(update.get("revision_requests", state.get("revision_requests", [])))
             for target in ("rules", "computation"):

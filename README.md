@@ -147,6 +147,7 @@ The same actions the dashboard offers, from the terminal:
 python run.py --sessions                                   # list sessions and open escalations
 python run.py --resolve <session id> <ticket id> --note "Checked with client"
 python run.py --resolve <session id> <ticket id> --stop    # end the session instead
+python run.py --resolve <session id> <ticket id> --values '{"employer_name": "...", "wages": "..."}'  # a document that couldn't be read
 ```
 
 ### Context-window strategy measurement
@@ -168,6 +169,13 @@ pytest tests/
 
 ## Demo / eval cases
 
+End-to-end eval cases live in [`evals/cases.json`](evals/cases.json) (format: [`evals/README.md`](evals/README.md)).
+They run offline and are part of `pytest`:
+
+```bash
+python -m evals.run_evals
+```
+
 - [`demo/eval_case_1.md`](demo/eval_case_1.md): a clean run with no escalations
 - [`demo/eval_case_2.md`](demo/eval_case_2.md): triggers a HITL event, with steps to resolve it
 
@@ -176,3 +184,20 @@ pytest tests/
 - [`docs/IMPLEMENTATION_NOTES.md`](docs/IMPLEMENTATION_NOTES.md)
 - [`docs/metrics.md`](docs/metrics.md)
 - [`docs/AI_DISCLOSURE.md`](docs/AI_DISCLOSURE.md)
+
+
+## Extraction and provenance draft view
+
+The communication/extraction integration is documented in [Anupama's handoff](docs/ANUPAMA_HANDOFF.md).
+Render the existing synthetic typed case without a model key:
+
+```powershell
+.\.venv\Scripts\python -m src.render --case data/fixtures/skeleton_case.json --output output/draft_1040sr.html
+```
+
+Open the HTML file and click or keyboard-activate an amount to inspect its sources and calculation.
+Stub-dependent or stale amounts are withheld. For live W-2 vision, configure local `.env` credentials
+and use `demo/anupama_vision_case.json`; live accuracy testing is pending. See the handoff for
+manual-entry metadata, agent contracts, revisions, test commands and integration dependencies.
+[Anupama's report section](docs/ANUPAMA_REPORT.md) and [AI-use disclosure](docs/AI_DISCLOSURE.md)
+record the scope and limits of this contribution.

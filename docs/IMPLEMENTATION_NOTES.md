@@ -19,13 +19,33 @@ First matching row wins.
 | 1 | Any escalation ticket is open | `human` (interrupt) | `escalation <ticket_id>` |
 | 2 | A human resolved a ticket with `stop` | END, status `stopped` | `stopped by a human` |
 | 3 | `intake_complete` is not set | `intake` | `intake incomplete` |
-| 4 | In-scope documents not yet extracted | `extract_document` × N (parallel `Send`) → `aggregate_documents` | `N document(s) to extract` |
+| 4 | In-scope documents without a record | `extract_document` × N (parallel `Send`) → `aggregate_documents` | `N document(s) to extract` |
 | 5 | No `scope` rule decision yet | `rules` | `rules not evaluated` |
 | 6 | Revision requests pending and `review_passes >= SILVERFILE_MAX_REVIEW_PASSES` | `human` (new `review_limit` ticket) | `review limit reached` |
 | 7 | Revision requests pending | the request's `target` agent | `revision: line X: <reason>` |
 | 8 | No lines computed | `computation` | `lines not computed` |
 | 9 | `review_status` is not `passed` | `review` | `draft not reviewed` |
 | 10 | Otherwise | END, status `draft_ready` | `draft ready` |
+
+## Documents that can't be read
+
+When Extraction can't read a document (an image it can't transcribe, or typed values that don't fit the
+form), it raises an `uncertain` ticket with `needs_document_values` and the form's `required_fields`.
+The fields staff must type for each form are defined in code, in `STAFF_ENTRY_FIELDS` (`src/agents/extraction.py`):
+every field that feeds a 1040-SR line, plus the W-2 values that should escalate. Every listed field must be
+present. An explicit `0`, `false`, `null` or `[]` is fine, but a missing field is rejected, so nothing silently
+defaults (for example, a missing `federal_withheld` can't become $0).
+The document is **never left out**: row 4 keeps it pending until it has a record, so a draft can't be
+produced with it missing. Staff resolve the ticket in one of two ways:
+
+- **Type the values from the document:** `{"action": "continue", "values": {...}}`, or
+  `sessions.resolve(..., values={...})`, or `python run.py --resolve ... --values '{...}'`. The values
+  become a record with provenance "direct user input", the staff member's id and the time (§4.2).
+- **Stop the session.**
+
+Plain `continue` asks again. Invalid values are asked for again too, naming only the fields that need
+checking, never the typed values. The ticket's resolution records which document was entered, but the
+values themselves live only in the record.
 
 ## Parallel extraction
 
@@ -320,3 +340,12 @@ use the shared 900-series schema and have no raw-text copy. Qiyan/Max must use t
 for their ingress protection before resume commands; upstream checkpoint/trace PII protection remains
 unverified. No other owner's module was modified. See `docs/IRIS_HANDOFF.md` for regression results and
 all ten updated checklist statuses. Live context measurements remain unavailable.
+
+
+## Communication/extraction integration update (Anupama, 2026-10-25)
+
+[ANUPAMA_HANDOFF.md](ANUPAMA_HANDOFF.md) supersedes earlier descriptions of extraction as a typed-values-only
+stub, missing generic revision-field targeting, and blocked inventory retraction. It documents the
+Claude vision interface (live testing pending), audited manual records, graph message validation,
+evidence epochs/archives and the HTML provenance view. Existing tax_math stubs, policy placeholders,
+normal model/batch integration and full dashboard remain dependencies. This update changes no tax policy.

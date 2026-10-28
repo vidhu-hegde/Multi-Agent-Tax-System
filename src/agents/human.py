@@ -2,7 +2,9 @@
 
 Resume with Command(resume=...) where the value is either a string ("stop", or any note meaning
 continue) or a dict {"action": "continue" | "stop", "note": str, "resolved_by": str}.
-Conflicting state writes additionally require a one-based "choice". The CLI accepts JSON for these.
+Conflicting state writes additionally require a one-based "choice". A document that could not be read
+(evidence "needs_document_values") requires "values": the fields typed from the document. The CLI accepts
+JSON for both. Plain "continue" is not enough for either, so nothing is chosen or left out silently.
 """
 
 import json
@@ -12,6 +14,8 @@ from decimal import Decimal
 from langgraph.types import Overwrite, interrupt
 from pydantic import TypeAdapter
 
+from src.agents.extraction import StaffEntryError, staff_entered_record
+from src.evidence import invalidate_evidence
 from src.resolution import validate_resolution_corrections
 from src.schemas import (
     EscalationTicket,
@@ -39,6 +43,7 @@ def human(state: SilverFileState) -> dict:
     documents = dict(state.get("documents", {}))
     for ticket in open_tickets:
         channel = ticket.evidence.get("state_write")
+        needs_values = bool(ticket.evidence.get("needs_document_values"))
         prompt = {
             "ticket_id": ticket.ticket_id,
             "reason": ticket.reason,
@@ -59,12 +64,17 @@ def human(state: SilverFileState) -> dict:
                 "to select a candidate (numbered from 1), "
                 "or stop."
             )
+        if needs_values:
+            example = ", ".join(f'"{name}": ...' for name in ticket.evidence["required_fields"])
+            prompt["how_to_resolve"] = (
+                'Type the values from the document as {"action":"continue","values":{' + example + "}}, or stop."
+            )
         while True:
             answer = interrupt(prompt)
             expects_json = (
-                    bool(channel)
-                    or ticket.reason
-                    == "1099r_taxable_not_determined"
+                bool(channel)
+                or needs_values
+                or ticket.reason == "1099r_taxable_not_determined"
             )
 
             if expects_json and isinstance(answer, str):
@@ -85,14 +95,35 @@ def human(state: SilverFileState) -> dict:
                 resolution.pop("corrections", None)
 
             choice = resolution.get("choice")
-            if not channel or resolution.get("action") == "stop":
+            if resolution.get("action") == "stop" or not (channel or needs_values):
                 break
+            if needs_values:
+                document_id = ticket.evidence["document_id"]
+                values = resolution.get("values")
+                problem = "Type the document's values before continuing, or stop the session."
+                if isinstance(values, dict):
+                    try:
+                        record = staff_entered_record(
+                            document_id, ticket.evidence["form_type"], values, resolution.get("resolved_by", "staff")
+                        )
+                    except StaffEntryError as exc:
+                        problem = str(exc)  # names fields only; never echoes typed values
+                    else:
+                        documents[document_id] = record
+                        update["documents"] = Overwrite(documents)
+                        resolution = {k: v for k, v in resolution.items() if k != "values"}
+                        resolution["entered_document"] = document_id
+                        update["document_readiness"] = {**update.get("document_readiness", {}), document_id: True}
+                        break
+                prompt = {**prompt, "detail": problem}
+                continue
             if type(choice) is int and 1 <= choice <= len(ticket.evidence["candidates"]):
                 record = ticket.evidence["candidates"][choice - 1]
                 key = ticket.evidence["key"]
                 if channel == "documents":
                     documents[key] = TypeAdapter(TaxDocument).validate_python(record)
                     update["documents"] = Overwrite(documents)
+                    update.update(invalidate_evidence(state))
                     requests = list(update.get("revision_requests", state.get("revision_requests", [])))
                     requests.extend(
                         RevisionRequest(target=target, reason=f"Staff selected document {key}", raised_by="human")
