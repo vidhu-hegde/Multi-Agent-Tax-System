@@ -9,47 +9,90 @@ tax year 2025**. It talks with the taxpayer, reads their tax documents, and prod
 > SilverFile **never files anything**, **never gives tax advice**, **never shows an amount it can't source**, and
 > **hands off to a person** whenever it hits an escalation condition. It accepts only test SSNs (900–999).
 
-## Quick start (Docker)
+## Running SilverFile with Docker (for graders)
 
-Needs Docker Desktop with Compose 2.24 or newer.
+Everything below runs in Docker; no Python setup is needed. You need Docker Desktop (Compose 2.24 or newer) and an
+Anthropic API key for steps 2 to 4. Run every command from the repository folder.
+
+### 1. Set up (once)
 
 ```bash
 git clone https://github.com/vidhu-hegde/Multi-Agent-Tax-System.git
 cd Multi-Agent-Tax-System
-cp .env.example .env            # add your ANTHROPIC_API_KEY (only run.py needs it)
-docker compose up -d --build    # starts the tax-math server and the dashboard
+cp .env.example .env              # then open .env and set ANTHROPIC_API_KEY=<your key>
+docker compose up -d --build      # builds the image, starts the tax-math server and the dashboard
 ```
 
-- **Dashboard:** http://127.0.0.1:8000
-- **A return:** `docker compose run --rm app python run.py --case data/fixtures/skeleton_case.json`
-- **The eval cases:** `docker compose run --rm app python -m evals.run_evals`
+Open the staff dashboard at http://127.0.0.1:8000. It stays running in the background until step 7.
 
-More Docker commands, the demo dashboard and troubleshooting: [`docs/DOCKER.md`](docs/DOCKER.md).
-
-### Without Docker
-
-Needs Python 3.11 or newer, and two terminals.
+### 2. Eval case 1: a clean run, with the W-2 read from its photo
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt -c constraints.txt
-cp .env.example .env                  # add your ANTHROPIC_API_KEY
-
-python -m src.tax_math.server         # terminal 1: the tax-math server; leave it running
-python -m src.dashboard               # terminal 2: the dashboard at http://127.0.0.1:8000
+docker compose run --rm app python run.py --case demo/anupama_vision_case.json
 ```
 
-## For graders
+The session runs to the end without asking anything and prints `Draft 1040-SR (draft_ready)` with line 34
+(overpayment) at **2,455.50**. On the dashboard the return shows as *Draft ready*: open it, then *Open the draft with
+sources*, and click any amount to see where it came from. Expected values and a hand check of every line:
+[`demo/eval_case_1.md`](demo/eval_case_1.md).
 
-| What is graded | Where to look |
-|---|---|
-| Clean run from eval case 1, W-2 read from its image | [`demo/eval_case_1.md`](demo/eval_case_1.md): commands, expected draft, and a hand check of every number |
-| HITL event from eval case 2, resolved | [`demo/eval_case_2.md`](demo/eval_case_2.md): a wage conflict, resolved on the dashboard |
-| A clean run with your own data | Copy [`data/fixtures/skeleton_case.json`](data/fixtures/skeleton_case.json), change the answers and document values, and run `python run.py --case <your file>`. Leave an answer out and Intake asks for it |
-| Dashboard | `python -m src.dashboard --demo` opens returns in every state, no key needed (in Docker: [demo dashboard](docs/DOCKER.md#demo-dashboard)) |
-| Finished runs, no key needed | [`traces/`](traces/README.md): both eval cases' drafts and saved state |
-| Context-window measurement | [`docs/metrics.md`](docs/metrics.md) |
-| The report | [`docs/TEAM_REPORT.md`](docs/TEAM_REPORT.md) |
+### 3. Eval case 2: a HITL event, resolved on the dashboard
+
+```bash
+docker compose run --rm app python run.py --case data/fixtures/conflict_case.json
+```
+
+The taxpayer said about $24,000 in wages but the W-2 shows $26,450, so the session stops with
+`[Escalation: document_conflict]`. Press **Ctrl-D** to save and leave: the decision belongs to staff. Then, on the
+dashboard:
+
+1. Under **Needs a decision**, open the return. The ticket shows both amounts.
+2. Type a note (for example *Harold confirmed the W-2 is right*) and a staff ID (for example `staff-7`).
+3. Choose **Continue the return**. The return becomes *Draft ready*, with a refund of **$1,460.25**.
+4. Choose **Mark as submitted**. The return now appears under the *Submitted* filter.
+
+Full walkthrough: [`demo/eval_case_2.md`](demo/eval_case_2.md).
+
+### 4. A clean run with your own data
+
+Copy a case file into a `cases` folder, edit its answers and document values, and run it with that folder mounted:
+
+```bash
+mkdir -p cases
+cp data/fixtures/skeleton_case.json cases/mine.json      # then edit cases/mine.json
+docker compose run --rm -v "$PWD/cases:/app/cases:ro" app python run.py --case cases/mine.json
+```
+
+Leave an answer out of the file and Intake asks for it. To answer every question yourself instead, run
+`docker compose run --rm app python run.py`. A document you only name in the chat (by typing "W-2") has no values,
+so it pauses for staff to type them in on the dashboard.
+
+### 5. The dashboard with returns in every state (no key needed)
+
+```bash
+docker compose stop dashboard
+docker compose run --rm --service-ports dashboard python -m src.dashboard --demo --host 0.0.0.0
+```
+
+Open http://127.0.0.1:8000: it shows demo returns waiting on staff, waiting on the taxpayer, ready and submitted.
+Press Ctrl-C to stop it, then `docker compose start dashboard` to bring back the normal dashboard.
+
+### 6. Tests and eval cases (no key needed)
+
+```bash
+docker compose run --rm app python -m pytest -q -p no:cacheprovider    # all tests
+docker compose run --rm app python -m evals.run_evals                  # all eval cases, through the tax-math server
+```
+
+### 7. Stop
+
+```bash
+docker compose down        # stops everything; saved returns are kept
+docker compose down -v     # stops everything and deletes saved returns
+```
+
+Other commands (resuming a return, listing returns, logs) and troubleshooting are in [`docs/DOCKER.md`](docs/DOCKER.md).
+Finished runs of both eval cases, viewable without running anything, are in [`traces/`](traces/README.md).
 
 ## How it works
 
@@ -83,9 +126,20 @@ also happens when a document can't be read or the taxpayer isn't sure of an answ
 **In scope:** W-2, SSA-1099, 1099-R, 1099-INT and 1099-DIV; all five filing statuses; the standard deduction and the
 senior deduction; Schedule 1, 2 and 3 totals typed in directly. Everything else goes to a person.
 
-## Commands
+## Running without Docker
 
-Add `docker compose run --rm app` in front of these to run them in Docker.
+Needs Python 3.11 or newer and two terminals. Install, then start the tax-math server and the dashboard:
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt -c constraints.txt
+cp .env.example .env                  # then set ANTHROPIC_API_KEY in .env
+
+python -m src.tax_math.server         # terminal 1: the tax-math server; leave it running
+python -m src.dashboard               # terminal 2: the dashboard at http://127.0.0.1:8000
+```
+
+Then, in another terminal:
 
 ```bash
 python run.py --case data/fixtures/skeleton_case.json     # a return from a case file
@@ -104,10 +158,9 @@ python run.py --batch [--no-context-strategy]             # context-window measu
 
 ## Documentation
 
-- [`docs/TEAM_REPORT.md`](docs/TEAM_REPORT.md): the report
 - [`docs/IMPLEMENTATION_NOTES.md`](docs/IMPLEMENTATION_NOTES.md): design decisions and the full routing table
 - [`docs/metrics.md`](docs/metrics.md): context-window measurement
-- [`docs/AI_DISCLOSURE.md`](docs/AI_DISCLOSURE.md): how we used AI
+- [`docs/archive/AI_DISCLOSURE.md`](docs/archive/AI_DISCLOSURE.md): how we used AI
 - [`data/policy.md`](data/policy.md): the tax rules, scope and escalation reasons
 - [`docs/GUARDRAILS_AND_ETHICS.md`](docs/GUARDRAILS_AND_ETHICS.md), [`docs/SECURITY_AND_PII.md`](docs/SECURITY_AND_PII.md):
   guardrails and security

@@ -1,6 +1,6 @@
 # Running SilverFile with Docker
 
-The quick start is in the [README](../README.md#quick-start-docker). This page has the details.
+The step-by-step guide for graders is in the [README](../README.md#running-silverfile-with-docker-for-graders). This page has the other commands and troubleshooting.
 
 One image runs everything (`Dockerfile`). `docker-compose.yml` starts the tax_math MCP server (`tax-math`) and
 the staff dashboard, and runs `run.py`, the evals and the tests on demand (`app`).
