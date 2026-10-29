@@ -142,13 +142,24 @@ CONTEXT_TURNS_PER_ITEM = 3
 
 
 def load_context_items(path=CONTEXT_ITEMS) -> dict:
-    """The benchmark's ten items of three unclear Intake replies, each with its one expected label."""
-    from src.agents.intake import ESCALATION_DETAIL
+    """The benchmark's ten items of three unclear Intake replies, each with its one expected label.
+
+    The file's seed_answers apply to every item; an item's own seed_answers are merged over them.
+    """
+    from src.agents.intake import ESCALATION_DETAIL, FILING_STATUSES, QUESTIONS
 
     data = json.loads(Path(path).read_text())
     items = data["items"]
     if len(items) != 10 or any(len(item["turns"]) != CONTEXT_TURNS_PER_ITEM for item in items):
         raise ValueError(f"{path} must hold 10 items of {CONTEXT_TURNS_PER_ITEM} turns")
+    fields = {question[0] for question in QUESTIONS}
+    for where, seeds in [("seed_answers", data["seed_answers"]),
+                         *((item["id"], item.get("seed_answers", {})) for item in items)]:
+        for field, value in seeds.items():
+            if field not in fields:
+                raise ValueError(f"{where}: unknown seed field {field!r}")
+            if field == "filing_status" and value not in set(FILING_STATUSES.values()):
+                raise ValueError(f"{where}: filing_status must be one of the five statuses, not {value!r}")
     for item in items:
         for turn in item["turns"]:
             if turn["expected"] not in (*ESCALATION_DETAIL, None):
@@ -160,10 +171,11 @@ def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=T
     """The ten items of evals/context_items.json, three turns each, in order in one fresh, persisted thread.
 
     Each turn is one classifier call with the input production Intake sends, {"question", "reply"}. ON and
-    OFF read the same file and the same fixed seed answers. A turn is correct when the model's output is
-    valid and matches its expected label; an item is correct when all three turns are. This evaluation
-    graph calls the same classifier as make_intake(). It does not replace the team's return graph or
-    simulate completed tax returns/invoices.
+    OFF read the same file and the same seed answers: each item's seeds are recorded before its first turn,
+    as appended IntakeAnswers (only values that change), so earlier answers stay in the history. A turn is
+    correct when the model's output is valid and matches its expected label; an item is correct when all
+    three turns are. This evaluation graph calls the same classifier as make_intake(). It does not replace
+    the team's return graph or simulate completed tax returns/invoices.
     """
     from langgraph.graph import END, START, StateGraph
     from src.agents.intake import classify_with_model
@@ -186,14 +198,17 @@ def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=T
     graph = builder.compile(checkpointer=checkpointer)
     rows = []
     previous_usage = {}
-    seeds = [IntakeAnswer(field=field, value=value, entered_by="synthetic benchmark")
-             for field, value in data["seed_answers"].items()]
+    seeded = {}
     for number, item in enumerate(data["items"], start=1):
+        item_seeds = {**data["seed_answers"], **item.get("seed_answers", {})}
+        seeds = [IntakeAnswer(field=field, value=value, entered_by="synthetic benchmark")
+                 for field, value in item_seeds.items() if field not in seeded or seeded[field] != value]
+        seeded.update(item_seeds)
         turns = []
         for turn in item["turns"]:
             payload = {"context_item": json.dumps({"question": turn["question"], "reply": turn["reply"]})}
             if seeds:
-                payload["answers"], seeds = seeds, []  # once, before the first turn; never changed after
+                payload["answers"], seeds = seeds, []  # before this item's first turn; appended, never replaced
             result = graph.invoke(payload, config)
             usage = result["input_token_usage"]
             new_calls = {key: value for key, value in usage.items() if key not in previous_usage}
@@ -213,6 +228,7 @@ def run_context_benchmark(model, checkpointer, thread_id, use_context_strategy=T
             "input_tokens": sum(t["input_tokens"] for t in turns),
             "model_calls": sum(t["model_calls"] for t in turns),
             "correct": all(t["correct"] for t in turns),
+            "seed_answers": item_seeds,
             "turns": turns,
         })
     return rows

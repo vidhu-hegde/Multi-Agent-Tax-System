@@ -64,18 +64,61 @@ class ScriptedProvider:
                          usage_metadata={"input_tokens": tokens, "output_tokens": 1, "total_tokens": tokens + 1})
 
 
+def item_seed(item):
+    return {**DATA["seed_answers"], **item.get("seed_answers", {})}
+
+
+def test_items_1_to_9_seed_single_and_item_10_seeds_mfs():
+    assert [item_seed(item)["filing_status"] for item in DATA["items"]] == ["single"] * 9 + ["mfs"]
+    assert DATA["items"][9]["turns"][0]["field"] == "mfs_lived_with_spouse"  # Intake asks it only of mfs filers
+
+
 @pytest.mark.parametrize("enabled", [True, False])
-def test_turns_use_the_production_input_and_fixed_seeds(settings, enabled):
+def test_turns_use_the_production_input_and_per_item_seeds(settings, enabled):
     provider = ScriptedProvider()
     with memory.open_checkpointer(settings) as saver:
-        memory.run_context_benchmark(provider, saver, f"shape-{enabled}", enabled)
+        rows = memory.run_context_benchmark(provider, saver, f"shape-{enabled}", enabled)
     assert provider.calls == 30
     for messages, (_, _, turn) in zip(provider.seen, TURNS):
         # Byte for byte what Intake sends: json.dumps({"question": question, "reply": safe}).
         assert messages[-1].content == json.dumps({"question": turn["question"], "reply": turn["reply"]})
-    # The seeded summary is the same in every call of both modes, so only the dialogue differs.
-    assert {messages[0].content for messages in provider.seen} == {provider.seen[0][0].content}
-    assert '"filing_status": "single"' in provider.seen[0][0].content
+    # Within an item the seeded summary is the same in every call, so only the dialogue differs; it shows the
+    # item's own filing status: single for items 1-9, mfs for item 10, in both modes.
+    for number, item in enumerate(DATA["items"]):
+        summaries = {messages[0].content for messages in provider.seen[3 * number:3 * number + 3]}
+        assert len(summaries) == 1
+        assert f'"filing_status": "{item_seed(item)["filing_status"]}"' in summaries.pop()
+    assert [row["seed_answers"] for row in rows] == [item_seed(item) for item in DATA["items"]]
+
+
+def test_a_per_item_seed_is_recorded_before_that_items_first_turn(settings, tmp_path):
+    data = json.loads(json.dumps(DATA))
+    data["items"][3]["seed_answers"] = {"filing_status": "hoh"}  # item 4 only; item 5 falls back to the file's
+    path = tmp_path / "items.json"
+    path.write_text(json.dumps(data))
+    provider = ScriptedProvider()
+    with memory.open_checkpointer(settings) as saver:
+        memory.run_context_benchmark(provider, saver, "per-item-seed", True, items_path=path)
+        answers = saver.get_tuple(memory.thread_config("per-item-seed")).checkpoint["channel_values"]["answers"]
+    status = [json.loads(m[0].content.split("Confirmed session inputs: ")[1])["filing_status"] for m in provider.seen]
+    assert status[8] == "single" and status[9:12] == ["hoh"] * 3 and status[12] == "single"
+    assert status[27:] == ["mfs"] * 3
+    # Appended, never overwritten: every change is a new IntakeAnswer in order.
+    seeded = [(a.field, a.value, a.entered_by) for a in answers]
+    assert seeded == [("filing_status", v, "synthetic benchmark") for v in ["single", "hoh", "single", "mfs"]]
+
+
+@pytest.mark.parametrize("seed, message", [
+    ({"filing_status": "married"}, "one of the five statuses"),
+    ({"favourite_colour": "blue"}, "unknown seed field"),
+])
+def test_seeds_are_validated(tmp_path, seed, message):
+    data = json.loads(json.dumps(DATA))
+    data["items"][0]["seed_answers"] = seed
+    path = tmp_path / "items.json"
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match=message):
+        memory.load_context_items(path)
 
 
 def test_item_tokens_sum_its_turns_and_one_wrong_turn_fails_only_its_item(settings):

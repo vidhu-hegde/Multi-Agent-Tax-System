@@ -17,6 +17,8 @@ The raw results, with every turn's expected and actual classification, are commi
 > accuracy on new replies. A fresh, held-out set of replies would be needed for that. The token curves are not
 > affected: they depend only on what is sent.
 
+These numbers were measured before per-item seeds (all ten items seeded `single`); they will be replaced by the final run.
+
 | Sequential item | Strategy ON input tokens | Strategy OFF input tokens | Live outcome check |
 |---|---|---|---|
 | 1 | 2,003 | 2,321 | ON incorrect, OFF incorrect |
@@ -52,8 +54,10 @@ than item 1. OFF already costs more in item 1, because the item's second and thi
 ## What was measured
 
 **The ten items** are in [`evals/context_items.json`](../evals/context_items.json). Each is three unclear replies
-to one Intake question, run in order in one return thread, with the same seed answer (`filing_status = single`)
-for both runs:
+to one Intake question, run in order in one return thread. Both runs use the same seed answers: items 1–9 seed
+`filing_status = single`, and item 10 seeds `filing_status = mfs`, because its question (did you live with your
+spouse in 2025?) is one Intake asks only of married-filing-separately filers (raised by Juee). Each item's seed
+is recorded before its first turn as a new answer, so the earlier one stays in the history:
 
 - **Muddled answers, corrections and requests to go back** ("Wait, scratch that, I meant the other one",
   "Let's back up a step") that don't use Intake's `go back to <field>` or `change <field> to <value>` commands.
