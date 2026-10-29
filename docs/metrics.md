@@ -1,9 +1,9 @@
 # Context-window evaluation
 
-**Result (measured 2026-10-28, `claude-sonnet-5-5`):**
+**Result (measured 2026-10-29, `claude-sonnet-5-5`):**
 
 - **Tokens.** With the context strategy on, each item cost about the same, 1,865–2,003 input tokens, from the
-  first item to the tenth. With it off, the cost grew with every item, from 2,321 to 8,554 input tokens (+269%),
+  first item to the tenth. With it off, the cost grew with every item, from 2,321 to 8,560 input tokens (+269%),
   because each call carried all the earlier dialogue.
 - **Accuracy.** Both settings classified 29 of 30 replies correctly (9 of 10 items fully right), and missed the same
   one. Leaving out the earlier dialogue cost no accuracy on these items.
@@ -17,8 +17,6 @@ The raw results, with every turn's expected and actual classification, are commi
 > accuracy on new replies. A fresh, held-out set of replies would be needed for that. The token curves are not
 > affected: they depend only on what is sent.
 
-These numbers were measured before per-item seeds (all ten items seeded `single`); they will be replaced by the final run.
-
 | Sequential item | Strategy ON input tokens | Strategy OFF input tokens | Live outcome check |
 |---|---|---|---|
 | 1 | 2,003 | 2,321 | ON incorrect, OFF incorrect |
@@ -30,20 +28,20 @@ These numbers were measured before per-item seeds (all ten items seeded `single`
 | 7 | 1,928 | 6,572 | ON correct, OFF correct |
 | 8 | 1,881 | 7,254 | ON correct, OFF correct |
 | 9 | 1,893 | 7,876 | ON correct, OFF correct |
-| 10 | 1,906 | 8,554 | ON correct, OFF correct |
+| 10 | 1,912 | 8,560 | ON correct, OFF correct |
 
-First to last item. ON: 2,003 → 1,906 input tokens (-97, -5%); OFF: 2,321 → 8,554 input tokens (+6,233, +269%).
+First to last item. ON: 2,003 → 1,912 input tokens (-91, -5%); OFF: 2,321 → 8,560 input tokens (+6,239, +269%).
 
-Model claude-sonnet-5-5. ON thread return-ae77-2d94-ab89-47a1-86ab-3271-ddc3-85ba (2026-10-28T23:37:49.217121+00:00); OFF thread return-47fb-6cc5-acdd-40c2-8133-215a-cf90-533b (2026-10-28T23:38:59.056905+00:00).
+Model claude-sonnet-5-5. ON thread return-f51d-f2c4-ab7c-40fc-9fdd-4ba7-0eba-f82a (2026-10-29T18:07:56.475962+00:00); OFF thread return-fb6c-0ad0-fcec-4a18-9900-142f-94ef-ecfd (2026-10-29T18:09:07.954819+00:00).
 
 ```mermaid
 %%{init: {"themeVariables": {"xyChart": {"plotColorPalette": "#1f5f8b, #c2410c"}}}}%%
 xychart-beta
     title "Input tokens per sequential item"
     x-axis "Sequential item" [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    y-axis "Input tokens" 0 --> 8554
-    line [2003, 1895, 1900, 1865, 1918, 1914, 1928, 1881, 1893, 1906]
-    line [2321, 3094, 3774, 4377, 5062, 5806, 6572, 7254, 7876, 8554]
+    y-axis "Input tokens" 0 --> 8560
+    line [2003, 1895, 1900, 1865, 1918, 1914, 1928, 1881, 1893, 1912]
+    line [2321, 3094, 3774, 4377, 5062, 5806, 6572, 7254, 7876, 8560]
 ```
 
 Blue: strategy ON (flat). Orange: strategy OFF (rising).
