@@ -192,7 +192,7 @@ def run_case(case: dict) -> Outcome:
 
 def write_trace(outcome: Outcome, folder: Path) -> list[Path]:
     """demo_<case>_state.json (final state, without the temporary case_path), demo_<case>_draft.html and,
-    for a case that paused for staff, demo_<case>_ticket.json. README.md, "Draft view without a key"."""
+    for a case that paused for staff, demo_<case>_ticket.json. See traces/README.md."""
     from src.render import render_draft
 
     folder.mkdir(parents=True, exist_ok=True)
