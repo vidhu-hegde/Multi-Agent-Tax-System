@@ -207,7 +207,8 @@ def test_benchmark_cli_writes_comparable_runs_without_sampling_parameters(settin
             self.calls += 1
             turn = CONTEXT_TURNS[self.calls - 1]
             assert json.loads(messages[-1].content) == {"question": turn["question"], "reply": turn["reply"]}
-            assert '"filing_status": "single"' in messages[0].content
+            status = "mfs" if self.calls > 27 else "single"  # item 10 (calls 28-30) seeds mfs
+            assert f'"filing_status": "{status}"' in messages[0].content
             assert len(messages) == (2 if enabled else 2 * self.calls)
             count = 100 + len(messages)
             return AIMessage(content=expected_answer(messages), usage_metadata={

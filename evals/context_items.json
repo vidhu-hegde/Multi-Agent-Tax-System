@@ -213,6 +213,9 @@
     },
     {
       "id": "living-apart",
+      "seed_answers": {
+        "filing_status": "mfs"
+      },
       "turns": [
         {
           "field": "mfs_lived_with_spouse",
