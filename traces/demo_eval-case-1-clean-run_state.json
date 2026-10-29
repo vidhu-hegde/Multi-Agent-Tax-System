@@ -1,6 +1,6 @@
 {
   "evidence_history": [],
-  "computed_evidence_fingerprint": "8f75b87bad91f9e7a5692600761fe99302fecd9c6054959a395caa364e4f7e4c",
+  "computed_evidence_fingerprint": "3ceed485a7915b03e95a01fa431a8f0c0c157313a5dca3a476f9f32df8ee07e3",
   "messages": [],
   "input_token_usage": {},
   "answers": [
@@ -9,42 +9,42 @@
       "value": "single",
       "raw_text": "single",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881413Z"
+      "answered_at": "2026-10-29T00:45:12.547672Z"
     },
     {
       "field": "spouse_died_year",
       "value": null,
       "raw_text": "None",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881427Z"
+      "answered_at": "2026-10-29T00:45:12.547680Z"
     },
     {
       "field": "taxpayer_dob",
       "value": "1957-05-01",
       "raw_text": "1957-05-01",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881438Z"
+      "answered_at": "2026-10-29T00:45:12.547688Z"
     },
     {
       "field": "taxpayer_blind",
       "value": false,
       "raw_text": "False",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881473Z"
+      "answered_at": "2026-10-29T00:45:12.547707Z"
     },
     {
       "field": "taxpayer_claimed_dependent",
       "value": false,
       "raw_text": "False",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881480Z"
+      "answered_at": "2026-10-29T00:45:12.547712Z"
     },
     {
       "field": "dual_status_alien",
       "value": false,
       "raw_text": "False",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881485Z"
+      "answered_at": "2026-10-29T00:45:12.547716Z"
     },
     {
       "field": "document_inventory",
@@ -59,7 +59,7 @@
             "federal_withheld": "1500"
           },
           "entered_by": "case file",
-          "entered_at": "2026-10-29T00:02:21.881497Z",
+          "entered_at": "2026-10-29T00:45:12.547724Z",
           "description": ""
         },
         {
@@ -72,7 +72,7 @@
             "tax_exempt_interest": "80"
           },
           "entered_by": "case file",
-          "entered_at": "2026-10-29T00:02:21.881502Z",
+          "entered_at": "2026-10-29T00:45:12.547727Z",
           "description": ""
         },
         {
@@ -88,7 +88,7 @@
             "federal_withheld": "600"
           },
           "entered_by": "case file",
-          "entered_at": "2026-10-29T00:02:21.881506Z",
+          "entered_at": "2026-10-29T00:45:12.547729Z",
           "description": ""
         },
         {
@@ -99,76 +99,76 @@
             "net_benefits": "22000"
           },
           "entered_by": "case file",
-          "entered_at": "2026-10-29T00:02:21.881508Z",
+          "entered_at": "2026-10-29T00:45:12.547730Z",
           "description": ""
         }
       ],
       "raw_text": "[{'document_id': 'w2-1', 'form_type': 'W-2', 'image_path': 'demo/w2_image_1.jpg', 'values': {'employer_name': 'Finger Lakes Hardware Co.', 'wages': '18000', 'federal_withheld': '1500'}}, {'document_id': 'int-1', 'form_type': '1099-INT', 'values': {'payer_name': 'Tompkins Savings', 'interest': '420', 'tax_exempt_interest': '80'}}, {'document_id': 'r-1', 'form_type': '1099-R', 'values': {'payer_name': 'Cayuga IRA Trust', 'gross_distribution': '6000', 'taxable_amount': '6000', 'distribution_code': '7', 'ira_sep_simple': True, 'federal_withheld': '600'}}, {'document_id': 'ssa-1', 'form_type': 'SSA-1099', 'values': {'net_benefits': '22000'}}]",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881570Z"
+      "answered_at": "2026-10-29T00:45:12.547761Z"
     },
     {
       "field": "dependent_count",
       "value": 0,
       "raw_text": "0",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881593Z"
+      "answered_at": "2026-10-29T00:45:12.547767Z"
     },
     {
       "field": "stated_wages",
       "value": "18000",
       "raw_text": "18000",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881610Z"
+      "answered_at": "2026-10-29T00:45:12.547776Z"
     },
     {
       "field": "adjustments",
       "value": "0",
       "raw_text": "0",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881616Z"
+      "answered_at": "2026-10-29T00:45:12.547781Z"
     },
     {
       "field": "schedule2_line3_tax",
       "value": "0",
       "raw_text": "0",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881621Z"
+      "answered_at": "2026-10-29T00:45:12.547784Z"
     },
     {
       "field": "schedule2_total_tax",
       "value": "0",
       "raw_text": "0",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881626Z"
+      "answered_at": "2026-10-29T00:45:12.547787Z"
     },
     {
       "field": "schedule3_nonrefundable_credits",
       "value": "0",
       "raw_text": "0",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881631Z"
+      "answered_at": "2026-10-29T00:45:12.547790Z"
     },
     {
       "field": "schedule3_other_payments",
       "value": "0",
       "raw_text": "0",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881636Z"
+      "answered_at": "2026-10-29T00:45:12.547793Z"
     },
     {
       "field": "estimated_payments",
       "value": "1000",
       "raw_text": "1000",
       "entered_by": "case file",
-      "answered_at": "2026-10-29T00:02:21.881641Z"
+      "answered_at": "2026-10-29T00:45:12.547796Z"
     },
     {
       "field": "dependents",
       "value": [],
       "raw_text": null,
       "entered_by": "intake",
-      "answered_at": "2026-10-29T00:02:21.881647Z"
+      "answered_at": "2026-10-29T00:45:12.547799Z"
     }
   ],
   "intake_complete": true,
@@ -184,7 +184,7 @@
         "federal_withheld": "1500"
       },
       "entered_by": "case file",
-      "entered_at": "2026-10-29T00:02:21.881497Z",
+      "entered_at": "2026-10-29T00:45:12.547724Z",
       "description": ""
     },
     {
@@ -197,7 +197,7 @@
         "tax_exempt_interest": "80"
       },
       "entered_by": "case file",
-      "entered_at": "2026-10-29T00:02:21.881502Z",
+      "entered_at": "2026-10-29T00:45:12.547727Z",
       "description": ""
     },
     {
@@ -213,7 +213,7 @@
         "federal_withheld": "600"
       },
       "entered_by": "case file",
-      "entered_at": "2026-10-29T00:02:21.881506Z",
+      "entered_at": "2026-10-29T00:45:12.547729Z",
       "description": ""
     },
     {
@@ -224,7 +224,7 @@
         "net_benefits": "22000"
       },
       "entered_by": "case file",
-      "entered_at": "2026-10-29T00:02:21.881508Z",
+      "entered_at": "2026-10-29T00:45:12.547730Z",
       "description": ""
     }
   ],
@@ -244,7 +244,7 @@
         "inputs": {},
         "citation": null,
         "entered_by": "case file",
-        "recorded_at": "2026-10-29T00:02:21.881497Z",
+        "recorded_at": "2026-10-29T00:45:12.547724Z",
         "stub": false,
         "via": null
       },
@@ -275,7 +275,7 @@
         "inputs": {},
         "citation": null,
         "entered_by": "case file",
-        "recorded_at": "2026-10-29T00:02:21.881502Z",
+        "recorded_at": "2026-10-29T00:45:12.547727Z",
         "stub": false,
         "via": null
       },
@@ -294,7 +294,7 @@
         "inputs": {},
         "citation": null,
         "entered_by": "case file",
-        "recorded_at": "2026-10-29T00:02:21.881506Z",
+        "recorded_at": "2026-10-29T00:45:12.547729Z",
         "stub": false,
         "via": null
       },
@@ -316,7 +316,7 @@
         "inputs": {},
         "citation": null,
         "entered_by": "case file",
-        "recorded_at": "2026-10-29T00:02:21.881508Z",
+        "recorded_at": "2026-10-29T00:45:12.547730Z",
         "stub": false,
         "via": null
       },
@@ -403,7 +403,7 @@
               "inputs": {},
               "citation": null,
               "entered_by": "case file",
-              "recorded_at": "2026-10-29T00:02:21.881497Z",
+              "recorded_at": "2026-10-29T00:45:12.547724Z",
               "stub": false,
               "via": null
             },
@@ -412,7 +412,7 @@
           },
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881497Z",
+          "recorded_at": "2026-10-29T00:45:12.547724Z",
           "stub": false,
           "via": null
         },
@@ -427,7 +427,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.024851Z",
+          "recorded_at": "2026-10-29T00:45:12.630007Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -450,7 +450,7 @@
               "inputs": {},
               "citation": null,
               "entered_by": "case file",
-              "recorded_at": "2026-10-29T00:02:21.881502Z",
+              "recorded_at": "2026-10-29T00:45:12.547727Z",
               "stub": false,
               "via": null
             },
@@ -459,7 +459,7 @@
           },
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881502Z",
+          "recorded_at": "2026-10-29T00:45:12.547727Z",
           "stub": false,
           "via": null
         },
@@ -474,7 +474,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.034776Z",
+          "recorded_at": "2026-10-29T00:45:12.636722Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -497,7 +497,7 @@
               "inputs": {},
               "citation": null,
               "entered_by": "case file",
-              "recorded_at": "2026-10-29T00:02:21.881502Z",
+              "recorded_at": "2026-10-29T00:45:12.547727Z",
               "stub": false,
               "via": null
             },
@@ -506,7 +506,7 @@
           },
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881502Z",
+          "recorded_at": "2026-10-29T00:45:12.547727Z",
           "stub": false,
           "via": null
         },
@@ -521,7 +521,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.044653Z",
+          "recorded_at": "2026-10-29T00:45:12.642664Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -541,7 +541,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.053786Z",
+          "recorded_at": "2026-10-29T00:45:12.648595Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -561,7 +561,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.064001Z",
+          "recorded_at": "2026-10-29T00:45:12.654759Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -584,7 +584,7 @@
               "inputs": {},
               "citation": null,
               "entered_by": "case file",
-              "recorded_at": "2026-10-29T00:02:21.881506Z",
+              "recorded_at": "2026-10-29T00:45:12.547729Z",
               "stub": false,
               "via": null
             },
@@ -593,7 +593,7 @@
           },
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881506Z",
+          "recorded_at": "2026-10-29T00:45:12.547729Z",
           "stub": false,
           "via": null
         },
@@ -608,7 +608,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.073122Z",
+          "recorded_at": "2026-10-29T00:45:12.660723Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -631,7 +631,7 @@
               "inputs": {},
               "citation": null,
               "entered_by": "case file",
-              "recorded_at": "2026-10-29T00:02:21.881506Z",
+              "recorded_at": "2026-10-29T00:45:12.547729Z",
               "stub": false,
               "via": null
             },
@@ -640,7 +640,7 @@
           },
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881506Z",
+          "recorded_at": "2026-10-29T00:45:12.547729Z",
           "stub": false,
           "via": null
         },
@@ -655,7 +655,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.082652Z",
+          "recorded_at": "2026-10-29T00:45:12.666573Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -675,7 +675,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.091892Z",
+          "recorded_at": "2026-10-29T00:45:12.672391Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -695,7 +695,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.100769Z",
+          "recorded_at": "2026-10-29T00:45:12.678125Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -718,7 +718,7 @@
               "inputs": {},
               "citation": null,
               "entered_by": "case file",
-              "recorded_at": "2026-10-29T00:02:21.881508Z",
+              "recorded_at": "2026-10-29T00:45:12.547730Z",
               "stub": false,
               "via": null
             },
@@ -727,7 +727,7 @@
           },
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881508Z",
+          "recorded_at": "2026-10-29T00:45:12.547730Z",
           "stub": false,
           "via": null
         },
@@ -742,7 +742,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.109531Z",
+          "recorded_at": "2026-10-29T00:45:12.684430Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -760,7 +760,7 @@
           "inputs": {},
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881616Z",
+          "recorded_at": "2026-10-29T00:45:12.547781Z",
           "stub": false,
           "via": null
         }
@@ -781,7 +781,7 @@
           "inputs": {},
           "citation": "policy.md#taxable-social-security",
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.118705Z",
+          "recorded_at": "2026-10-29T00:45:12.690342Z",
           "stub": false,
           "via": null
         },
@@ -805,7 +805,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.118697Z",
+          "recorded_at": "2026-10-29T00:45:12.690335Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -841,7 +841,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.127521Z",
+          "recorded_at": "2026-10-29T00:45:12.696071Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -869,7 +869,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.136574Z",
+          "recorded_at": "2026-10-29T00:45:12.701926Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -896,7 +896,7 @@
           "inputs": {},
           "citation": "policy.md#standard-deduction",
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.145402Z",
+          "recorded_at": "2026-10-29T00:45:12.707623Z",
           "stub": false,
           "via": null
         },
@@ -910,7 +910,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.145392Z",
+          "recorded_at": "2026-10-29T00:45:12.707617Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -928,7 +928,7 @@
           "inputs": {},
           "citation": "policy.md#senior-deduction",
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.154649Z",
+          "recorded_at": "2026-10-29T00:45:12.713202Z",
           "stub": false,
           "via": null
         },
@@ -943,7 +943,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.154641Z",
+          "recorded_at": "2026-10-29T00:45:12.713196Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -968,7 +968,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.163562Z",
+          "recorded_at": "2026-10-29T00:45:12.719137Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -992,7 +992,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.173798Z",
+          "recorded_at": "2026-10-29T00:45:12.724930Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1016,7 +1016,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.182909Z",
+          "recorded_at": "2026-10-29T00:45:12.731073Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1036,7 +1036,7 @@
           "inputs": {},
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881621Z",
+          "recorded_at": "2026-10-29T00:45:12.547784Z",
           "stub": false,
           "via": null
         }
@@ -1059,7 +1059,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.192025Z",
+          "recorded_at": "2026-10-29T00:45:12.737128Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1080,7 +1080,7 @@
           "inputs": {},
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881631Z",
+          "recorded_at": "2026-10-29T00:45:12.547790Z",
           "stub": false,
           "via": null
         }
@@ -1102,7 +1102,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.200765Z",
+          "recorded_at": "2026-10-29T00:45:12.742734Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1125,7 +1125,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.209657Z",
+          "recorded_at": "2026-10-29T00:45:12.748449Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1146,7 +1146,7 @@
           "inputs": {},
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881626Z",
+          "recorded_at": "2026-10-29T00:45:12.547787Z",
           "stub": false,
           "via": null
         }
@@ -1169,7 +1169,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.218429Z",
+          "recorded_at": "2026-10-29T00:45:12.754310Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1195,7 +1195,7 @@
               "inputs": {},
               "citation": null,
               "entered_by": "case file",
-              "recorded_at": "2026-10-29T00:02:21.881497Z",
+              "recorded_at": "2026-10-29T00:45:12.547724Z",
               "stub": false,
               "via": null
             },
@@ -1204,7 +1204,7 @@
           },
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881497Z",
+          "recorded_at": "2026-10-29T00:45:12.547724Z",
           "stub": false,
           "via": null
         },
@@ -1219,7 +1219,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.227221Z",
+          "recorded_at": "2026-10-29T00:45:12.760079Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1242,7 +1242,7 @@
               "inputs": {},
               "citation": null,
               "entered_by": "case file",
-              "recorded_at": "2026-10-29T00:02:21.881502Z",
+              "recorded_at": "2026-10-29T00:45:12.547727Z",
               "stub": false,
               "via": null
             },
@@ -1251,7 +1251,7 @@
           },
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881502Z",
+          "recorded_at": "2026-10-29T00:45:12.547727Z",
           "stub": false,
           "via": null
         },
@@ -1267,7 +1267,7 @@
               "inputs": {},
               "citation": null,
               "entered_by": "case file",
-              "recorded_at": "2026-10-29T00:02:21.881506Z",
+              "recorded_at": "2026-10-29T00:45:12.547729Z",
               "stub": false,
               "via": null
             },
@@ -1276,7 +1276,7 @@
           },
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881506Z",
+          "recorded_at": "2026-10-29T00:45:12.547729Z",
           "stub": false,
           "via": null
         },
@@ -1292,7 +1292,7 @@
               "inputs": {},
               "citation": null,
               "entered_by": "case file",
-              "recorded_at": "2026-10-29T00:02:21.881508Z",
+              "recorded_at": "2026-10-29T00:45:12.547730Z",
               "stub": false,
               "via": null
             },
@@ -1301,7 +1301,7 @@
           },
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881508Z",
+          "recorded_at": "2026-10-29T00:45:12.547730Z",
           "stub": false,
           "via": null
         },
@@ -1318,7 +1318,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.236037Z",
+          "recorded_at": "2026-10-29T00:45:12.765762Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1341,7 +1341,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.244784Z",
+          "recorded_at": "2026-10-29T00:45:12.771785Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1362,7 +1362,7 @@
           "inputs": {},
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881641Z",
+          "recorded_at": "2026-10-29T00:45:12.547796Z",
           "stub": false,
           "via": null
         }
@@ -1380,7 +1380,7 @@
           "inputs": {},
           "citation": null,
           "entered_by": "case file",
-          "recorded_at": "2026-10-29T00:02:21.881636Z",
+          "recorded_at": "2026-10-29T00:45:12.547793Z",
           "stub": false,
           "via": null
         }
@@ -1402,7 +1402,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.253437Z",
+          "recorded_at": "2026-10-29T00:45:12.777531Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1428,7 +1428,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.262190Z",
+          "recorded_at": "2026-10-29T00:45:12.783101Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1453,7 +1453,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.271249Z",
+          "recorded_at": "2026-10-29T00:45:12.789004Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }
@@ -1477,7 +1477,7 @@
           },
           "citation": null,
           "entered_by": null,
-          "recorded_at": "2026-10-29T00:02:22.280359Z",
+          "recorded_at": "2026-10-29T00:45:12.794683Z",
           "stub": false,
           "via": "http://localhost:8001/mcp"
         }

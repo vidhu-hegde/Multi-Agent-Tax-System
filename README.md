@@ -245,8 +245,8 @@ the agent handoffs. Each `_draft.html` is the finished draft, opened like the on
 | `demo_eval-case-2-wage-conflict_ticket.json` | The escalation staff saw: stated wages $24,000 against the W-2's $26,450.00 |
 | `demo_eval-case-2-wage-conflict_state.json`, `_draft.html` | The same return after staff chose Continue: the resolved ticket and a refund of $1,460.25 |
 
-Case 2's state contains the fixture's test SSN (902-45-6789, from `data/fixtures/conflict_case.json`); there
-are no real SSNs. To regenerate (timestamps change; everything else is the same):
+No full SSN appears: case 2's W-2 keeps only the last four digits of the fixture's test SSN. To regenerate
+(timestamps change; everything else is the same):
 
 ```bash
 python -m src.tax_math.server &   # stop it afterwards
