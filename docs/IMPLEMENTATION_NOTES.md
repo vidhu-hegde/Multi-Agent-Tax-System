@@ -109,7 +109,7 @@ a whole graph run.
 `Dockerfile` builds one image (`python:3.11-slim-bookworm`, `requirements.txt` only, about 850 MB, mostly the
 pip layer). `docker-compose.yml` runs it three ways: `tax-math` (the MCP server), `dashboard` (port 8000,
 published on the host's 127.0.0.1 only) and `app` (`run.py`, evals, tests; `cli` profile, so `up` does not
-start it). The README's "Getting started with Docker" has the commands.
+start it). [`docs/DOCKER.md`](DOCKER.md) has the commands.
 
 - **Secrets.** `.dockerignore` keeps `.env` out of the build context; compose passes it at run time with
   `env_file` (optional, so the offline paths need none). A build with a fake key in `.env` left no trace of it
