@@ -1,0 +1,1532 @@
+{
+  "evidence_history": [],
+  "computed_evidence_fingerprint": "8f75b87bad91f9e7a5692600761fe99302fecd9c6054959a395caa364e4f7e4c",
+  "messages": [],
+  "input_token_usage": {},
+  "answers": [
+    {
+      "field": "filing_status",
+      "value": "single",
+      "raw_text": "single",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881413Z"
+    },
+    {
+      "field": "spouse_died_year",
+      "value": null,
+      "raw_text": "None",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881427Z"
+    },
+    {
+      "field": "taxpayer_dob",
+      "value": "1957-05-01",
+      "raw_text": "1957-05-01",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881438Z"
+    },
+    {
+      "field": "taxpayer_blind",
+      "value": false,
+      "raw_text": "False",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881473Z"
+    },
+    {
+      "field": "taxpayer_claimed_dependent",
+      "value": false,
+      "raw_text": "False",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881480Z"
+    },
+    {
+      "field": "dual_status_alien",
+      "value": false,
+      "raw_text": "False",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881485Z"
+    },
+    {
+      "field": "document_inventory",
+      "value": [
+        {
+          "document_id": "w2-1",
+          "form_type": "W-2",
+          "image_path": "demo/w2_image_1.jpg",
+          "values": {
+            "employer_name": "Finger Lakes Hardware Co.",
+            "wages": "18000",
+            "federal_withheld": "1500"
+          },
+          "entered_by": "case file",
+          "entered_at": "2026-10-29T00:02:21.881497Z",
+          "description": ""
+        },
+        {
+          "document_id": "int-1",
+          "form_type": "1099-INT",
+          "image_path": null,
+          "values": {
+            "payer_name": "Tompkins Savings",
+            "interest": "420",
+            "tax_exempt_interest": "80"
+          },
+          "entered_by": "case file",
+          "entered_at": "2026-10-29T00:02:21.881502Z",
+          "description": ""
+        },
+        {
+          "document_id": "r-1",
+          "form_type": "1099-R",
+          "image_path": null,
+          "values": {
+            "payer_name": "Cayuga IRA Trust",
+            "gross_distribution": "6000",
+            "taxable_amount": "6000",
+            "distribution_code": "7",
+            "ira_sep_simple": true,
+            "federal_withheld": "600"
+          },
+          "entered_by": "case file",
+          "entered_at": "2026-10-29T00:02:21.881506Z",
+          "description": ""
+        },
+        {
+          "document_id": "ssa-1",
+          "form_type": "SSA-1099",
+          "image_path": null,
+          "values": {
+            "net_benefits": "22000"
+          },
+          "entered_by": "case file",
+          "entered_at": "2026-10-29T00:02:21.881508Z",
+          "description": ""
+        }
+      ],
+      "raw_text": "[{'document_id': 'w2-1', 'form_type': 'W-2', 'image_path': 'demo/w2_image_1.jpg', 'values': {'employer_name': 'Finger Lakes Hardware Co.', 'wages': '18000', 'federal_withheld': '1500'}}, {'document_id': 'int-1', 'form_type': '1099-INT', 'values': {'payer_name': 'Tompkins Savings', 'interest': '420', 'tax_exempt_interest': '80'}}, {'document_id': 'r-1', 'form_type': '1099-R', 'values': {'payer_name': 'Cayuga IRA Trust', 'gross_distribution': '6000', 'taxable_amount': '6000', 'distribution_code': '7', 'ira_sep_simple': True, 'federal_withheld': '600'}}, {'document_id': 'ssa-1', 'form_type': 'SSA-1099', 'values': {'net_benefits': '22000'}}]",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881570Z"
+    },
+    {
+      "field": "dependent_count",
+      "value": 0,
+      "raw_text": "0",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881593Z"
+    },
+    {
+      "field": "stated_wages",
+      "value": "18000",
+      "raw_text": "18000",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881610Z"
+    },
+    {
+      "field": "adjustments",
+      "value": "0",
+      "raw_text": "0",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881616Z"
+    },
+    {
+      "field": "schedule2_line3_tax",
+      "value": "0",
+      "raw_text": "0",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881621Z"
+    },
+    {
+      "field": "schedule2_total_tax",
+      "value": "0",
+      "raw_text": "0",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881626Z"
+    },
+    {
+      "field": "schedule3_nonrefundable_credits",
+      "value": "0",
+      "raw_text": "0",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881631Z"
+    },
+    {
+      "field": "schedule3_other_payments",
+      "value": "0",
+      "raw_text": "0",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881636Z"
+    },
+    {
+      "field": "estimated_payments",
+      "value": "1000",
+      "raw_text": "1000",
+      "entered_by": "case file",
+      "answered_at": "2026-10-29T00:02:21.881641Z"
+    },
+    {
+      "field": "dependents",
+      "value": [],
+      "raw_text": null,
+      "entered_by": "intake",
+      "answered_at": "2026-10-29T00:02:21.881647Z"
+    }
+  ],
+  "intake_complete": true,
+  "intake_revisit": null,
+  "document_inventory": [
+    {
+      "document_id": "w2-1",
+      "form_type": "W-2",
+      "image_path": "demo/w2_image_1.jpg",
+      "values": {
+        "employer_name": "Finger Lakes Hardware Co.",
+        "wages": "18000",
+        "federal_withheld": "1500"
+      },
+      "entered_by": "case file",
+      "entered_at": "2026-10-29T00:02:21.881497Z",
+      "description": ""
+    },
+    {
+      "document_id": "int-1",
+      "form_type": "1099-INT",
+      "image_path": null,
+      "values": {
+        "payer_name": "Tompkins Savings",
+        "interest": "420",
+        "tax_exempt_interest": "80"
+      },
+      "entered_by": "case file",
+      "entered_at": "2026-10-29T00:02:21.881502Z",
+      "description": ""
+    },
+    {
+      "document_id": "r-1",
+      "form_type": "1099-R",
+      "image_path": null,
+      "values": {
+        "payer_name": "Cayuga IRA Trust",
+        "gross_distribution": "6000",
+        "taxable_amount": "6000",
+        "distribution_code": "7",
+        "ira_sep_simple": true,
+        "federal_withheld": "600"
+      },
+      "entered_by": "case file",
+      "entered_at": "2026-10-29T00:02:21.881506Z",
+      "description": ""
+    },
+    {
+      "document_id": "ssa-1",
+      "form_type": "SSA-1099",
+      "image_path": null,
+      "values": {
+        "net_benefits": "22000"
+      },
+      "entered_by": "case file",
+      "entered_at": "2026-10-29T00:02:21.881508Z",
+      "description": ""
+    }
+  ],
+  "document_readiness": {
+    "w2-1": true,
+    "int-1": true,
+    "r-1": true,
+    "ssa-1": true
+  },
+  "documents": {
+    "w2-1": {
+      "document_id": "w2-1",
+      "source": {
+        "kind": "user_input",
+        "source": "direct user input: W-2 w2-1",
+        "value": null,
+        "inputs": {},
+        "citation": null,
+        "entered_by": "case file",
+        "recorded_at": "2026-10-29T00:02:21.881497Z",
+        "stub": false,
+        "via": null
+      },
+      "form_type": "W-2",
+      "employer_name": "Finger Lakes Hardware Co.",
+      "employer_ein": null,
+      "employee_name": null,
+      "employee_ssn_last4": null,
+      "wages": "18000",
+      "federal_withheld": "1500",
+      "social_security_wages": null,
+      "social_security_withheld": null,
+      "medicare_wages": null,
+      "medicare_withheld": null,
+      "allocated_tips": null,
+      "dependent_care_benefits": null,
+      "box12": [],
+      "statutory_employee": false,
+      "retirement_plan": false,
+      "third_party_sick_pay": false
+    },
+    "int-1": {
+      "document_id": "int-1",
+      "source": {
+        "kind": "user_input",
+        "source": "direct user input: 1099-INT int-1",
+        "value": null,
+        "inputs": {},
+        "citation": null,
+        "entered_by": "case file",
+        "recorded_at": "2026-10-29T00:02:21.881502Z",
+        "stub": false,
+        "via": null
+      },
+      "form_type": "1099-INT",
+      "payer_name": "Tompkins Savings",
+      "interest": "420",
+      "tax_exempt_interest": "80",
+      "federal_withheld": "0"
+    },
+    "r-1": {
+      "document_id": "r-1",
+      "source": {
+        "kind": "user_input",
+        "source": "direct user input: 1099-R r-1",
+        "value": null,
+        "inputs": {},
+        "citation": null,
+        "entered_by": "case file",
+        "recorded_at": "2026-10-29T00:02:21.881506Z",
+        "stub": false,
+        "via": null
+      },
+      "form_type": "1099-R",
+      "payer_name": "Cayuga IRA Trust",
+      "gross_distribution": "6000",
+      "taxable_amount": "6000",
+      "taxable_not_determined": false,
+      "federal_withheld": "600",
+      "distribution_code": "7",
+      "ira_sep_simple": true
+    },
+    "ssa-1": {
+      "document_id": "ssa-1",
+      "source": {
+        "kind": "user_input",
+        "source": "direct user input: SSA-1099 ssa-1",
+        "value": null,
+        "inputs": {},
+        "citation": null,
+        "entered_by": "case file",
+        "recorded_at": "2026-10-29T00:02:21.881508Z",
+        "stub": false,
+        "via": null
+      },
+      "form_type": "SSA-1099",
+      "net_benefits": "22000",
+      "federal_withheld": "0"
+    }
+  },
+  "rule_decisions": {
+    "eligibility_1040sr": {
+      "rule_id": "eligibility_1040sr",
+      "outcome": true,
+      "explanation": "Born before 2 January 1961 (either spouse on a joint return).",
+      "citation": "policy.md#1040sr-eligibility"
+    },
+    "age_blind_boxes": {
+      "rule_id": "age_blind_boxes",
+      "outcome": {
+        "taxpayer_65": true,
+        "taxpayer_blind": false,
+        "spouse_65": false,
+        "spouse_blind": false,
+        "count": 1
+      },
+      "explanation": "Line 12d boxes: 65 or older and blind, for taxpayer and spouse.",
+      "citation": "policy.md#standard-deduction"
+    },
+    "senior_deduction_count": {
+      "rule_id": "senior_deduction_count",
+      "outcome": 1,
+      "explanation": "People aged 65+ who qualify for the Schedule 1-A senior deduction.",
+      "citation": "policy.md#senior-deduction"
+    },
+    "filing_status_check": {
+      "rule_id": "filing_status_check",
+      "outcome": true,
+      "explanation": "No spouse death affects the filing status.",
+      "citation": "policy.md#filing-status"
+    },
+    "wage_check": {
+      "rule_id": "wage_check",
+      "outcome": true,
+      "explanation": "Stated wages agree with the W-2s.",
+      "citation": "policy.md#document-conflicts"
+    },
+    "standard_deduction_chart_applies": {
+      "rule_id": "standard_deduction_chart_applies",
+      "outcome": true,
+      "explanation": "None of the chart exceptions apply.",
+      "citation": "policy.md#standard-deduction-exceptions"
+    },
+    "social_security_base": {
+      "rule_id": "social_security_base",
+      "outcome": {
+        "case": "standard",
+        "mfs_lived_with_spouse": null
+      },
+      "explanation": "Which base amount the taxable Social Security worksheet uses.",
+      "citation": "policy.md#taxable-social-security"
+    },
+    "scope": {
+      "rule_id": "scope",
+      "outcome": {
+        "issues": []
+      },
+      "explanation": "Items that need a human before the draft can be trusted; each one escalates.",
+      "citation": "policy.md#scope"
+    }
+  },
+  "lines": {
+    "1z": {
+      "line": "1z",
+      "amount": "18000.00",
+      "provenance": [
+        {
+          "kind": "document",
+          "source": "W-2 w2-1, box 1",
+          "value": "18000",
+          "inputs": {
+            "record_source": {
+              "kind": "user_input",
+              "source": "direct user input: W-2 w2-1",
+              "value": null,
+              "inputs": {},
+              "citation": null,
+              "entered_by": "case file",
+              "recorded_at": "2026-10-29T00:02:21.881497Z",
+              "stub": false,
+              "via": null
+            },
+            "document_id": "w2-1",
+            "field": "wages"
+          },
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881497Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "18000.00",
+          "inputs": {
+            "values": [
+              "18000"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.024851Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "2a": {
+      "line": "2a",
+      "amount": "80.00",
+      "provenance": [
+        {
+          "kind": "document",
+          "source": "1099-INT int-1, box 8",
+          "value": "80",
+          "inputs": {
+            "record_source": {
+              "kind": "user_input",
+              "source": "direct user input: 1099-INT int-1",
+              "value": null,
+              "inputs": {},
+              "citation": null,
+              "entered_by": "case file",
+              "recorded_at": "2026-10-29T00:02:21.881502Z",
+              "stub": false,
+              "via": null
+            },
+            "document_id": "int-1",
+            "field": "tax_exempt_interest"
+          },
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881502Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "80.00",
+          "inputs": {
+            "values": [
+              "80"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.034776Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "2b": {
+      "line": "2b",
+      "amount": "420.00",
+      "provenance": [
+        {
+          "kind": "document",
+          "source": "1099-INT int-1, box 1",
+          "value": "420",
+          "inputs": {
+            "record_source": {
+              "kind": "user_input",
+              "source": "direct user input: 1099-INT int-1",
+              "value": null,
+              "inputs": {},
+              "citation": null,
+              "entered_by": "case file",
+              "recorded_at": "2026-10-29T00:02:21.881502Z",
+              "stub": false,
+              "via": null
+            },
+            "document_id": "int-1",
+            "field": "interest"
+          },
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881502Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "420.00",
+          "inputs": {
+            "values": [
+              "420"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.044653Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "3a": {
+      "line": "3a",
+      "amount": "0.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "0.00",
+          "inputs": {
+            "values": []
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.053786Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "3b": {
+      "line": "3b",
+      "amount": "0.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "0.00",
+          "inputs": {
+            "values": []
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.064001Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "4a": {
+      "line": "4a",
+      "amount": "6000.00",
+      "provenance": [
+        {
+          "kind": "document",
+          "source": "1099-R r-1, box 1",
+          "value": "6000",
+          "inputs": {
+            "record_source": {
+              "kind": "user_input",
+              "source": "direct user input: 1099-R r-1",
+              "value": null,
+              "inputs": {},
+              "citation": null,
+              "entered_by": "case file",
+              "recorded_at": "2026-10-29T00:02:21.881506Z",
+              "stub": false,
+              "via": null
+            },
+            "document_id": "r-1",
+            "field": "gross_distribution"
+          },
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881506Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "6000.00",
+          "inputs": {
+            "values": [
+              "6000"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.073122Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "4b": {
+      "line": "4b",
+      "amount": "6000.00",
+      "provenance": [
+        {
+          "kind": "document",
+          "source": "1099-R r-1, box 2a",
+          "value": "6000",
+          "inputs": {
+            "record_source": {
+              "kind": "user_input",
+              "source": "direct user input: 1099-R r-1",
+              "value": null,
+              "inputs": {},
+              "citation": null,
+              "entered_by": "case file",
+              "recorded_at": "2026-10-29T00:02:21.881506Z",
+              "stub": false,
+              "via": null
+            },
+            "document_id": "r-1",
+            "field": "taxable_amount"
+          },
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881506Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "6000.00",
+          "inputs": {
+            "values": [
+              "6000"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.082652Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "5a": {
+      "line": "5a",
+      "amount": "0.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "0.00",
+          "inputs": {
+            "values": []
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.091892Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "5b": {
+      "line": "5b",
+      "amount": "0.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "0.00",
+          "inputs": {
+            "values": []
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.100769Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "6a": {
+      "line": "6a",
+      "amount": "22000.00",
+      "provenance": [
+        {
+          "kind": "document",
+          "source": "SSA-1099 ssa-1, box 5",
+          "value": "22000",
+          "inputs": {
+            "record_source": {
+              "kind": "user_input",
+              "source": "direct user input: SSA-1099 ssa-1",
+              "value": null,
+              "inputs": {},
+              "citation": null,
+              "entered_by": "case file",
+              "recorded_at": "2026-10-29T00:02:21.881508Z",
+              "stub": false,
+              "via": null
+            },
+            "document_id": "ssa-1",
+            "field": "net_benefits"
+          },
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881508Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "22000.00",
+          "inputs": {
+            "values": [
+              "22000"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.109531Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "10": {
+      "line": "10",
+      "amount": "0",
+      "provenance": [
+        {
+          "kind": "user_input",
+          "source": "intake: adjustments",
+          "value": "0",
+          "inputs": {},
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881616Z",
+          "stub": false,
+          "via": null
+        }
+      ],
+      "depends_on": []
+    },
+    "6b": {
+      "line": "6b",
+      "amount": "5775.00",
+      "provenance": [
+        {
+          "kind": "rule",
+          "source": "social_security_base",
+          "value": {
+            "case": "standard",
+            "mfs_lived_with_spouse": null
+          },
+          "inputs": {},
+          "citation": "policy.md#taxable-social-security",
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.118705Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "tool",
+          "source": "tax_math.taxable_social_security",
+          "value": "5775.00",
+          "inputs": {
+            "filing_status": "single",
+            "benefits": "22000.00",
+            "other_income": [
+              "18000.00",
+              "420.00",
+              "0.00",
+              "6000.00",
+              "0.00"
+            ],
+            "tax_exempt_interest": "80.00",
+            "adjustments": "0",
+            "lived_with_spouse": null
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.118697Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "6a",
+        "2a",
+        "10",
+        "1z",
+        "2b",
+        "3b",
+        "4b",
+        "5b"
+      ]
+    },
+    "9": {
+      "line": "9",
+      "amount": "30195.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "30195.00",
+          "inputs": {
+            "values": [
+              "18000.00",
+              "420.00",
+              "0.00",
+              "6000.00",
+              "0.00",
+              "5775.00"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.127521Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "1z",
+        "2b",
+        "3b",
+        "4b",
+        "5b",
+        "6b"
+      ]
+    },
+    "11a": {
+      "line": "11a",
+      "amount": "30195.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.subtract",
+          "value": "30195.00",
+          "inputs": {
+            "a": "30195.00",
+            "b": "0"
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.136574Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "9",
+        "10"
+      ]
+    },
+    "12e": {
+      "line": "12e",
+      "amount": "17750.00",
+      "provenance": [
+        {
+          "kind": "rule",
+          "source": "age_blind_boxes",
+          "value": {
+            "taxpayer_65": true,
+            "taxpayer_blind": false,
+            "spouse_65": false,
+            "spouse_blind": false,
+            "count": 1
+          },
+          "inputs": {},
+          "citation": "policy.md#standard-deduction",
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.145402Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "tool",
+          "source": "tax_math.standard_deduction",
+          "value": "17750.00",
+          "inputs": {
+            "filing_status": "single",
+            "boxes": 1
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.145392Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "13b": {
+      "line": "13b",
+      "amount": "6000.00",
+      "provenance": [
+        {
+          "kind": "rule",
+          "source": "senior_deduction_count",
+          "value": 1,
+          "inputs": {},
+          "citation": "policy.md#senior-deduction",
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.154649Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "tool",
+          "source": "tax_math.senior_deduction",
+          "value": "6000.00",
+          "inputs": {
+            "filing_status": "single",
+            "magi": "30195.00",
+            "qualifying_people": 1
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.154641Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "11a"
+      ]
+    },
+    "14": {
+      "line": "14",
+      "amount": "23750.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "23750.00",
+          "inputs": {
+            "values": [
+              "17750.00",
+              "6000.00"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.163562Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "12e",
+        "13b"
+      ]
+    },
+    "15": {
+      "line": "15",
+      "amount": "6445.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.subtract_floor_zero",
+          "value": "6445.00",
+          "inputs": {
+            "a": "30195.00",
+            "b": "23750.00"
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.173798Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "11a",
+        "14"
+      ]
+    },
+    "16": {
+      "line": "16",
+      "amount": "644.50",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.tax_from_schedule",
+          "value": "644.50",
+          "inputs": {
+            "filing_status": "single",
+            "taxable_income": "6445.00"
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.182909Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "15"
+      ]
+    },
+    "17": {
+      "line": "17",
+      "amount": "0",
+      "provenance": [
+        {
+          "kind": "user_input",
+          "source": "intake: schedule2_line3_tax",
+          "value": "0",
+          "inputs": {},
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881621Z",
+          "stub": false,
+          "via": null
+        }
+      ],
+      "depends_on": []
+    },
+    "18": {
+      "line": "18",
+      "amount": "644.50",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "644.50",
+          "inputs": {
+            "values": [
+              "644.50",
+              "0"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.192025Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "16",
+        "17"
+      ]
+    },
+    "20": {
+      "line": "20",
+      "amount": "0",
+      "provenance": [
+        {
+          "kind": "user_input",
+          "source": "intake: schedule3_nonrefundable_credits",
+          "value": "0",
+          "inputs": {},
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881631Z",
+          "stub": false,
+          "via": null
+        }
+      ],
+      "depends_on": []
+    },
+    "21": {
+      "line": "21",
+      "amount": "0.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "0.00",
+          "inputs": {
+            "values": [
+              "0"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.200765Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "20"
+      ]
+    },
+    "22": {
+      "line": "22",
+      "amount": "644.50",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.subtract_floor_zero",
+          "value": "644.50",
+          "inputs": {
+            "a": "644.50",
+            "b": "0.00"
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.209657Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "18",
+        "21"
+      ]
+    },
+    "23": {
+      "line": "23",
+      "amount": "0",
+      "provenance": [
+        {
+          "kind": "user_input",
+          "source": "intake: schedule2_total_tax",
+          "value": "0",
+          "inputs": {},
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881626Z",
+          "stub": false,
+          "via": null
+        }
+      ],
+      "depends_on": []
+    },
+    "24": {
+      "line": "24",
+      "amount": "644.50",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "644.50",
+          "inputs": {
+            "values": [
+              "644.50",
+              "0"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.218429Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "22",
+        "23"
+      ]
+    },
+    "25a": {
+      "line": "25a",
+      "amount": "1500.00",
+      "provenance": [
+        {
+          "kind": "document",
+          "source": "W-2 w2-1, box 2",
+          "value": "1500",
+          "inputs": {
+            "record_source": {
+              "kind": "user_input",
+              "source": "direct user input: W-2 w2-1",
+              "value": null,
+              "inputs": {},
+              "citation": null,
+              "entered_by": "case file",
+              "recorded_at": "2026-10-29T00:02:21.881497Z",
+              "stub": false,
+              "via": null
+            },
+            "document_id": "w2-1",
+            "field": "federal_withheld"
+          },
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881497Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "1500.00",
+          "inputs": {
+            "values": [
+              "1500"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.227221Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "25b": {
+      "line": "25b",
+      "amount": "600.00",
+      "provenance": [
+        {
+          "kind": "document",
+          "source": "1099-INT int-1, box 4",
+          "value": "0",
+          "inputs": {
+            "record_source": {
+              "kind": "user_input",
+              "source": "direct user input: 1099-INT int-1",
+              "value": null,
+              "inputs": {},
+              "citation": null,
+              "entered_by": "case file",
+              "recorded_at": "2026-10-29T00:02:21.881502Z",
+              "stub": false,
+              "via": null
+            },
+            "document_id": "int-1",
+            "field": "federal_withheld"
+          },
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881502Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "document",
+          "source": "1099-R r-1, box 4",
+          "value": "600",
+          "inputs": {
+            "record_source": {
+              "kind": "user_input",
+              "source": "direct user input: 1099-R r-1",
+              "value": null,
+              "inputs": {},
+              "citation": null,
+              "entered_by": "case file",
+              "recorded_at": "2026-10-29T00:02:21.881506Z",
+              "stub": false,
+              "via": null
+            },
+            "document_id": "r-1",
+            "field": "federal_withheld"
+          },
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881506Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "document",
+          "source": "SSA-1099 ssa-1, box 6",
+          "value": "0",
+          "inputs": {
+            "record_source": {
+              "kind": "user_input",
+              "source": "direct user input: SSA-1099 ssa-1",
+              "value": null,
+              "inputs": {},
+              "citation": null,
+              "entered_by": "case file",
+              "recorded_at": "2026-10-29T00:02:21.881508Z",
+              "stub": false,
+              "via": null
+            },
+            "document_id": "ssa-1",
+            "field": "federal_withheld"
+          },
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881508Z",
+          "stub": false,
+          "via": null
+        },
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "600.00",
+          "inputs": {
+            "values": [
+              "0",
+              "600",
+              "0"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.236037Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": []
+    },
+    "25d": {
+      "line": "25d",
+      "amount": "2100.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "2100.00",
+          "inputs": {
+            "values": [
+              "1500.00",
+              "600.00"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.244784Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "25a",
+        "25b"
+      ]
+    },
+    "26": {
+      "line": "26",
+      "amount": "1000",
+      "provenance": [
+        {
+          "kind": "user_input",
+          "source": "intake: estimated_payments",
+          "value": "1000",
+          "inputs": {},
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881641Z",
+          "stub": false,
+          "via": null
+        }
+      ],
+      "depends_on": []
+    },
+    "31": {
+      "line": "31",
+      "amount": "0",
+      "provenance": [
+        {
+          "kind": "user_input",
+          "source": "intake: schedule3_other_payments",
+          "value": "0",
+          "inputs": {},
+          "citation": null,
+          "entered_by": "case file",
+          "recorded_at": "2026-10-29T00:02:21.881636Z",
+          "stub": false,
+          "via": null
+        }
+      ],
+      "depends_on": []
+    },
+    "32": {
+      "line": "32",
+      "amount": "0.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "0.00",
+          "inputs": {
+            "values": [
+              "0"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.253437Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "31"
+      ]
+    },
+    "33": {
+      "line": "33",
+      "amount": "3100.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.sum",
+          "value": "3100.00",
+          "inputs": {
+            "values": [
+              "2100.00",
+              "1000",
+              "0.00"
+            ]
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.262190Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "25d",
+        "26",
+        "32"
+      ]
+    },
+    "34": {
+      "line": "34",
+      "amount": "2455.50",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.subtract_floor_zero",
+          "value": "2455.50",
+          "inputs": {
+            "a": "3100.00",
+            "b": "644.50"
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.271249Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "33",
+        "24"
+      ]
+    },
+    "37": {
+      "line": "37",
+      "amount": "0.00",
+      "provenance": [
+        {
+          "kind": "tool",
+          "source": "tax_math.subtract_floor_zero",
+          "value": "0.00",
+          "inputs": {
+            "a": "644.50",
+            "b": "3100.00"
+          },
+          "citation": null,
+          "entered_by": null,
+          "recorded_at": "2026-10-29T00:02:22.280359Z",
+          "stub": false,
+          "via": "http://localhost:8001/mcp"
+        }
+      ],
+      "depends_on": [
+        "24",
+        "33"
+      ]
+    }
+  },
+  "revision_requests": [],
+  "review_status": "passed",
+  "review_passes": 1,
+  "escalations": {},
+  "handoffs": [
+    {
+      "from_agent": "start",
+      "to_agent": "intake",
+      "reason": "intake incomplete"
+    },
+    {
+      "from_agent": "intake",
+      "to_agent": "extraction",
+      "reason": "4 document(s) to extract"
+    },
+    {
+      "from_agent": "extraction",
+      "to_agent": "rules",
+      "reason": "rules not evaluated"
+    },
+    {
+      "from_agent": "rules",
+      "to_agent": "computation",
+      "reason": "lines not computed"
+    },
+    {
+      "from_agent": "computation",
+      "to_agent": "review",
+      "reason": "draft not reviewed"
+    },
+    {
+      "from_agent": "review",
+      "to_agent": "end",
+      "reason": "draft ready"
+    }
+  ],
+  "guard_window_start": 1,
+  "guard_answer_count": 16,
+  "last_agent": "review",
+  "next_agent": "end",
+  "status": "draft_ready"
+}

@@ -234,6 +234,26 @@ Open the HTML file and click or keyboard-activate an amount to see its sources a
 aren't complete or verified are withheld rather than shown. The design is in
 [Anupama's handoff](docs/ANUPAMA_HANDOFF.md).
 
+**Finished runs to look at.** [`traces/`](traces/) holds both graded walkthroughs, run offline with no key and
+with the tax math on the MCP server. Each `_state.json` is the final saved state: answers, documents, rule
+decisions with citations, every line with its provenance (each tool step's `via` is the server URL) and
+the agent handoffs. Each `_draft.html` is the finished draft, opened like the one above.
+
+| File | Shows |
+|---|---|
+| `demo_eval-case-1-clean-run_state.json`, `_draft.html` | The clean return (typed W-2): `draft_ready`, refund $2,455.50 |
+| `demo_eval-case-2-wage-conflict_ticket.json` | The escalation staff saw: stated wages $24,000 against the W-2's $26,450.00 |
+| `demo_eval-case-2-wage-conflict_state.json`, `_draft.html` | The same return after staff chose Continue: the resolved ticket and a refund of $1,460.25 |
+
+Case 2's state contains the fixture's test SSN (902-45-6789, from `data/fixtures/conflict_case.json`); there
+are no real SSNs. To regenerate (timestamps change; everything else is the same):
+
+```bash
+python -m src.tax_math.server &   # stop it afterwards
+TAX_MATH_MCP_URL=http://localhost:8001/mcp python -m evals.run_evals --case eval-case-1-clean-run --trace traces
+TAX_MATH_MCP_URL=http://localhost:8001/mcp python -m evals.run_evals --case eval-case-2-wage-conflict --trace traces
+```
+
 ### Tests and evals
 
 ```bash
