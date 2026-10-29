@@ -153,6 +153,9 @@ FormType = Literal["W-2", "1099-INT", "1099-DIV", "1099-R", "SSA-1099"]
 class DocumentRef(Contract):
     """A document the taxpayer has. Either an image to extract, or values typed in by the user."""
 
+    # Typed values can hold an SSN; validation errors must not quote them back.
+    model_config = ConfigDict(**Contract.model_config, hide_input_in_errors=True)
+
     document_id: NonEmpty
     form_type: FormType | Literal["other"]
     image_path: str | None = None
@@ -160,6 +163,21 @@ class DocumentRef(Contract):
     entered_by: NonEmpty = "case file"
     entered_at: datetime = Field(default_factory=_now)
     description: str = ""  # e.g. "1099-NEC from consulting work" for an out-of-scope document
+
+    @model_validator(mode="before")
+    @classmethod
+    def _keep_only_last_four(cls, data):
+        """Typed W-2 values may include the employee's SSN. As on W2Record, it must be in the test range and only
+        the last four digits are kept, so the full number never reaches state or checkpoints (policy.md#ssn-test-range)."""
+        values = data.get("values") if isinstance(data, dict) else None
+        if isinstance(values, dict) and values.get("employee_ssn") is not None:
+            values = dict(values)
+            try:
+                ssn = validate_test_ssn(values.pop("employee_ssn"))
+            except SSNValidationError:
+                raise ValueError("the W-2's SSN is outside the 900-999 test range; only test SSNs are accepted") from None
+            data = {**data, "values": {**values, "employee_ssn_last4": ssn[-4:]}}
+        return data
 
 
 class _Record(Contract):
@@ -174,6 +192,8 @@ class W2Box12(Contract):
 
 class W2Record(_Record):
     """A W-2. Field choices are recorded in docs/IMPLEMENTATION_NOTES.md (W-2 record fields)."""
+
+    model_config = ConfigDict(**Contract.model_config, hide_input_in_errors=True)  # the input can hold an SSN
 
     form_type: Literal["W-2"] = "W-2"
     employer_name: NonEmpty  # box c, first line

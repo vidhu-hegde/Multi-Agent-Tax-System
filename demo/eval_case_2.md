@@ -113,6 +113,10 @@ choosing.
 
 ## Without a key
 
+- **Already run, nothing to install:** [`traces/demo_eval-case-2-wage-conflict_ticket.json`](../traces/demo_eval-case-2-wage-conflict_ticket.json)
+  is the escalation staff saw, and [`traces/demo_eval-case-2-wage-conflict_draft.html`](../traces/demo_eval-case-2-wage-conflict_draft.html)
+  the finished draft after Continue (open it in a browser). The `_state.json` beside them is the full saved state,
+  with the resolved ticket.
 - **Dashboard:** `python -m src.dashboard --demo` (with Docker, see "Demo dashboard" in the README) seeds
   a separate demo database offline. Open *demo-wage-conflict* and follow step 2.
 - **Automated:** the eval case `eval-case-2-wage-conflict` in `evals/cases.json` runs this case, resolves

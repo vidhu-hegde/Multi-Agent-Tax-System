@@ -55,6 +55,41 @@ def test_real_range_or_invalid_ssns_are_rejected_without_echoing(value):
         assert str(value) not in str(error.value)
 
 
+def test_typed_w2_values_keep_only_the_last_four_digits_of_a_test_ssn():
+    from src.schemas import DocumentRef
+
+    ref = DocumentRef(document_id="w2-1", form_type="W-2", values={"wages": "100", "employee_ssn": "902-45-6789"})
+    assert ref.values == {"wages": "100", "employee_ssn_last4": "6789"}
+    assert "902-45-6789" not in ref.model_dump_json()
+
+
+def test_typed_w2_values_refuse_a_real_ssn_without_echoing_it():
+    from pydantic import ValidationError
+    from src.schemas import DocumentRef
+
+    with pytest.raises(ValidationError, match="test range") as error:
+        DocumentRef(document_id="w2-1", form_type="W-2", values={"wages": "100", "employee_ssn": "123-45-6789"})
+    assert "123-45-6789" not in str(error.value)
+
+
+@pytest.mark.parametrize("ssn", ["123-45-6789", "902-45-6789"])
+def test_a_case_file_ssn_never_reaches_state_in_full(make_graph, tmp_path, ssn):
+    import json
+
+    case = json.loads(Path("data/fixtures/conflict_case.json").read_text())
+    case["documents"][0]["values"]["employee_ssn"] = ssn
+    path = tmp_path / "case.json"
+    path.write_text(json.dumps(case))
+    graph = make_graph()
+    config = {"configurable": {"thread_id": "case-ssn"}}
+    result = graph.invoke({"case_path": str(path)}, config)
+    assert ssn not in json.dumps(graph.get_state(config).values, default=str)
+    if ssn.startswith("9"):  # a test SSN: the W-2 is read, keeping only the last four digits
+        assert result["documents"]["w2-1"].employee_ssn_last4 == "6789"
+    else:  # a real SSN: the document list is refused, so Intake asks for it instead
+        assert result["__interrupt__"][0].value["field"] == "document_inventory"
+
+
 def test_redaction_masks_dashed_and_compact_ssns():
     safe = redact_ssns(
         "Taxpayer 123-45-6789; spouse 987654321"
