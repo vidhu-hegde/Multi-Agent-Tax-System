@@ -96,5 +96,10 @@ The same return with the W-2 typed in instead of photographed runs offline as th
 python -m evals.run_evals         # or: docker compose run --rm app python -m evals.run_evals
 ```
 
+**Already run, nothing to install:** [`traces/demo_eval-case-1-clean-run_draft.html`](../traces/demo_eval-case-1-clean-run_draft.html)
+is this return's finished draft. Open it in a browser and click any amount for its sources.
+[`traces/demo_eval-case-1-clean-run_state.json`](../traces/demo_eval-case-1-clean-run_state.json) is the full saved
+state, with every line's provenance.
+
 `python -m src.dashboard --demo` shows it as *demo-clean-return*. To check the image reading on its own:
 `python -m evals.live_vision_check` (needs the key) reads both W-2 images and compares all 16 fields.
