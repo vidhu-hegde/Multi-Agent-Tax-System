@@ -1,8 +1,8 @@
 {
-  "thread_id": "return-ae77-2d94-ab89-47a1-86ab-3271-ddc3-85ba",
+  "thread_id": "return-f51d-f2c4-ab7c-40fc-9fdd-4ba7-0eba-f82a",
   "strategy_enabled": true,
   "model": "claude-sonnet-5-5",
-  "measured_at": "2026-10-28T23:37:49.217121+00:00",
+  "measured_at": "2026-10-29T18:07:56.475962+00:00",
   "items": [
     {
       "item": 1,
@@ -10,6 +10,9 @@
       "input_tokens": 2003,
       "model_calls": 3,
       "correct": false,
+      "seed_answers": {
+        "filing_status": "single"
+      },
       "turns": [
         {
           "reply": "Ugh, all those words blur together. The second one? Or third.",
@@ -46,6 +49,9 @@
       "input_tokens": 1895,
       "model_calls": 3,
       "correct": true,
+      "seed_answers": {
+        "filing_status": "single"
+      },
       "turns": [
         {
           "reply": "Same as my late brother's, near enough, but a few years after him.",
@@ -82,6 +88,9 @@
       "input_tokens": 1900,
       "model_calls": 3,
       "correct": true,
+      "seed_answers": {
+        "filing_status": "single"
+      },
       "turns": [
         {
           "reply": "No job. I do get money every month from letting my late mother's flat.",
@@ -118,6 +127,9 @@
       "input_tokens": 1865,
       "model_calls": 3,
       "correct": true,
+      "seed_answers": {
+        "filing_status": "single"
+      },
       "turns": [
         {
           "reply": "I would need a volunteer to read the clinic letter and tell me what it says.",
@@ -154,6 +166,9 @@
       "input_tokens": 1918,
       "model_calls": 3,
       "correct": true,
+      "seed_answers": {
+        "filing_status": "single"
+      },
       "turns": [
         {
           "reply": "Schedule two? I\u2019ve never heard of it.",
@@ -190,6 +205,9 @@
       "input_tokens": 1914,
       "model_calls": 3,
       "correct": true,
+      "seed_answers": {
+        "filing_status": "single"
+      },
       "turns": [
         {
           "reply": "Put in whatever works out best for me there, you know these things.",
@@ -226,6 +244,9 @@
       "input_tokens": 1928,
       "model_calls": 3,
       "correct": true,
+      "seed_answers": {
+        "filing_status": "single"
+      },
       "turns": [
         {
           "reply": "My nephew does the paying now, he says to just put whatever he tells me.",
@@ -262,6 +283,9 @@
       "input_tokens": 1881,
       "model_calls": 3,
       "correct": true,
+      "seed_answers": {
+        "filing_status": "single"
+      },
       "turns": [
         {
           "reply": "My granddaughter was a sheep in the school nativity, she was wonderful.",
@@ -298,6 +322,9 @@
       "input_tokens": 1893,
       "model_calls": 3,
       "correct": true,
+      "seed_answers": {
+        "filing_status": "single"
+      },
       "turns": [
         {
           "reply": "He did love his roses; they still come up every June.",
@@ -331,16 +358,19 @@
     {
       "item": 10,
       "id": "living-apart",
-      "input_tokens": 1906,
+      "input_tokens": 1912,
       "model_calls": 3,
       "correct": true,
+      "seed_answers": {
+        "filing_status": "mfs"
+      },
       "turns": [
         {
           "reply": "Before this one, could we return to the question about my birthday?",
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 635,
+          "input_tokens": 637,
           "model_calls": 1,
           "correct": true
         },
@@ -349,7 +379,7 @@
           "expected": null,
           "reason": null,
           "valid": true,
-          "input_tokens": 638,
+          "input_tokens": 640,
           "model_calls": 1,
           "correct": true
         },
@@ -358,7 +388,7 @@
           "expected": "out_of_scope",
           "reason": "out_of_scope",
           "valid": true,
-          "input_tokens": 633,
+          "input_tokens": 635,
           "model_calls": 1,
           "correct": true
         }
