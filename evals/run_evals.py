@@ -2,6 +2,7 @@
 
     python -m evals.run_evals                 # every case
     python -m evals.run_evals --case eval-case-2-wage-conflict
+    python -m evals.run_evals --case eval-case-2-wage-conflict --trace traces   # also write demo_* trace files
 
 Each case starts from a case file, optionally changes answers or documents, scripts the taxpayer's
 replies to any questions and the staff decisions for any escalations, then checks what comes out.
@@ -24,6 +25,7 @@ from pathlib import Path
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
+from pydantic_core import to_jsonable_python
 
 from src.state import current_answers
 
@@ -58,6 +60,8 @@ class Outcome:
     problems: list[str] = field(default_factory=list)
     status: str | None = None
     escalations: list[str] = field(default_factory=list)
+    state: dict = field(default_factory=dict, repr=False)  # the final graph state, for --trace
+    tickets: list[dict] = field(default_factory=list, repr=False)  # each escalation as staff saw it
 
 
 def load_cases(path: Path = CASES) -> list[dict]:
@@ -131,6 +135,7 @@ def run_case(case: dict) -> Outcome:
             value = interrupts[0].value
             if isinstance(value, dict) and "ticket_id" in value:
                 outcome.escalations.append(value["reason"])
+                outcome.tickets.append(value)
                 if not staff:
                     break  # paused on a human; the case may expect exactly that
                 decision = staff.pop(0)
@@ -147,7 +152,7 @@ def run_case(case: dict) -> Outcome:
         else:
             outcome.problems.append(f"did not settle within {MAX_STEPS} steps")
 
-        state = graph.get_state(config).values
+        state = outcome.state = graph.get_state(config).values
         paused = graph.get_state(config).interrupts
         outcome.status = "waiting_on_human" if paused and isinstance(paused[0].value, dict) else state.get("status")
 
@@ -185,9 +190,27 @@ def run_case(case: dict) -> Outcome:
     return outcome
 
 
+def write_trace(outcome: Outcome, folder: Path) -> list[Path]:
+    """demo_<case>_state.json (final state, without the temporary case_path), demo_<case>_draft.html and,
+    for a case that paused for staff, demo_<case>_ticket.json. README.md, "Draft view without a key"."""
+    from src.render import render_draft
+
+    folder.mkdir(parents=True, exist_ok=True)
+    stem = folder / f"demo_{outcome.case_id}"
+    state = {key: value for key, value in outcome.state.items() if key != "case_path"}
+    files = {Path(f"{stem}_state.json"): json.dumps(to_jsonable_python(state), indent=2) + "\n",
+             Path(f"{stem}_draft.html"): render_draft(outcome.state)}
+    if outcome.tickets:
+        files[Path(f"{stem}_ticket.json")] = json.dumps(to_jsonable_python(outcome.tickets), indent=2) + "\n"
+    for path, text in files.items():
+        path.write_text(text, encoding="utf-8")
+    return list(files)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Run SilverFile eval cases")
     parser.add_argument("--case", help="run one case by id")
+    parser.add_argument("--trace", type=Path, help="also write each case's demo_* trace files here, e.g. traces")
     args = parser.parse_args(argv)
     cases = [c for c in load_cases() if args.case in (None, c["id"])]
     if not cases:
@@ -199,6 +222,9 @@ def main(argv=None) -> int:
         print(f"{'PASS' if o.passed else 'FAIL'}  {o.case_id:<{width}}  {o.status or '-':<17} {', '.join(o.escalations) or '-'}")
         for problem in o.problems:
             print(f"      - {problem}")
+    if args.trace:
+        for o in outcomes:
+            print(f"Trace: {', '.join(str(p) for p in write_trace(o, args.trace))}")
     failed = sum(not o.passed for o in outcomes)
     print(f"\n{len(outcomes) - failed} of {len(outcomes)} cases passed")
     return 1 if failed else 0

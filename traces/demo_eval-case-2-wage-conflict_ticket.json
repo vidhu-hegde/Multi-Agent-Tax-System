@@ -1,0 +1,15 @@
+[
+  {
+    "ticket_id": "document_conflict:wages",
+    "reason": "document_conflict",
+    "detail": "The taxpayer said about $24000 in wages; the W-2s show $26450.00.",
+    "evidence": {
+      "stated_wages": "24000",
+      "w2_total": "26450.00",
+      "documents": [
+        "w2-1"
+      ]
+    },
+    "how_to_resolve": "Reply 'continue' (with an optional note) to carry on, or 'stop' to end the session."
+  }
+]
