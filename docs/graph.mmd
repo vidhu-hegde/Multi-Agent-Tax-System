@@ -1,0 +1,30 @@
+%% SilverFile orchestration. Rendered to docs/graph.png; the README shows the same diagram.
+%% Regenerate: npx -p @mermaid-js/mermaid-cli mmdc -i docs/graph.mmd -o docs/graph.png -b white -s 2
+flowchart TD
+    START([Start]) --> O[Orchestrator<br/>picks the next step from state]
+
+    subgraph agents ["Agents: each returns to the Orchestrator, Review with any revision requests"]
+        direction LR
+        I[Intake<br/>talks to the taxpayer]
+        subgraph docs [" "]
+            direction TB
+            X[[Document Extraction<br/>one parallel branch per document]] --> AGG[Aggregate<br/>reducer merges the branches]
+        end
+        R[Eligibility & Rules<br/>cites policy.md]
+        C[Computation<br/>every number from MCP tax_math]
+        V[Review / Audit<br/>rechecks the whole return]
+        H[/Human in the loop<br/>staff decide on the dashboard/]
+    end
+
+    O -->|intake incomplete| I
+    O -->|documents pending| X
+    O -->|rules not evaluated| R
+    O -->|lines not computed| C
+    O -->|not reviewed| V
+    O -->|escalation, review limit<br/>or loop guard| H
+    agents -.-> O
+    agents ~~~ END([Draft 1040-SR with provenance])
+    O -->|draft ready or stopped| END
+
+    style agents fill:#f6f8fa,stroke:#d0d7de
+    style docs fill:none,stroke:none

@@ -65,28 +65,9 @@ the current state.
 | **Computation** | Fills in every calculated line | Does arithmetic itself: every number is an MCP tool call |
 | **Review / Audit** | Rechecks the whole return and sends problems back | Fixes anything itself |
 
-```mermaid
-flowchart TD
-    START([Start]) --> O{Orchestrator}
-    O -->|intake incomplete| I[Intake]
-    O -->|documents pending| E1[Extract doc 1]
-    O -->|documents pending| E2[Extract doc 2]
-    O -->|documents pending| EN[Extract doc N]
-    E1 --> AGG[Aggregate documents]
-    E2 --> AGG
-    EN --> AGG
-    O -->|rules not evaluated| R[Eligibility & Rules]
-    O -->|lines not computed| C[Computation]
-    O -->|not reviewed| V[Review / Audit]
-    O -->|open escalation, review limit or loop guard| H[[Human-in-the-loop interrupt]]
-    I --> O
-    AGG --> O
-    R --> O
-    C --> O
-    V -->|revision requests| O
-    H --> O
-    O -->|draft ready or stopped| END([Draft 1040-SR + provenance])
-```
+![SilverFile orchestration: the Orchestrator routes on state to six agents and a human-in-the-loop step, each returns to it, and it ends with the draft](docs/graph.png)
+
+Source: [`docs/graph.mmd`](docs/graph.mmd).
 
 - **Conditional routing:** the next step depends on the state, not a fixed order.
 - **Parallel branch:** documents are read in parallel and merged by a reducer.
