@@ -9,6 +9,18 @@ tax year 2025**. It talks with the taxpayer, reads their tax documents, and prod
 > SilverFile **never files anything**, **never gives tax advice**, **never shows an amount it can't source**, and
 > **hands off to a person** whenever it hits an escalation condition. It accepts only test SSNs (900–999).
 
+## Submission documents
+
+- **Report:** [`docs/SILVERFILE_REPORT.docx`](docs/SILVERFILE_REPORT.docx): how the system is designed, each agent in
+  detail, failure modes, what is out of scope, and who did what.
+- **AI-use disclosure:** [`docs/AI_DISCLOSURE.docx`](docs/AI_DISCLOSURE.docx): how our team used AI tools, and how the
+  team made its high-level decisions.
+- **Demo video:** [`demo/silverfile_demo.mp4`](demo/silverfile_demo.mp4), with its spoken script in
+  [`demo/silverfile_demo_script.md`](demo/silverfile_demo_script.md).
+- **Eval cases:** [`demo/eval_case_1.md`](demo/eval_case_1.md) (a clean run, W-2 read from its photo) and
+  [`demo/eval_case_2.md`](demo/eval_case_2.md) (a human-in-the-loop event, resolved on the dashboard), with the W-2
+  images [`demo/w2_image_1.jpg`](demo/w2_image_1.jpg) and [`demo/w2_image_2.jpg`](demo/w2_image_2.jpg).
+
 ## Running SilverFile with Docker (for graders)
 
 Everything below runs in Docker; no Python setup is needed. You need Docker Desktop (Compose 2.24 or newer) and an
