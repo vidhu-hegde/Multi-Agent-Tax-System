@@ -160,7 +160,6 @@ python run.py --batch [--no-context-strategy]             # context-window measu
 
 - [`docs/IMPLEMENTATION_NOTES.md`](docs/IMPLEMENTATION_NOTES.md): design decisions and the full routing table
 - [`docs/metrics.md`](docs/metrics.md): context-window measurement
-- [`docs/archive/AI_DISCLOSURE.md`](docs/archive/AI_DISCLOSURE.md): how we used AI
 - [`data/policy.md`](data/policy.md): the tax rules, scope and escalation reasons
 - [`docs/GUARDRAILS_AND_ETHICS.md`](docs/GUARDRAILS_AND_ETHICS.md), [`docs/SECURITY_AND_PII.md`](docs/SECURITY_AND_PII.md):
   guardrails and security
